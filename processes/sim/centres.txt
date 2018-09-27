@@ -1,0 +1,323 @@
+double sc= 1.6;
+
+    xy[0]=-0.06748*sc; xy[1]=0.3829*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0589*sc; xy[1]=0.4221*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1718*sc; xy[1]=0.4248*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.2699*sc; xy[1]=0.4171*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.2158*sc; xy[1]=0.3605*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1081*sc; xy[1]=0.3532*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0027*sc; xy[1]=0.327*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1679*sc; xy[1]=0.2928*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1041*sc; xy[1]=0.2645*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0073*sc; xy[1]=0.2438*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.115*sc; xy[1]=0.2747*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.217*sc; xy[1]=0.2803*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.2239*sc; xy[1]=0.2094*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.12*sc; xy[1]=0.2024*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0*sc; xy[1]=0.1718*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1184*sc; xy[1]=0.1793*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2066*sc; xy[1]=0.1974*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2406*sc; xy[1]=0.0977*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1329*sc; xy[1]=0.1067*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0007*sc; xy[1]=0.113*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1206*sc; xy[1]=0.1322*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.2155*sc; xy[1]=0.1462*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.2178*sc; xy[1]=0.0675*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1678*sc; xy[1]=0.0911*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.155*sc; xy[1]=0.0307*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.207*sc; xy[1]=0.0081*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.2006*sc; xy[1]=-0.0459*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1323*sc; xy[1]=-0.0934*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0941*sc; xy[1]=-0.0589*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0704*sc; xy[1]=-0.0162*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0417*sc; xy[1]=0.0184*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0208*sc; xy[1]=0.062*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1067*sc; xy[1]=0.0615*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1276*sc; xy[1]=0.0408*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0974*sc; xy[1]=-0.0033*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0534*sc; xy[1]=-0.0286*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0107*sc; xy[1]=-0.0531*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0107*sc; xy[1]=-0.0531*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0266*sc; xy[1]=-0.081*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0619*sc; xy[1]=-0.1174*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1274*sc; xy[1]=-0.1564*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1692*sc; xy[1]=-0.167*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1091*sc; xy[1]=-0.2025*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0707*sc; xy[1]=-0.166*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0119*sc; xy[1]=-0.1357*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0663*sc; xy[1]=-0.12*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1154*sc; xy[1]=-0.1104*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.169*sc; xy[1]=-0.1001*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1252*sc; xy[1]=-0.1853*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.066*sc; xy[1]=-0.1891*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0035*sc; xy[1]=-0.1907*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0596*sc; xy[1]=-0.2268*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1044*sc; xy[1]=-0.2541*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0685*sc; xy[1]=-0.2867*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.1052*sc; xy[1]=-0.3137*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0965*sc; xy[1]=-0.3544*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0173*sc; xy[1]=-0.317*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0337*sc; xy[1]=-0.3674*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0242*sc; xy[1]=-0.3959*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0388*sc; xy[1]=-0.3435*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0593*sc; xy[1]=-0.2815*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=0.0177*sc; xy[1]=-0.2543*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0351*sc; xy[1]=-0.2405*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1236*sc; xy[1]=-0.2457*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2093*sc; xy[1]=-0.2598*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1615*sc; xy[1]=-0.2907*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1096*sc; xy[1]=-0.3126*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1013*sc; xy[1]=-0.3663*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1664*sc; xy[1]=-0.3576*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2292*sc; xy[1]=-0.3302*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2699*sc; xy[1]=-0.2974*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2614*sc; xy[1]=-0.3801*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2185*sc; xy[1]=-0.4057*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1629*sc; xy[1]=-0.4205*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.0968*sc; xy[1]=-0.4248*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2009*sc; xy[1]=-0.0728*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2245*sc; xy[1]=-0.0243*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.2499*sc; xy[1]=0.0177*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.239*sc; xy[1]=-0.1865*sc;
+
+    foc.push_back(xy);
+
+    xy[0]=-0.1812*sc; xy[1]=-0.183*sc;
+
+    foc.push_back(xy);
+
+

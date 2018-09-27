@@ -1,0 +1,14 @@
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp: In constructor ‘Erm2009::Erm2009(int, int, double)’:
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp:69:6: warning: unused variable ‘inring’ [-Wunused-variable]
+  int inring = s;
+      ^~~~~~
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp:74:6: warning: unused variable ‘red’ [-Wunused-variable]
+  int red = 0; int blue = 0;
+      ^~~
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp:74:19: warning: unused variable ‘blue’ [-Wunused-variable]
+  int red = 0; int blue = 0;
+                   ^~~~
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp: In function ‘int main(int, char**)’:
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp:739:21: warning: unused variable ‘TIMEcs’ [-Wunused-variable]
+         const char* TIMEcs = TIMEss.str().c_str();
+                     ^~~~~~
