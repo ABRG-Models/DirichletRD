@@ -1,0 +1,8 @@
+Scanning dependencies of target process
+[ 50%] Building CXX object CMakeFiles/process.dir/process.cpp.o
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp: In constructor ‘Erm2009::Erm2009(int, int, double)’:
+/home/john/Dropbox/Psychology/Neuroscience/Ermentrout2009/processes/sim/process.cpp:222:23: warning: comparison between signed and unsigned integer expressions [-Wsign-compare]
+         for (int j=0;j<region[i].size();j++){
+                      ~^~~~~~~~~~~~~~~~~
+[100%] Linking CXX executable process
+[100%] Built target process
