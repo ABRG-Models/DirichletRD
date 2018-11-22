@@ -10,7 +10,7 @@
 #include <random>
 #include <algorithm>
 #include <iomanip>
-#include <boost/math/special_functions/bessel.hpp> 
+//#include <boost/math/special_functions/bessel.hpp> 
 #define PI 3.14159265
 #define NUMPOINTS 79
 
@@ -78,27 +78,28 @@ public:
 	double y = 0;
 	double radius = 0;
 	double theta = 0;
-     // for (int i=0; i<NUMPOINTS; i++) {
-     // 	    red = rand()%inring;
-     // 	    blue = rand()%inring;
-     // 	    if (blue%2 == 0){
-     // 	    x = (red-blue)*sqrt(3.)/(2.*s);
-     // 	    y = (1.*(red+blue))/(2.*s);
-     // 	    }
-     // 	    else{
-     // 	     x = -(red-blue)*sqrt(3.)/(2.*s);
+      for (int i=0; i<NUMPOINTS; i++) {
+      	    red = rand()%inring;
+      	    blue = rand()%inring;
+      	    if (blue%2 == 0){
+      	    x = (red-blue)*sqrt(3.)/(2.*s);
+      	    y = (1.*(red+blue))/(2.*s);
+      	    }
+      	    else{
+      	     x = -(red-blue)*sqrt(3.)/(2.*s);
 
-     // 	     y =  -(1.*(red+blue))/(2.*s);
-     // 	    }
-     // 	    centres[i].xval = x;
-     //      centres[i].yval = y;
-     // 	 }
+      	     y =  -(1.*(red+blue))/(2.*s);
+      	    }
+      	    centres[i].xval = x;
+           centres[i].yval = y;
+      	 }
 
 
       vector<double> xy (2,0.);
 
      ///////////////
 
+<<<<<<< HEAD
     double sc= 1.6;
     centres[0].xval=-0.06748*sc; centres[0].yval=0.3829*sc;
     centres[1].xval=0.0589*sc; centres[1].yval=0.4221*sc;
@@ -671,10 +672,10 @@ int main (int argc, char **argv)
     Erm2009 M(8,0,0.);
    double  value;
   vector <double> ray;
-   for (int i=0;i<M.n;i++) {
-     value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
-       ray.push_back(value);
-  }
+  //   for (int i=0;i<M.n;i++) {
+  //   value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
+  //     ray.push_back(value);
+  //}
 
  
 
