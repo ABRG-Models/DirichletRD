@@ -10,7 +10,7 @@
 #include <random>
 #include <algorithm>
 #include <iomanip>
-#include <boost/math/special_functions/bessel.hpp> 
+//#include <boost/math/special_functions/bessel.hpp> 
 #define PI 3.14159265
 #define NUMPOINTS 82
 
@@ -78,109 +78,109 @@ public:
 	double y = 0;
 	double radius = 0;
 	double theta = 0;
-     for (int i=0; i<NUMPOINTS; i++) {
-	    red = rand()%inring;
-	    blue = rand()%inring;
-	    if (blue%2 == 0){
-	    x = (red-blue)*sqrt(3.)/(2.*s);
-	    y = (1.*(red+blue))/(2.*s);
-	    }
-	    else{
-	     x = -(red-blue)*sqrt(3.)/(2.*s);
+	//   for (int i=0; i<NUMPOINTS; i++) {
+	//  red = rand()%inring;
+	//  blue = rand()%inring;
+	//  if (blue%2 == 0){
+	//  x = (red-blue)*sqrt(3.)/(2.*s);
+	//  y = (1.*(red+blue))/(2.*s);
+	//  }
+	//  else{
+	//   x = -(red-blue)*sqrt(3.)/(2.*s);
 
-	     y =  -(1.*(red+blue))/(2.*s);
-	    }
-	    centres[i].xval = x;
-          centres[i].yval = y;
-	 }
+	//   y =  -(1.*(red+blue))/(2.*s);
+	//  }
+	//  centres[i].xval = x;
+	//centres[i].yval = y;
+	//}
 
 
       vector<double> xy (2,0.);
 
      ///////////////
 
-//     double sc= 1.6;
-//     centres[0].xval=-0.06748*sc; centres[0].yval=0.3829*sc;
-//     centres[1].xval=0.0589*sc; centres[1].yval=0.4221*sc;
-//     centres[2].xval=0.1718*sc; centres[2].yval=0.4248*sc;
-//     centres[3].xval=0.2699*sc; centres[3].yval=0.4171*sc;
-//     centres[4].xval=0.2158*sc; centres[4].yval=0.3605*sc;
-//     centres[5].xval=0.1081*sc; centres[5].yval=0.3532*sc;
-//     centres[6].xval=0.0027*sc; centres[6].yval=0.327*sc;
-//     centres[7].xval=-0.1679*sc; centres[7].yval=0.2928*sc;
-//     centres[8].xval=-0.1041*sc; centres[8].yval=0.2645*sc;
-//     centres[9].xval=0.0073*sc; centres[9].yval=0.2438*sc;
-//     centres[10].xval=0.115*sc; centres[10].yval=0.2747*sc;
-//     centres[11].xval=0.217*sc; centres[11].yval=0.2803*sc;
-//     centres[12].xval=0.2239*sc; centres[12].yval=0.2094*sc;
-//     centres[13].xval=0.12*sc; centres[13].yval=0.2024*sc;
-//     centres[14].xval=-0.0*sc; centres[14].yval=0.1718*sc;
-//     centres[15].xval=-0.1184*sc; centres[15].yval=0.1793*sc;
-//     centres[16].xval=-0.2066*sc; centres[16].yval=0.1974*sc;
-//     centres[17].xval=-0.2406*sc; centres[17].yval=0.0977*sc;
-//     centres[18].xval=-0.1329*sc; centres[18].yval=0.1067*sc;
-//     centres[19].xval=-0.0007*sc; centres[19].yval=0.113*sc;
-//     centres[20].xval=0.1206*sc; centres[20].yval=0.1322*sc;
-//     centres[21].xval=0.2155*sc; centres[21].yval=0.1462*sc;
-//     centres[22].xval=0.2178*sc; centres[22].yval=0.0675*sc;
-//     centres[23].xval=0.1678*sc; centres[23].yval=0.0911*sc;
-//     centres[24].xval=0.155*sc; centres[24].yval=0.0307*sc;
-//     centres[25].xval=0.207*sc; centres[25].yval=0.0081*sc;
-//     centres[26].xval=0.2006*sc; centres[26].yval=-0.0459*sc;
-//     centres[27].xval=0.1323*sc; centres[27].yval=-0.0934*sc;
-//     centres[28].xval=0.0941*sc; centres[28].yval=-0.0589*sc;
-//     centres[29].xval=0.0704*sc; centres[29].yval=-0.0162*sc;
-//     centres[30].xval=0.0417*sc; centres[30].yval=0.0184*sc;
-//     centres[31].xval=0.0208*sc; centres[31].yval=0.062*sc;
-//     centres[32].xval=0.1067*sc; centres[32].yval=0.0615*sc;
-//     centres[33].xval=-0.1276*sc; centres[33].yval=0.0408*sc;
-//     centres[34].xval=-0.0974*sc; centres[34].yval=-0.0033*sc;
-//     centres[35].xval=-0.0534*sc; centres[36].xval=-0.0286*sc;
-//     centres[36].xval=-0.0107*sc; centres[36].yval=-0.0531*sc;
-//     centres[37].xval=-0.0107*sc; centres[38].yval=-0.0531*sc;
-//     centres[38].xval=0.0266*sc; centres[38].yval=-0.081*sc;
-//     centres[39].xval=0.0619*sc; centres[39].yval=-0.1174*sc;
-//     centres[40].xval=0.1274*sc; centres[40].yval=-0.1564*sc;
-//     centres[41].xval=0.1692*sc; centres[41].yval=-0.167*sc;
-//     centres[42].xval=0.1091*sc; centres[42].yval=-0.2025*sc;
-//     centres[43].xval=0.0707*sc; centres[43].yval=-0.166*sc;
-//     centres[44].xval=-0.0119*sc; centres[45].yval=-0.1357*sc;
-//     centres[45].xval=-0.0663*sc; centres[45].yval=-0.12*sc;
-//     centres[46].xval=-0.1154*sc; centres[46].yval=-0.1104*sc;
-//     centres[47].xval=-0.169*sc; centres[48].yval=-0.1001*sc;
-//     centres[48].xval=-0.1252*sc; centres[48].yval=-0.1853*sc;
-//     centres[50].xval=-0.066*sc; centres[50].yval=-0.1891*sc;
-//     centres[51].xval=0.0035*sc; centres[51].yval=-0.1907*sc;
-//     centres[52].xval=0.0596*sc; centres[52].yval=-0.2268*sc;
-//     centres[53].xval=0.1044*sc; centres[53].yval=-0.2541*sc;
-//     centres[54].xval=0.0685*sc; centres[54].yval=-0.2867*sc;
-//     centres[55].xval=0.1052*sc; centres[55].yval=-0.3137*sc;
-//     centres[56].xval=0.0965*sc; centres[56].yval=-0.3544*sc;
-//     centres[57].xval=0.0173*sc; centres[57].yval=-0.317*sc;
-//     centres[58].xval=0.0337*sc; centres[58].yval=-0.3674*sc;
-//     centres[60].xval=-0.0242*sc; centres[60].yval=-0.3959*sc;
-//     centres[61].xval=-0.0388*sc; centres[61].yval=-0.3435*sc;
-//     centres[62].xval=-0.0593*sc; centres[62].xval=-0.2815*sc;
-//     centres[63].xval=0.0177*sc; centres[63].yval=-0.2543*sc;
-//     centres[64].xval=-0.0351*sc; centres[64].yval=-0.2405*sc;
-//     centres[65].xval=-0.1236*sc; centres[65].yval=-0.2457*sc;
-//     centres[66].xval=-0.2093*sc; centres[66].yval=-0.2598*sc;
-//     centres[67].xval=-0.1615*sc; centres[67].yval=-0.2907*sc;
-//     centres[68].xval=-0.1096*sc; centres[68].yval=-0.3126*sc;
-//     centres[69].xval=-0.1013*sc; centres[69].yval=-0.3663*sc;
-//     centres[70].xval=-0.1664*sc; centres[70].yval=-0.3576*sc;
-//     centres[71].xval=-0.2292*sc; centres[71].yval=-0.3302*sc;
-//     centres[72].xval=-0.2699*sc; centres[72].yval=-0.2974*sc;
-//     centres[73].xval=-0.2614*sc; centres[73].yval=-0.3801*sc;
-//     centres[74].xval=-0.2185*sc; centres[74].yval=-0.4057*sc;
-//     centres[75].xval=-0.1629*sc; centres[75].yval=-0.4205*sc;
-//     centres[76].xval=-0.0968*sc; centres[76].yval=-0.4248*sc;
-//     centres[77].xval=-0.2009*sc; centres[77].yval=-0.0728*sc;
-//     centres[78].xval=-0.2245*sc; centres[78].yval=-0.0243*sc;
-//     centres[79].xval=-0.2499*sc; centres[79].yval=0.0177*sc;
-//     centres[80].xval=-0.239*sc; centres[80].yval=-0.1865*sc;
-//     centres[81].xval=-0.1812*sc; centres[81].yval=-0.183*sc;
-//	
+     double sc= 1.6;
+     centres[0].xval=-0.06748*sc; centres[0].yval=0.3829*sc;
+     centres[1].xval=0.0589*sc; centres[1].yval=0.4221*sc;
+     centres[2].xval=0.1718*sc; centres[2].yval=0.4248*sc;
+     centres[3].xval=0.2699*sc; centres[3].yval=0.4171*sc;
+     centres[4].xval=0.2158*sc; centres[4].yval=0.3605*sc;
+     centres[5].xval=0.1081*sc; centres[5].yval=0.3532*sc;
+     centres[6].xval=0.0027*sc; centres[6].yval=0.327*sc;
+     centres[7].xval=-0.1679*sc; centres[7].yval=0.2928*sc;
+     centres[8].xval=-0.1041*sc; centres[8].yval=0.2645*sc;
+     centres[9].xval=0.0073*sc; centres[9].yval=0.2438*sc;
+     centres[10].xval=0.115*sc; centres[10].yval=0.2747*sc;
+     centres[11].xval=0.217*sc; centres[11].yval=0.2803*sc;
+     centres[12].xval=0.2239*sc; centres[12].yval=0.2094*sc;
+     centres[13].xval=0.12*sc; centres[13].yval=0.2024*sc;
+     centres[14].xval=-0.0*sc; centres[14].yval=0.1718*sc;
+     centres[15].xval=-0.1184*sc; centres[15].yval=0.1793*sc;
+     centres[16].xval=-0.2066*sc; centres[16].yval=0.1974*sc;
+     centres[17].xval=-0.2406*sc; centres[17].yval=0.0977*sc;
+     centres[18].xval=-0.1329*sc; centres[18].yval=0.1067*sc;
+     centres[19].xval=-0.0007*sc; centres[19].yval=0.113*sc;
+     centres[20].xval=0.1206*sc; centres[20].yval=0.1322*sc;
+     centres[21].xval=0.2155*sc; centres[21].yval=0.1462*sc;
+     centres[22].xval=0.2178*sc; centres[22].yval=0.0675*sc;
+     centres[23].xval=0.1678*sc; centres[23].yval=0.0911*sc;
+     centres[24].xval=0.155*sc; centres[24].yval=0.0307*sc;
+     centres[25].xval=0.207*sc; centres[25].yval=0.0081*sc;
+     centres[26].xval=0.2006*sc; centres[26].yval=-0.0459*sc;
+     centres[27].xval=0.1323*sc; centres[27].yval=-0.0934*sc;
+     centres[28].xval=0.0941*sc; centres[28].yval=-0.0589*sc;
+     centres[29].xval=0.0704*sc; centres[29].yval=-0.0162*sc;
+     centres[30].xval=0.0417*sc; centres[30].yval=0.0184*sc;
+     centres[31].xval=0.0208*sc; centres[31].yval=0.062*sc;
+     centres[32].xval=0.1067*sc; centres[32].yval=0.0615*sc;
+     centres[33].xval=-0.1276*sc; centres[33].yval=0.0408*sc;
+     centres[34].xval=-0.0974*sc; centres[34].yval=-0.0033*sc;
+     centres[35].xval=-0.0534*sc; centres[36].xval=-0.0286*sc;
+     centres[36].xval=-0.0107*sc; centres[36].yval=-0.0531*sc;
+     centres[37].xval=-0.0107*sc; centres[38].yval=-0.0531*sc;
+     centres[38].xval=0.0266*sc; centres[38].yval=-0.081*sc;
+     centres[39].xval=0.0619*sc; centres[39].yval=-0.1174*sc;
+     centres[40].xval=0.1274*sc; centres[40].yval=-0.1564*sc;
+     centres[41].xval=0.1692*sc; centres[41].yval=-0.167*sc;
+     centres[42].xval=0.1091*sc; centres[42].yval=-0.2025*sc;
+     centres[43].xval=0.0707*sc; centres[43].yval=-0.166*sc;
+     centres[44].xval=-0.0119*sc; centres[45].yval=-0.1357*sc;
+     centres[45].xval=-0.0663*sc; centres[45].yval=-0.12*sc;
+     centres[46].xval=-0.1154*sc; centres[46].yval=-0.1104*sc;
+     centres[47].xval=-0.169*sc; centres[48].yval=-0.1001*sc;
+     centres[48].xval=-0.1252*sc; centres[48].yval=-0.1853*sc;
+     centres[50].xval=-0.066*sc; centres[50].yval=-0.1891*sc;
+     centres[51].xval=0.0035*sc; centres[51].yval=-0.1907*sc;
+     centres[52].xval=0.0596*sc; centres[52].yval=-0.2268*sc;
+     centres[53].xval=0.1044*sc; centres[53].yval=-0.2541*sc;
+     centres[54].xval=0.0685*sc; centres[54].yval=-0.2867*sc;
+     centres[55].xval=0.1052*sc; centres[55].yval=-0.3137*sc;
+     centres[56].xval=0.0965*sc; centres[56].yval=-0.3544*sc;
+     centres[57].xval=0.0173*sc; centres[57].yval=-0.317*sc;
+     centres[58].xval=0.0337*sc; centres[58].yval=-0.3674*sc;
+     centres[60].xval=-0.0242*sc; centres[60].yval=-0.3959*sc;
+     centres[61].xval=-0.0388*sc; centres[61].yval=-0.3435*sc;
+     centres[62].xval=-0.0593*sc; centres[62].xval=-0.2815*sc;
+     centres[63].xval=0.0177*sc; centres[63].yval=-0.2543*sc;
+     centres[64].xval=-0.0351*sc; centres[64].yval=-0.2405*sc;
+     centres[65].xval=-0.1236*sc; centres[65].yval=-0.2457*sc;
+     centres[66].xval=-0.2093*sc; centres[66].yval=-0.2598*sc;
+     centres[67].xval=-0.1615*sc; centres[67].yval=-0.2907*sc;
+     centres[68].xval=-0.1096*sc; centres[68].yval=-0.3126*sc;
+     centres[69].xval=-0.1013*sc; centres[69].yval=-0.3663*sc;
+     centres[70].xval=-0.1664*sc; centres[70].yval=-0.3576*sc;
+     centres[71].xval=-0.2292*sc; centres[71].yval=-0.3302*sc;
+     centres[72].xval=-0.2699*sc; centres[72].yval=-0.2974*sc;
+     centres[73].xval=-0.2614*sc; centres[73].yval=-0.3801*sc;
+     centres[74].xval=-0.2185*sc; centres[74].yval=-0.4057*sc;
+     centres[75].xval=-0.1629*sc; centres[75].yval=-0.4205*sc;
+     centres[76].xval=-0.0968*sc; centres[76].yval=-0.4248*sc;
+     centres[77].xval=-0.2009*sc; centres[77].yval=-0.0728*sc;
+     centres[78].xval=-0.2245*sc; centres[78].yval=-0.0243*sc;
+     centres[79].xval=-0.2499*sc; centres[79].yval=0.0177*sc;
+     centres[80].xval=-0.239*sc; centres[80].yval=-0.1865*sc;
+     centres[81].xval=-0.1812*sc; centres[81].yval=-0.183*sc;
+	
 //	 centres[4].xval = 0.0; centres[0].yval = 0.0;
 //	 centres[3].xval = -0.1; centres[3].yval = 0.5;
 	// centres[2].xval = -0.5; centres[2].yval = 0.5;
@@ -671,10 +671,10 @@ int main (int argc, char **argv)
     Erm2009 M(8,0,0.);
    double  value;
   vector <double> ray;
-   for (int i=0;i<M.n;i++) {
-     value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
-       ray.push_back(value);
-  }
+  //   for (int i=0;i<M.n;i++) {
+  //   value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
+  //     ray.push_back(value);
+  //}
 
  
 
