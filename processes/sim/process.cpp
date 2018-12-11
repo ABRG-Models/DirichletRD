@@ -10,7 +10,7 @@
 #include <random>
 #include <algorithm>
 #include <iomanip>
-//#include <boost/math/special_functions/bessel.hpp> 
+#include <boost/math/special_functions/bessel.hpp> 
 #define PI 3.14159265
 #define NUMPOINTS 79
 
@@ -78,28 +78,27 @@ public:
 	double y = 0;
 	double radius = 0;
 	double theta = 0;
-      for (int i=0; i<NUMPOINTS; i++) {
-      	    red = rand()%inring;
-      	    blue = rand()%inring;
-      	    if (blue%2 == 0){
-      	    x = (red-blue)*sqrt(3.)/(2.*s);
-      	    y = (1.*(red+blue))/(2.*s);
-      	    }
-      	    else{
-      	     x = -(red-blue)*sqrt(3.)/(2.*s);
+     // for (int i=0; i<NUMPOINTS; i++) {
+     // 	    red = rand()%inring;
+     // 	    blue = rand()%inring;
+     // 	    if (blue%2 == 0){
+     // 	    x = (red-blue)*sqrt(3.)/(2.*s);
+     // 	    y = (1.*(red+blue))/(2.*s);
+     // 	    }
+     // 	    else{
+     // 	     x = -(red-blue)*sqrt(3.)/(2.*s);
 
-      	     y =  -(1.*(red+blue))/(2.*s);
-      	    }
-      	    centres[i].xval = x;
-           centres[i].yval = y;
-      	 }
+     // 	     y =  -(1.*(red+blue))/(2.*s);
+     // 	    }
+     // 	    centres[i].xval = x;
+     //      centres[i].yval = y;
+     // 	 }
 
 
       vector<double> xy (2,0.);
 
      ///////////////
 
-<<<<<<< HEAD
     double sc= 1.6;
     centres[0].xval=-0.06748*sc; centres[0].yval=0.3829*sc;
     centres[1].xval=0.0589*sc; centres[1].yval=0.4221*sc;
@@ -288,13 +287,7 @@ public:
                       if(db==-1&&dr==-1){N[i][4]=j;C[i]++;}
                       if(db== -1&&dr==0){N[i][5]=j;C[i]++;}
 		      
-                     //previous definition
-		     // if(dg==0&&dr==+1){N[i][0]=j;C[i]++;}
-                     // if(dg==1&&dr== 0){N[i][1]=j;C[i]++;}
-                     // if(dg==0&&dr==-1){N[i][2]=j;C[i]++;}
-                     // if(dg==-1&&dr==-1){N[i][3]=j;C[i]++;}
-                     // if(dg==-1&&dr== 0){N[i][4]=j;C[i]++;}
-                     // if(dg==-1&&dr==+1){N[i][5]=j;C[i]++;}
+                    
 		    }
             }
         }
@@ -324,7 +317,7 @@ public:
         NN.resize(n);
         CC.resize(n);
 	
-
+	// get a list of distances from each Dirichlet point for each hex.
     for (int i=0;i<n;i++){
       point hexcen;
       hexcen.xval = H[0][i];
@@ -339,13 +332,16 @@ public:
    }
     
     // to produce a list of the sorted distances of each hex from the seed points
+    // Note the process of sorting the indexes in distance order is completely independent
+    // from the production of Sorted list but we assume that the similar sorting used for
+    // each means that they are compatible. 
     vector <vector <double> > sortedDist;
     sortedDist.resize(n);
 
     for (int i=0;i<n;i++) {
      	vector <double> tempvector1;
         tempvector1 = regionDist[i];
-     	std::sort(tempvector1.begin(),tempvector1.end());
+     	std::stable_sort(tempvector1.begin(),tempvector1.end());
      	sortedDist[i] = tempvector1;
         vector <int> tempint = sort_indexes(regionDist[i]);
         region[i] = tempint;
@@ -400,15 +396,18 @@ public:
   }
 
   //function, finds the indexes from original list in sorted order
+  // now using stable_sort to ensure consistency in case of hexes equidistant between
+  // centres
 template <typename T>
 vector<int> sort_indexes(const vector<T> &v) {
 
-  // initialize original index locations
+  // initialize original index locations, iota assigns integer values from 0 onwards
+  // to the vector of ints idx
   vector<int> idx(v.size());
   iota(idx.begin(), idx.end(), 0);
 
   // sort indexes based on comparing values in v
-  sort(idx.begin(), idx.end(),
+  stable_sort(idx.begin(), idx.end(),
        [&v](int i1, int i2) {return v[i1] < v[i2];});
 
   return idx;
@@ -672,10 +671,10 @@ int main (int argc, char **argv)
     Erm2009 M(8,0,0.);
    double  value;
   vector <double> ray;
-  //   for (int i=0;i<M.n;i++) {
-  //   value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
-  //     ray.push_back(value);
-  //}
+   for (int i=0;i<M.n;i++) {
+     value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
+       ray.push_back(value);
+  }
 
  
 
