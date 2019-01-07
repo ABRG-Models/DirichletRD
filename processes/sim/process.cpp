@@ -777,8 +777,9 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         } //end of loop on regions
+        int difference = 0;
         for (int irlook = 0; irlook < NUMPOINTS-1; irlook++)
-            for (int jrlook = 0; jrlook < NUMPOINTS-1; jrlook++) {
+            for (int jrlook = 0; jrlook < irlook; jrlook++) {
                 std::pair <int,int> klook(irlook,jrlook);
                 int k = pair2int(klook,this->base);
                 if (edges.count(k) == 0)
@@ -788,7 +789,9 @@ vector<int> sort_indexes(const vector<T> &v) {
                     std::pair <int, int> koolk(jrlook,irlook);
                     k = pair2int(koolk,this->base);
                     int sizeji = edges[k].size();
-                    kfile << irlook << " " << jrlook << " sizeij " << sizeij << " "<< jrlook << " " << irlook << " sizeji " << sizeji << endl;
+                    difference = (sizeij - sizeji)*(sizeij - sizeji);
+                    if (difference < 10)
+                        kfile << irlook << " " << jrlook << " sizeij " << sizeij << " "<< jrlook << " " << irlook << " sizeji " << sizeji << endl;
                 }
             }
 
