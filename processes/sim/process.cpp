@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.14159265
-#define NUMPOINTS 79
+#define NUMPOINTS 79 //this is after deleting point 73
 
 using namespace std;
 
@@ -36,15 +36,18 @@ public:
   vector<vector<double> > X; //cartesian coordinates of each hex
   vector<vector<double> > H; // hex-grid info
   vector<vector<double> > N; // hex neighbourhood
+    //   vector<vector<double> > Nold; // holds values before resetting b.c.s
   vector<vector<int> > region; //indices of all the regions
   vector<vector<int>> hexRegionList; //list of the different regions around a hex
   vector<vector<int>> regionList; // list of the regions around a region
   std::map<int,vector<int>> edges; //map of (i,j) edges, uses pair<->int converters
+    // std::map<int,double> > corrAdjacent;
 
   point  centres[NUMPOINTS]; //seed points
   vector<vector<double> > regionDist; //distances to each seed point
-  vector<vector<int> > regionIndex; //indexes of each region
+  vector<vector<int> > regionIndex; //indexes of hexes in each region
   vector<int> C; //count of neighbours
+  vector<int> Creg; //count of regions
   vector<extremum> turnVal; //radial turning points
 
   vector<double> NN, CC; //hold the field values for each hex
@@ -54,6 +57,7 @@ public:
   //class constructor
   Erm2009 (int scale, int offset, double z) {
         ofstream afile ( "debug.out" );
+        ofstream jfile("correlateVector.out");
 
 
 	srand(time(NULL));
@@ -62,21 +66,20 @@ public:
 
 
         H.resize(6);
-        hexRegionList.resize(6);
-        regionList.resize(50);
+
 	//centres.resize(NUMPOINTS);
 
         double s = pow(2.0, scale-1);
 	ds = 29.0/s;
 	//02-08-18 keep ds fixed now as region changes size.
 	//ds = 0.453125;
-	int inring = s;
+	//int inring = s;
 
        	// std::default_random_engine generator;
         // std::uniform_int_distribution<int> distribution(0,inring);
 	// generator.min(0);
 	// generator.max(inring);
-	int red = 0; int blue = 0;
+	//int red = 0; int blue = 0;
 	double x = 0;
 	double y = 0;
 	double radius = 0;
@@ -176,12 +179,19 @@ public:
     centres[70].xval=-0.2614*sc; centres[70].yval=-0.3801*sc;
     centres[71].xval=-0.2185*sc; centres[71].yval=-0.4057*sc;
     centres[72].xval=-0.1629*sc; centres[72].yval=-0.4205*sc;
-    centres[73].xval=-0.0968*sc; centres[73].yval=-0.4248*sc;
-    centres[74].xval=-0.2009*sc; centres[74].yval=-0.0728*sc;
-    centres[75].xval=-0.2245*sc; centres[75].yval=-0.0243*sc;
-    centres[76].xval=-0.2499*sc; centres[76].yval=0.0177*sc;
-    centres[77].xval=-0.239*sc; centres[77].yval=-0.1865*sc;
-    centres[78].xval=-0.1812*sc; centres[78].yval=-0.183*sc;
+    centres[73].xval=-0.2009*sc; centres[74].yval=-0.0728*sc;
+    centres[74].xval=-0.2245*sc; centres[75].yval=-0.0243*sc;
+    centres[75].xval=-0.2499*sc; centres[76].yval=0.0177*sc;
+    centres[76].xval=-0.239*sc; centres[77].yval=-0.1865*sc;
+    centres[77].xval=-0.1812*sc; centres[78].yval=-0.183*sc;
+
+
+    // centres[73].xval=-0.0968*sc; centres[73].yval=-0.4248*sc;
+    // centres[74].xval=-0.2009*sc; centres[74].yval=-0.0728*sc;
+    // centres[75].xval=-0.2245*sc; centres[75].yval=-0.0243*sc;
+    // centres[76].xval=-0.2499*sc; centres[76].yval=0.0177*sc;
+    // centres[77].xval=-0.239*sc; centres[77].yval=-0.1865*sc;
+    // centres[78].xval=-0.1812*sc; centres[78].yval=-0.183*sc;
 
 //	 centres[4].xval = 0.0; centres[0].yval = 0.0;
 //	 centres[3].xval = -0.1; centres[3].yval = 0.5;
@@ -271,8 +281,12 @@ public:
 
 
         // get neighbours
-        N.resize(n);
-        C.resize(n,0);
+        N.resize(n); //neighbouring hexes
+        //Nold.resize(n); //holds values before b.c.s
+        C.resize(n,0); //count of neighbouring hexes
+        Creg.resize(n,0);
+        hexRegionList.resize(n); //neighbouring regions for a hex
+        regionList.resize(n); //neighbouring regions for a region
 
         for(int i=0;i<n;i++){
             N[i].resize(6,i); // CONNECT ALL TO 'boundary' UNIT AT N+1
@@ -283,14 +297,12 @@ public:
 		// if(max(max(abs(dr),abs(dg)),abs(db))==1){
 		   if(max(abs(dr),abs(db))==1){
                     //anticlockwise froafile<<endl;m east
-                      if(db==0&&dr==+1){N[i][0]=j;C[i]++;}
-                      if(db==+1&&dr== +1){N[i][1]=j;C[i]++;}
-                      if(db== +1&&dr==0){N[i][2]=j;C[i]++;}
-                      if(db==0&&dr==-1){N[i][3]=j;C[i]++;}
-                      if(db==-1&&dr==-1){N[i][4]=j;C[i]++;}
-                      if(db== -1&&dr==0){N[i][5]=j;C[i]++;}
-
-
+                       if(db==0&&dr==+1){N[i][0]=j;C[i]++;} //Nold[i][0]=j;C[i]++;}
+                       if(db==+1&&dr== +1){N[i][1]=j;C[i]++;}//Nold[i][1];C[i]++;}
+                       if(db== +1&&dr==0){N[i][2]=j;C[i]++;}//Nold[i][2];C[i]++;}
+                       if(db==0&&dr==-1){N[i][3]=j;C[i]++;}//Nold[i][3];C[i]++;}
+                       if(db==-1&&dr==-1){N[i][4]=j;C[i]++;}//Nold[i][4];C[i]++;}
+                       if(db== -1&&dr==0){N[i][5]=j;C[i]++;}//Nold[i][5];C[i]++;}
 		    }
             }
         }
@@ -372,24 +384,25 @@ public:
      // }
 
      // this determines the type of hex
-      for (int i=0;i < (int) n ;i++){
+      for (int i=0;i < n ;i++){
           if(outerBoundary[i] == true)
               continue;
-          int oldRegion = region[i][0];
-          hexRegionList[0].push_back(region[i][0]);
-          int count = 1;
+          int centralRegion = region[i][0];
+          int oldRegion = centralRegion;
+          int newRegion = 0;
+
           for(int j=0;j<6;j++) {
-              if ((region[i][0] != region[N[i][j]][0])){
-                   if (region[N[i][j]][0] != oldRegion) {
-                      hexRegionList[count].push_back(N[i][j]);
-                      C[i]--;
-                      oldRegion = region[N[i][j]][0];
-                      //N[i][j] = i;
-                      }
+              hexRegionList[i].push_back(region[N[i][j]][0]); //push back the region of each neighbour
+              newRegion =  region[N[i][j]][0];
+              if ((oldRegion != newRegion) && (centralRegion != newRegion)){
+                  C[i]--;
                   N[i][j] = i;
-                  }
+                  Creg[i]++;
+                  oldRegion = newRegion;
+                     // }
+              }
           }
-      }
+      } //end of logic determining hex types
 
 
 
@@ -440,16 +453,16 @@ vector<int> sort_indexes(const vector<T> &v) {
   return idx;
 }
 
-     int pair2int (pair<int,int> d, int base) {
+     int pair2int (pair<int,int> d, int ibase) {
         int result;
-        result = d.first*base + d.second;
+        result = d.first*ibase + d.second;
         return result;
     }
 
-    std::pair<int,int> int2pair(int c, int base) {
+    std::pair<int,int> int2pair(int c, int ibase) {
         std::pair<int, int> result;
-        result.first = c / base;
-        result.second = c%base;
+        result.first = c / ibase;
+        result.second = c%ibase;
         return result;
     }
 
@@ -627,154 +640,207 @@ vector<int> sort_indexes(const vector<T> &v) {
         return result;
     } //end of function set_polars
 
-    void shift_polars (vector<int> hexVector, double angle) {
+    void shift_polars (vector<double> hexVector, double angle) {
         for (auto i = hexVector.begin(); i != hexVector.end();++i)
-            this->H[5][*i] += angle;
+            hexVector[*i] += angle;
     }
 
     //function to find all the edges and vertices of the internal boundary
-    vector <std::pair<double,double>> dissectBoundary() {
+    vector <std::pair<double,double>> dissectBoundary(void) {
         ofstream hfile ( "dissectdebug.out" );
+        ofstream ifile ( "regionList.out" );
+        ofstream kfile ( "edgesList.out" );
         hfile<<"just in dissectBoundary"<<endl;
         vector<std::pair<double,double>> result;
         std::pair<double,double> holdpair;
-        vector<int> regionEdge;
-        vector<int> regionVertex;
+        vector<int> regionBoundary;
         int kcount = 0;
         int lcount = 0;
         bool exit_loops;
-        for (int i=0; i < NUMPOINTS; i++) {
+        for (int i=0; i < NUMPOINTS-1; i++) { //ignoring the last region (unfilled by point)
             hfile <<" kcount "<<kcount<<endl;
             exit_loops = false;
+            regionBoundary.resize(0);
 
             for (unsigned int j = 0; j < this->regionIndex[i].size(); ++j) {
                 // hfile<< "index j "<< j <<" hex angle = " <<H[5][regionIndex[i][j]]<<endl;
+
                 if (this->outerBoundary[regionIndex[i][j]] == true){
-                    hfile<<"boundary region = "<<i<<endl;
-                    exit_loops = true;
-                    hfile <<" lcount "<<lcount<<endl;
-                    lcount++;
-                    break;
+                     hfile<<"boundary region = "<<i <<endl;
+                     exit_loops = true;
+                     hfile <<" lcount "<<lcount<<endl;
+                     lcount++;
+                     break;
                 }
-                else if (this->C[this->regionIndex[i][j]] == 5)
-                    regionEdge.push_back(this->regionIndex[i][j]);
-                else if (this->C[this->regionIndex[i][j]] < 5)
-                    regionVertex.push_back(this->regionIndex[i][j]);
-            }
+
+                if (this->Creg[this->regionIndex[i][j]] >0){
+                    hfile << "boundary i = "<< regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
+                    regionBoundary.push_back(this->regionIndex[i][j]);
+                }
+            } //end of loop on a single region
 
             if (exit_loops == true){
                  kcount++;
-                continue;
-            }
+                 continue;
+             }
 
             hfile<<"after the filling of regionEdge and regionVertex" <<endl;
-            hfile<<"regionVertex.size "<<regionVertex.size()<<" regionEdge.size "<<regionEdge.size()<<endl;
+            hfile<<"regionBoundary.size "<<regionBoundary.size() << endl;
 
-            vector<int> irV;
-            vector<double> rV;
-            for (unsigned int j = 0; j < regionVertex.size();j++){
+            vector<int> irB;
+            vector<double> rB;
+            for (unsigned int j = 0; j < regionBoundary.size();j++){
                 //  hfile<< "index "<< j <<" vertex angle = " <<H[5][regionIndex[i][j]]<<endl;
-                rV.push_back(H[5][regionVertex[j]]);
+                rB.push_back(H[5][regionBoundary[j]]);
             }
-            irV = sort_indexes(rV);
+            irB = sort_indexes(rB);
+
+             double angleOffset = -rB[irB[0]];
+             this->shift_polars(rB, angleOffset);
+             hfile<<"after shift_polars call"<<endl;
+
+             unsigned int idissect = 0;
+             // unsigned int iround = 0;
+             int count = 0;
+             int Vcount = 0;
+             int Ecount = 0;
+             unsigned int offset = 0;
+             bool lvertex;
+             vector<int> ihE;
+             unsigned int wcount = 0;
+             while (offset < irB.size() && wcount < irB.size()) {
+                 wcount++;
+                  if  (Creg[regionBoundary[irB[idissect]]] > 1)
+                      break;
+                  offset++;
+              }
+             hfile<<"after offset loop" <<endl;
+              unsigned int Size = irB.size();
+              // if (Size == 0) {
+              //     hfile << "region i " << region[i][0] << " irB size " << Size << endl;
+              //     continue;
+              // }
+              while ((idissect < Size) && (count < 1000)) {
+                 count++;
+                 ihE.resize(0);
+                 lvertex = false;
+                 Ecount = 0;
+                 ihE.resize(0);
+                 while (Creg[regionBoundary[irB[(idissect+offset) % Size]]] > 1) {
+                     lvertex = true;
+                     idissect++;
+                     continue;
+                 }
+                 hfile << "after vertex loop" <<endl;
+                 if (lvertex)
+                     Vcount++;
+
+                 while (Creg[regionBoundary[irB[(idissect + offset)%Size]]] == 1) {
+                     ihE.push_back(regionBoundary[irB[(idissect+offset)%Size]]);
+                     Ecount++;
+                     idissect++;
+                 }
+                 hfile << "after edge loop" <<endl;
+                 // if (Ecount == 0){
+                 //   hfile<<"***************************************************************"<<endl;
+                 //    continue;
+                 //}
+                  hfile<<"after filling tempvector"<<endl;
+                  hfile<<"ihE Size "<<ihE.size()<<endl;
+                  // hfile<<"ihE[1] "<<ihE[1]<<endl;
+                  hfile<<"Vcount "<< Vcount << " Ecount "<< Ecount << " idissect = " << idissect << endl;
+                  int regMiddle = region[ihE[1]][0];
+                  int edgeOuter = -1;
+                  for (int ihex = 0; ihex<6; ihex++){
+                      if (regMiddle != hexRegionList[ihE[1]][ihex]){
+                              edgeOuter = hexRegionList[ihE[1]][ihex];
+                              break;
+                      }
+                  }
+                   hfile<<"after edgeOuter assignment"<<endl;
+                   hfile<<"edgeOuter "<<edgeOuter<<endl;
+                   std::pair <int,int> keypair(i,edgeOuter);
+                   int keyint = this->pair2int(keypair,this->base);
+                   std::pair <int, vector<int>> p1(keyint,ihE);
+                   hfile <<"after pair set"<<endl;
+                   this->edges.insert(p1);
+                   hfile << "after edges insert" << endl;
+                   hfile <<"=================================================="<<endl;
+                   this->regionList[i].push_back(edgeOuter);
+             }
+
+              for (unsigned int iregion = 0; iregion < regionList[i].size(); iregion++)
+                  ifile << " r " << i << " rNbr " << regionList[i][iregion];
+              ifile << endl;
+              ifile << "---------------------------------------"<< endl;
 
 
-            vector<int> irE;
-            vector<double> rE;
-            for (unsigned int j = 0; j < regionEdge.size();j++){
-                //     hfile<< "index "<< j <<" edge angle = " <<H[5][regionIndex[i][j]]<<endl;
-                rE.push_back(H[5][regionEdge[j]]);
-            }
-            irE = sort_indexes(rE);
-            // rE = stable_sort(rE);
 
-            for (unsigned int j = 0; j < irV.size();j++)
-                hfile <<  "sorted vertex phi " << rV[irV[j]] <<endl;
-
-            for (unsigned int  j = 0; j < irE.size(); j++)
-                hfile << "sorted edge phi " << rE[irE[j]] << endl;
-
-
-            double angleOffset = this->H[5][rV[0]] - this->H[5][rE[0]];
-            this->shift_polars(regionEdge, angleOffset);
-            hfile<<"after shift_polars call"<<endl;
-
-            vector<int> ihE;
-            for (unsigned int j = 0; j < irV.size(); ++j){
-                ihE.resize(0);
-                int firstIndex = j;
-                int secondIndex = (++j);
-                hfile<<"firstIndex "<<firstIndex<<" secondIndex "<< secondIndex<<endl;
-                j--;
-                int count = 0;
-                int mcount = 0;
-                hfile <<" startangle "<<rV[irV[firstIndex]] <<" endangle "<<rV[irV[secondIndex]]<<endl;
-                for (unsigned int k = 0; k < irE.size(); ++k){
-                    count++;
-                    if (rE[irE[k]] >= rV[firstIndex] && rE[irE[k]] <= rV[secondIndex]){
-                        ihE.push_back(regionEdge[irE[k]]);
-                        mcount++;
-                    }
-
-                }
-                if (mcount == 0){
-                    hfile<<"***************************************************************"<<endl;
-                    continue;
-                }
-                 hfile<<"after filling tempvector"<<endl;
-                 hfile<<"ihE Size "<<ihE.size()<<endl;
-                 hfile<<"ihEt[1] "<<ihE[1]<<endl;
-                 hfile<<"count "<<count<<endl;
-                 hfile<<"mcount "<<mcount<<endl;
-                 int edgeOuter = hexRegionList[1][region[ihE[1]][0]];
-                 hfile<<"edgeOuter "<<edgeOuter<<endl;
-                 std::pair <int,int> keypair(i,edgeOuter);
-                 int keyint = this->pair2int(keypair,this->base);
-                 std::pair <int, vector<int>> p1(keyint,ihE);
-                 hfile <<"after pair set"<<endl;
-                 this->edges.insert(p1);
-                 hfile << "after edges insert" << endl;
-                 hfile <<"=================================================="<<endl;
-                 this->regionList[j].push_back(edgeOuter);
-            } // end of loop on vertexes
-            hfile <<" kcount "<<kcount<<endl;
         } //end of loop on regions
-        hfile<<"after the sorting"<<endl;
+        for (int irlook = 0; irlook < NUMPOINTS-1; irlook++)
+            for (int jrlook = 0; jrlook < NUMPOINTS-1; jrlook++) {
+                std::pair <int,int> klook(irlook,jrlook);
+                int k = pair2int(klook,this->base);
+                if (edges.count(k) == 0)
+                    continue;
+                else {
+                    int sizeij = edges[k].size();
+                    std::pair <int, int> koolk(jrlook,irlook);
+                    k = pair2int(koolk,this->base);
+                    int sizeji = edges[k].size();
+                    kfile << irlook << " " << jrlook << " sizeij " << sizeij << " "<< jrlook << " " << irlook << " sizeji " << sizeji << endl;
+                }
+            }
+
         return result;
-    } //end of function dissectBoundary
+    }//end of function dissectBoundary
 
     // function to correlate matching edges
      void correlate_edges()  {
-
         ofstream edgefile("logs/edgeCorrelations.txt");
         vector<double> tempvect1;
         vector<double> tempvect2;
+        edgefile << " In correlate_edges " << endl;
         // iterate over regions
         //for each region iterate over region edges
         // for each edge pair (i,j), (j,i) call correlate_vectors
         // write the i,j and correlation to a file
-        for (int i = 0; i <NUMPOINTS; i++) {
+        for (int i = 0; i <NUMPOINTS-1; i++) {
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
+                tempvect1.resize(0);
+                tempvect2.resize(0);
                 std::pair<int,int> edgePair1(i,*j);
                 int edgeIndex1 = this->pair2int(edgePair1,this->base);
                 std::pair<int,int>  edgePair2(*j,i);
                 int edgeIndex2 = this->pair2int(edgePair2,this->base);
-                for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
+                int count1 = 0;
+                int count2 = 0;
+                for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++){
                     tempvect1.push_back(this->NN[*itr]);
-                for (auto revitr = this->edges[edgeIndex2].end(); revitr != this->edges[edgeIndex2].begin();revitr--)
+                    count1++;
+                }
+                for (auto revitr = this->edges[edgeIndex2].end(); revitr != this->edges[edgeIndex2].begin();revitr--) {
                     tempvect2.push_back(this->NN[*revitr]);
+                    count2++;
+                }
 
-                int correlationValue = this->correlate_vector(tempvect1,tempvect2);
-                edgefile << i << "  " << *j << "  " <<  correlationValue << endl;
+                //int correlationValue = this->correlate_vector(tempvect1,tempvect2);
+                edgefile << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << endl;
+                double correlationValue = this->correlate_vector(tempvect1,tempvect2);
+                edgefile << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+                edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
+
             }
         }
     }
 
     //function to return the correlation of two vectors
-    double correlate_vector(vector<double> vector1,vector<double> vector2) {
-        double result=1;
+    double correlate_vector(vector<double> vector1, vector<double> vector2) {
+        ofstream jfile("correlateVector.out");
+        double result;
+        jfile << " In correlateVector " << endl;
         if (vector1.size() != vector2.size()){
-            cout << "the vectors are not the same size";
+            cout << "the vectors are not the same size" << endl;
             return result = 999.999;
         }
         double vector1Norm = 0;
@@ -785,11 +851,21 @@ vector<int> sort_indexes(const vector<T> &v) {
             vector2Norm += vector2[*i]*vector2[*i];
             vector12Product = vector1[*i]*vector2[*i];
         }
-        vector1Norm = sqrt(vector1Norm);
-        vector2Norm = sqrt(vector2Norm);
-        result = vector12Product / (vector1Norm*vector2Norm);
-        return result;
-    }
+        if (vector12Product == 0) {
+            jfile << "both vectors zero length" << endl;
+            result = -999.0;
+            return result;
+        }
+        else {
+            vector1Norm = sqrt(vector1Norm);
+            vector2Norm = sqrt(vector2Norm);
+            result = vector12Product / (vector1Norm*vector2Norm);
+            jfile << "result = " << result << endl;
+            return result;
+        }
+
+    } //end of function
+
 
 
 
@@ -937,7 +1013,7 @@ int main (int argc, char **argv)
 
         std::stringstream TIMEss;
         TIMEss<<setw(10)<<setfill('0')<<TIME;
-        const char* TIMEcs = TIMEss.str().c_str();
+        // const char* TIMEcs = TIMEss.str().c_str();
 
         std::stringstream out;
         out.clear();
@@ -1165,17 +1241,17 @@ int main (int argc, char **argv)
 	      //    W.logfile<<"No output filename."<<endl<<flush;
             }
 
-             vector<std::pair<double,double>> centroids;
-             centroids = M.dissectBoundary();
-
-              // M.correlate_edges();
+            vector<std::pair<double,double>> centroids;
+            centroids = M.dissectBoundary();
+            gfile<<"before correlate_edges" << endl;
+            M.correlate_edges();
             gfile<<"after correlate_edges" << endl;
             cout<<"after correlate_edges" << endl;
             int regionCount = 0;
 	    vector <double> tempvector;
 	    double tempArea;
 	    double tempPerimeter;
-              for (int j=0;j<NUMPOINTS;j++) {
+              for (int j=0;j<NUMPOINTS-1;j++) {
 	      if (M.regArea(j) != 0){
 	      tempvector = M.sectorize_region(j);
 	      tempArea = M.regArea(j)*(5.0/Dn);
