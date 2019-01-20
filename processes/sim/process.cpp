@@ -10,6 +10,7 @@
 #include <random>
 #include <algorithm>
 #include <iomanip>
+#include <sstream>
 //#include <boost/math/special_functions/bessel.hpp> 
 #define PI 3.14159265
 #define NUMPOINTS 79
