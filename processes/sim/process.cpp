@@ -9,7 +9,7 @@
 #include <math.h>
 #include <random>
 #include <algorithm>
-#include <iomanip>
+#include <map>
 #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.14159265
 #define NUMPOINTS 79 //this is after deleting point 73
@@ -395,11 +395,13 @@ public:
           for(int j=0;j<6;j++) {
               hexRegionList[i].push_back(region[N[i][j]][0]); //push back the region of each neighbour
               newRegion =  region[N[i][j]][0];
-              if ((oldRegion != newRegion) && (centralRegion != newRegion)){
+              if (centralRegion != newRegion){ //its a boundary hex
                   C[i]--;
                   N[i][j] = i;
-                  Creg[i]++;
-                  oldRegion = newRegion;
+                  if (oldRegion != newRegion){ // its a vertex
+                      Creg[i]++;
+                      oldRegion = newRegion;
+                  }
               }
           }
       } //end of logic determining hex types
@@ -413,7 +415,7 @@ public:
      regionIndex.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++) {
         for (int i=0;i<this->n;i++){
-	  if (region[i][0] == j)
+            if (region[i][0] == j)
       	   regionIndex[j].push_back(i);
         }
       }
@@ -602,7 +604,7 @@ vector<int> sort_indexes(const vector<T> &v) {
   double regPerimeter (int regNum) {
     double perimeter = 0;
     for (int i=0;i < (int) regionIndex[regNum].size();i++)
-      if (this->boundary[regionIndex[regNum][i]] == 1)
+       if (Creg[regionIndex[regNum][i]] > 0)
 	perimeter += 1.0;
     return perimeter;
   } //end of function regPerimeter
@@ -804,7 +806,7 @@ vector<int> sort_indexes(const vector<T> &v) {
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
-        edgefile << " In correlate_edges " << endl;
+        //debug edgefile << " In correlate_edges " << endl;
         // iterate over regions
         //for each region iterate over region edges
         // for each edge pair (i,j), (j,i) call correlate_vectors
@@ -812,9 +814,9 @@ vector<int> sort_indexes(const vector<T> &v) {
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
         for (int i = 0; i <NUMPOINTS; i++) {
-            edgefile << " i iteration " << i << endl;
+            //debug edgefile << " i iteration " << i << endl;
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
-                edgefile << " j iteration " << *j << endl;
+                //debug edgefile << " j iteration " << *j << endl;
                 tempvect1.resize(0);
                 tempvect2.resize(0);
                 tempvect3.resize(0);
@@ -836,7 +838,7 @@ vector<int> sort_indexes(const vector<T> &v) {
                    std::reverse(tempvect2.begin(),tempvect2.end());
                 // edgefile << " after filling tempvector2 " << endl;
                 //int correlationValue = this->correlate_vector(tempvect1,tempvect2);
-                edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
+                //debug edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
                 if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0){
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
                     edgefile << " i " <<  i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
@@ -844,15 +846,15 @@ vector<int> sort_indexes(const vector<T> &v) {
                 } //end of code if both edges are equal
                 else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
                     tempvect3 = this->equalize_vector(tempvect2,tempvect1);
-                    if (tempvect3.size() == 0)
-                        edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    //debug if (tempvect3.size() == 0)
+                    //debug edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
                     edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
                 else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
                     tempvect3 = this->equalize_vector(tempvect1,tempvect2);
-                    if (tempvect3.size() == 0)
-                        edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    //debug if (tempvect3.size() == 0)
+                    //debug edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     double correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
@@ -1310,11 +1312,14 @@ int main (int argc, char **argv)
 	    double tempPerimeter;
               for (int j=0;j<NUMPOINTS-1;j++) {
 	      if (M.regArea(j) != 0){
+                  gfile<<"in the degree loop" << endl;
 	      tempvector = M.sectorize_region(j);
 	      tempArea = M.regArea(j)*(5.0/Dn);
 	      tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
+              gfile << "just before vdegree" <<endl;
 	      vdegree = M.find_max(tempvector);
-	      W.logfile<<W.processName<<" "<<vdegree<<"  "<<tempArea<<"  "<<tempPerimeter<<endl<<flush;
+	      W.logfile <<" "<<vdegree<<"  "<<tempArea<<"  "<<tempPerimeter<<endl<<flush;
+              gfile <<" "<<vdegree<<"  "<<tempArea<<"  "<<tempPerimeter<<endl<<flush;
 	      regionCount++;
 
 	      //bfile <<"region "<<j<<" ";
