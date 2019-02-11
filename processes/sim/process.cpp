@@ -12,8 +12,9 @@
 #include <iomanip>
 #include <sstream>
 //#include <boost/math/special_functions/bessel.hpp> 
+#include <map>
 #define PI 3.14159265
-#define NUMPOINTS 79 //this is after deleting point 73
+#define NUMPOINTS 78  //this is after deleting point 73
 
 using namespace std;
 
@@ -50,7 +51,7 @@ public:
   vector<int> C; //count of neighbours
   vector<int> Creg; //count of regions
   vector<extremum> turnVal; //radial turning points
-
+  vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   vector<double> NN, CC; //hold the field values for each hex
   vector <bool> boundary;
   vector <bool> outerBoundary;
@@ -60,53 +61,10 @@ public:
         ofstream afile ( "debug.out" );
         ofstream jfile("correlateVector.out");
 
-
 	srand(time(NULL));
         this->scale = scale;
         this->offset = offset;
-
-
-        H.resize(6);
-
-	//centres.resize(NUMPOINTS);
-
-        double s = pow(2.0, scale-1);
-	ds = 29.0/s;
-	//02-08-18 keep ds fixed now as region changes size.
-	//ds = 0.453125;
-	//int inring = s;
-
-       	// std::default_random_engine generator;
-        // std::uniform_int_distribution<int> distribution(0,inring);
-	// generator.min(0);
-	// generator.max(inring);
-	//int red = 0; int blue = 0;
-	double x = 0;
-	double y = 0;
-	double radius = 0;
-	double theta = 0;
-     // for (int i=0; i<NUMPOINTS; i++) {
-     // 	    red = rand()%inring;
-     // 	    blue = rand()%inring;
-     // 	    if (blue%2 == 0){
-     // 	    x = (red-blue)*sqrt(3.)/(2.*s);
-     // 	    y = (1.*(red+blue))/(2.*s);
-     // 	    }
-     // 	    else{
-     // 	     x = -(red-blue)*sqrt(3.)/(2.*s);
-
-     // 	     y =  -(1.*(red+blue))/(2.*s);
-     // 	    }
-     // 	    centres[i].xval = x;
-     //      centres[i].yval = y;
-     // 	 }
-
-
-      vector<double> xy (2,0.);
-
-     ///////////////
-
-    double sc= 1.6;
+       double sc= 1.6;
     centres[0].xval=-0.06748*sc; centres[0].yval=0.3829*sc;
     centres[1].xval=0.0589*sc; centres[1].yval=0.4221*sc;
     centres[2].xval=0.1718*sc; centres[2].yval=0.4248*sc;
@@ -185,15 +143,51 @@ public:
     centres[75].xval=-0.2499*sc; centres[75].yval=0.0177*sc;
     centres[76].xval=-0.239*sc; centres[76].yval=-0.1865*sc;
     centres[77].xval=-0.1812*sc; centres[77].yval=-0.183*sc;
-    centres[78].xval= 0.1065*sc; centres[78].yval=-0.0148*sc;
+    //centres[78].xval= 0.1065*sc; centres[78].yval=-0.0148*sc;
 
 
-    // centres[73].xval=-0.0968*sc; centres[73].yval=-0.4248*sc;
-    // centres[74].xval=-0.2009*sc; centres[74].yval=-0.0728*sc;
-    // centres[75].xval=-0.2245*sc; centres[75].yval=-0.0243*sc;
-    // centres[76].xval=-0.2499*sc; centres[76].yval=0.0177*sc;
-    // centres[77].xval=-0.239*sc; centres[77].yval=-0.1865*sc;
-    // centres[78].xval=-0.1812*sc; centres[78].yval=-0.183*sc;
+        H.resize(6);
+        double s = pow(2.0, scale-1);
+	ds = 29.0/s;
+	//02-08-18 keep ds fixed now as region changes size.
+	//ds = 0.453125;
+	int inring = s;
+
+       	// std::default_random_engine generator;
+        // std::uniform_int_distribution<int> distribution(0,inring);
+        // this->generator.min(0);
+        // this->generator.max(inring);
+	// int red = 0; int blue = 0;
+	 double x = 0;
+	 double y = 0;
+	 double radius = 0;
+	 double theta = 0;
+        // for (int i=0; i<NUMPOINTS; i++) {
+     	//     red = rand()%inring;
+     	//     blue = rand()%inring;
+     	//     if (blue%2 == 0){
+        //         blue = -blue;
+     	//     }
+     	//     if (red%2 == 0) {
+        //         red = -red;
+     	//     }
+        //     x = (red-blue)*sqrt(3.)/(2.*s);
+     	//     y = (1.*(red+blue))/(2.*s);
+     	//     centres[i].xval = x;
+        //     centres[i].yval = y;
+     	//  }
+
+        // for (int i=0; i<NUMPOINTS;i++) {
+        //     centres[i].xval = 0.88*(rand()/(RAND_MAX +1.0) - 0.5);
+        //     centres[i].yval = 1.34*(rand()/(RAND_MAX + 1.0) - 0.5);
+        // }
+
+
+
+      vector<double> xy (2,0.);
+
+     ///////////////
+
 
 //	 centres[4].xval = 0.0; centres[0].yval = 0.0;
 //	 centres[3].xval = -0.1; centres[3].yval = 0.5;
@@ -253,12 +247,12 @@ public:
 			  theta = atan2(y,x);
 		        else
 			  theta = 2*PI + atan2(y,x);
-		    //  if (x*x + y*y <= 0.75) { // circular
+		      // if (x*x + y*y <= 0.75) { // circular
                       //    if (x*x/0.1 + y*y/0.8 <= 1) { // ellipse 1
                                   //if (x*x/0.8 + y*y/0.1 <= 1) { // ellipse 2
                                   //if (x*x/0.8 + y*y/0.01 <= 0.9) { // ellipse 3
                                   //if (x*x/0.01 + y*y/0.8 <= 0.9) { // ellipse 4
-                      if (x*x < 0.2 && y*y < 0.45) { // square 1
+                       if (x*x < 0.2 && y*y < 0.45) { // square 1
                                   //if (x*x < 0.2 && y*y < 0.2) { // square 2
 		      //if (x*x/0.05 - y*y/0.05 <= 0.7) { // hyperbolic 1
                                H[0].push_back(x);                      //X
@@ -274,7 +268,7 @@ public:
 
 	} //if on r
 
-
+        afile << "after allocating hexes"<< "n = " << n << endl;
 
 //these are the vectors of vectors for the regions
 	regionDist.resize(n);
@@ -284,11 +278,13 @@ public:
 
         // get neighbours
         N.resize(n); //neighbouring hexes
+         afile << "after resizing regions before boundary allocation"<< "n = " << n << endl;
         //Nold.resize(n); //holds values before b.c.s
         C.resize(n,0); //count of neighbouring hexes
         Creg.resize(n,0);
         hexRegionList.resize(n); //neighbouring regions for a hex
         regionList.resize(n); //neighbouring regions for a region
+       afile << "before boundary elements" << "n = " << n << endl;
 
         for(int i=0;i<n;i++){
             N[i].resize(6,i); // CONNECT ALL TO 'boundary' UNIT AT N+1
@@ -396,11 +392,13 @@ public:
           for(int j=0;j<6;j++) {
               hexRegionList[i].push_back(region[N[i][j]][0]); //push back the region of each neighbour
               newRegion =  region[N[i][j]][0];
-              if ((oldRegion != newRegion) && (centralRegion != newRegion)){
+              if (centralRegion != newRegion){ //its a boundary hex
                   C[i]--;
                   N[i][j] = i;
-                  Creg[i]++;
-                  oldRegion = newRegion;
+                  if (oldRegion != newRegion){ // its a vertex
+                      Creg[i]++;
+                      oldRegion = newRegion;
+                  }
               }
           }
       } //end of logic determining hex types
@@ -414,14 +412,14 @@ public:
      regionIndex.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++) {
         for (int i=0;i<this->n;i++){
-	  if (region[i][0] == j)
+            if (region[i][0] == j)
       	   regionIndex[j].push_back(i);
         }
       }
 
 
 
-      vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
+      //set the difference between seed point and CoG of region
       diff.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++){
           diff[j] = this->set_polars(j);
@@ -501,7 +499,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         double beta = 5.;
-        double a = 1., b = 1., mu = 1., chi = Dn;
+        double a = 1., b = 1., mu = 1., chi = 2.0*Dn;
         vector<double> lapN = getLaplacian(NN,ds);
         vector<double> lapC = getLaplacian(CC,ds);
 
@@ -546,29 +544,110 @@ vector<int> sort_indexes(const vector<T> &v) {
         }
     }//end step
 
+    //function to smooth a vector by moving average
+    vector <double> smooth_vector(vector<double> invector, int window) {
+        vector<double> outvector;
+        int size = invector.size();
+        outvector.resize(size);
+        for (int i=1; i<size+1; i++) {
+            outvector[i%size] = (invector[(i -1)%size] + invector[i%size] + invector[(i + 1)%size])/3.0;
+        }
+        return outvector;
+    }
+
 
   //function find_max to find turning points both values and indices.
-  int find_max(vector<double> ray) {
-    int iend = ray.size();
-    ofstream dfile ("turn.txt");
-    dfile <<"iend = " << iend <<endl;
-
+    int find_max(vector<double> ray, int window) {
+    int size = ray.size();
+    ofstream dfile ("turn.txt",ios::app);
+    dfile <<"size = " << size <<endl;
+    vector<double> smoothRay;
+    smoothRay = this->smooth_vector(ray, window);
     turnVal.resize(1000);
-    cout <<" "<<iend<<iend<<flush;
+    //cout <<" "<<iend<<iend<<flush;
     double old_slope = 0;
     double new_slope = 0;
     int count = 0;
-    old_slope = ray[1] - ray[0];
-    for (int i =2; i<=iend+1;i++){
+    old_slope = smoothRay[1] - smoothRay[0];
+    for (int i =2; i<=size+1;i++){
 
-      new_slope = ray[i%iend]-ray[(i-1)%iend];
-      dfile << " " << i%iend << " " << old_slope << " "<<new_slope <<endl;
+      new_slope = smoothRay[i%size]-smoothRay[(i-1)%size];
+      dfile << " " << i%size << " " << old_slope << " "<<new_slope <<endl;
       if (new_slope*old_slope < 0.) {
 	turnVal[count].radialIndex = i;
-	turnVal[count].radialValue = ray[i]; //should really interpolate
+	turnVal[count].radialValue = smoothRay[i]; //should really interpolate
+        dfile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
         count++;
       }
       old_slope = new_slope;
+    }
+    return count;
+  }
+
+    // find the zeros in a ray angular
+    int find_zeroAngle(vector<double> ray, int window) {
+    int size = ray.size();
+    ofstream zerofile ("zero.txt",ios::app);
+    vector<double> smoothRay;
+    smoothRay = this->smooth_vector(ray, window);
+    zerofile <<"size = " << size <<endl;
+    double sum = 0;
+    // to normalise the ray round 0
+    // for (int i=0;i<iend;i++)
+    //     sum += smoothRay[i];
+    // sum = sum /(size*1.0);
+    // for (int i=0;i<iend;i++)
+    //     smoothRay[i] -= sum;
+
+    turnVal.resize(1000);
+    double old_val = 0;
+    double new_val = 0;
+    int count = 0;
+    old_val = smoothRay[0];
+    for (int i =1; i<size+1;i++){
+      new_val = smoothRay[i%size];
+      zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      if (new_val*old_val < 0.) {
+	turnVal[count].radialIndex = i;
+	turnVal[count].radialValue =smoothRay[i]; //should really interpolate
+        zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
+        count++;
+      }
+      old_val = new_val;
+    }
+    return count;
+  }
+
+      // find the zeros in a ray angular
+    int find_zeroRadius(vector<double> ray, int window) {
+    int size = ray.size();
+    ofstream zerofile ("zero.txt",ios::app);
+    // vector<double> smoothRay;
+    // smoothRay = this->smooth_vector(ray, window);
+    zerofile <<"size = " << size <<endl;
+    double sum = 0;
+    // to normalise the ray round 0
+    // for (int i=0;i<iend;i++)
+    //     sum += smoothRay[i];
+    // sum = sum /(size*1.0);
+    // for (int i=0;i<iend;i++)
+    //     smoothRay[i] -= sum;
+
+    turnVal.resize(1000);
+    double old_val = 0;
+    double new_val = 0;
+    int count = 0;
+    old_val = ray[0];
+    for (int i =1; i<size+1;i++){
+      new_val = ray[i%size];
+      zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      if (new_val*old_val < 0.) {
+	turnVal[count].radialIndex = i;
+	turnVal[count].radialValue = ray[i]; //should really interpolate
+        zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
+        count++;
+      }
+      old_val = new_val;
     }
     return count;
   }
@@ -603,10 +682,33 @@ vector<int> sort_indexes(const vector<T> &v) {
   double regPerimeter (int regNum) {
     double perimeter = 0;
     for (int i=0;i < (int) regionIndex[regNum].size();i++)
-      if (this->boundary[regionIndex[regNum][i]] == 1)
+       if (Creg[regionIndex[regNum][i]] > 0)
 	perimeter += 1.0;
     return perimeter;
   } //end of function regPerimeter
+
+    // transform vector so its mean is zero
+    vector<double> meanzero_vector(vector<double> invector) {
+        ofstream meanzero ("meanzero.txt",ios::app);
+        vector <double> result;
+        int size = invector.size();
+        meanzero << "size " << size << endl;
+        double sum = 0;
+        double absSum = 0;
+        for (int i=0; i <size; i++) {
+            sum += invector[i];
+            absSum += fabs(invector[i]);
+        }
+        sum = sum/(1.0*size);
+        absSum = absSum / (1.0 * size);
+        meanzero << " mean  " << sum << endl;
+        meanzero << " absolute mean  " << absSum << endl;
+        for (int i=0; i < size; i++) {
+            result.push_back(invector[i] - sum);
+            meanzero << " i " << result[i] << endl;
+        }
+        return result;
+    }
 
 
 // function to give r and theta relative to region centre
@@ -805,7 +907,7 @@ vector<int> sort_indexes(const vector<T> &v) {
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
-        edgefile << " In correlate_edges " << endl;
+        //debug edgefile << " In correlate_edges " << endl;
         // iterate over regions
         //for each region iterate over region edges
         // for each edge pair (i,j), (j,i) call correlate_vectors
@@ -813,9 +915,9 @@ vector<int> sort_indexes(const vector<T> &v) {
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
         for (int i = 0; i <NUMPOINTS; i++) {
-            edgefile << " i iteration " << i << endl;
+            //debug edgefile << " i iteration " << i << endl;
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
-                edgefile << " j iteration " << *j << endl;
+                //debug edgefile << " j iteration " << *j << endl;
                 tempvect1.resize(0);
                 tempvect2.resize(0);
                 tempvect3.resize(0);
@@ -837,7 +939,7 @@ vector<int> sort_indexes(const vector<T> &v) {
                    std::reverse(tempvect2.begin(),tempvect2.end());
                 // edgefile << " after filling tempvector2 " << endl;
                 //int correlationValue = this->correlate_vector(tempvect1,tempvect2);
-                edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
+                //debug edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
                 if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0){
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
                     edgefile << " i " <<  i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
@@ -845,15 +947,15 @@ vector<int> sort_indexes(const vector<T> &v) {
                 } //end of code if both edges are equal
                 else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
                     tempvect3 = this->equalize_vector(tempvect2,tempvect1);
-                    if (tempvect3.size() == 0)
-                        edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    //debug if (tempvect3.size() == 0)
+                    //debug edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
                     edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
                 else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
                     tempvect3 = this->equalize_vector(tempvect1,tempvect2);
-                    if (tempvect3.size() == 0)
-                        edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    //debug if (tempvect3.size() == 0)
+                    //debug edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     double correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
@@ -929,53 +1031,152 @@ vector<int> sort_indexes(const vector<T> &v) {
         }
     } //end of function equalize_vector
 
+    double min_radius(int regNum) {
+        point  barycentre;
+        point boundHex;
+        barycentre.xval = diff[regNum].first + centres[regNum].xval;
+        barycentre.yval = diff[regNum].second + centres[regNum].yval;
+        double minRadius = 100000.0;
+        for (unsigned int i = 0; i < regionIndex[regNum].size();i++) {
+            if (Creg[regionIndex[regNum][i]] > 0) {
+                boundHex.xval = H[0][regionIndex[regNum][i]],
+                boundHex.yval = H[1][regionIndex[regNum][i]];
+                double boundDist = getdist(boundHex,barycentre);
 
- //function to count the hexes in sectors of a region
-  vector <double> sectorize_region (int regNum) {
-    ofstream cfile ("logs/sector.txt");
+                if (boundDist < minRadius)
+                    minRadius = boundDist;
+            }
+        }
+        return minRadius;
+    }
+
+     double max_radius(int regNum) {
+        point  barycentre;
+        point boundHex;
+        barycentre.xval = diff[regNum].first + centres[regNum].xval;
+        barycentre.yval = diff[regNum].second + centres[regNum].yval;
+        double maxRadius = -100000.0;
+        for (unsigned int i = 0; i < regionIndex[regNum].size();i++) {
+                boundHex.xval = H[0][regionIndex[regNum][i]],
+                boundHex.yval = H[1][regionIndex[regNum][i]];
+                double boundDist = getdist(boundHex,barycentre);
+
+                if (boundDist > maxRadius)
+                    maxRadius = boundDist;
+        }
+        return maxRadius;
+    }
+
+
+
+    //sectorize over radius
+    vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
+        ofstream dfile ( "logs/sectorRadius.txt");
+    vector <double>  radiusNN;
+    radiusNN.resize(numSectors);
+    vector <int> radiusCount;
+    vector <double> normalNN;
+    radiusCount.resize(numSectors);
+    double startRadius, finishRadius, radiusInc; //sector radii
+    double maxRadius = max_radius(regNum);
+    double minRadius = min_radius(regNum);
+    dfile << "region " << regNum << " maxRadius used " << maxRadius << " minRadius used " << minRadius <<endl;
+    radiusInc = minRadius /(1.0*numSectors);
+    double startAngle, finishAngle, angleInc; //sector angles
+    angleInc = 2*PI/(1.*numSectors);
+    startAngle = beginAngle*angleInc;
+    finishAngle = endAngle*angleInc;
+    int size = (int) regionIndex[regNum].size();
+    // to normalise the NN field
+     for (int i=0;i<size;i++){
+          normalNN.push_back(this->NN[regionIndex[regNum][i]] - 2.5);
+      }
+      //normalNN = meanzero_vector(normalNN);
+      //for (int i=0;i<size;i++)
+          // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+
+    for (int k=0;k<numSectors;k++) {
+      startRadius = (k*radiusInc);
+      finishRadius = (k+1)*radiusInc;
+
+      for (int i=0; i< size;i++) {
+	if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<finishAngle) {
+	  if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
+	      radiusCount[k]++;
+	      //radiusCC[k] += this->CC[regionIndex[regNum][i]];
+              radiusNN[k] += normalNN[i];
+	  } //end of if on radius
+        } //end of if on angleSector
+      } //end of loop over i
+
+
+      if (radiusCount[k] != 0)
+	radiusNN[k] = radiusNN[k] / (1.*radiusCount[k]);
+      else
+	radiusNN[k] = 0.0;
+      dfile << "startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
+    }//end loop on k
+     return radiusNN;
+
+  } //end of function sectorize_radius
+
+ //function to count the hexes in sectors of a region via angular sectors
+    vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
+        ofstream cfile ("logs/sectorAngle.txt");
     //std::pair<double,double> diff; //difference between seed point and CoG of region
     // diff = this->set_polars(regNum);
-    vector <double> totalCC; //average value of CC in each sector
+    vector <double> angleNN; //average value of CC in each sector
+    vector <double> normalNN;
     vector <double>  angleVal;
     vector <int> count; //number of hexes in each sector
-    int numSectors = 12; // number of sectors
-    totalCC.resize(numSectors);
+    angleNN.resize(numSectors);
     count.resize(numSectors);
     double startAngle, endAngle, angleInc; //sector angles
+    double startRadius, finishRadius,radiusInc;
+    double maxRadius = max_radius(regNum);
+    // double minRadius = min_radius(regNum);
+    radiusInc = maxRadius/ (1.0*numSectors);
+    startRadius = beginRadius*radiusInc;
+    finishRadius = endRadius*radiusInc;
     angleInc = 2*PI/(1.*numSectors);
+    // to normalise the NN field
+    int size = (int) regionIndex[regNum].size();
+     for (int i=0;i<size;i++){
+          normalNN.push_back(this->NN[regionIndex[regNum][i]] - 2.5);
+      }
+     // normalNN = meanzero_vector(normalNN);
+      for (int i=0;i<size;i++)
+          // cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+
     for (int k=0;k<numSectors;k++) {
       //double angle;
       startAngle = k*angleInc;
       endAngle = (k+1)*angleInc;
       if ((k+1) == numSectors)
 	 endAngle = 2*PI;
-      int size = (int) regionIndex[regNum].size();
+
 
       for (int i=0; i< size;i++) {
-	if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
-	  angleVal.push_back(H[5][regionIndex[regNum][i]]);
-	  count[k]++;
-	  totalCC[k] += this->CC[regionIndex[regNum][i]];
-	}
+          if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
+              if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
+                  angleVal.push_back(H[5][regionIndex[regNum][i]]);
+                  count[k]++;
+	  //angle[k] += this->[regionIndex[regNum][i]];
+                  angleNN[k] += normalNN[i];
+              }
 	//cfile << setw(5) << angleVal[i]  <<"  ";
+          }
       }
-      // if (k == 0) {
-      //   std::sort(angleVal.begin(),angleVal.end());
-      //   //for (int i=0; i< (int) angleVal.size();i++) {
-      //  	for (int i=0; i<2;i++) {
-      //   cfile << setw(5) << angleVal[i]  <<endl;
-      // 	//cfile << setw(5) << this->H[5][regionIndex[regNum][5]]  <<endl;
-      // 	}
-      // }
+
       cfile << endl;
       // cfile << "diff x " << diff.first << "diff y " << diff.second << endl;
-      cfile << " angleinc " <<angleInc << "  start angle "  << startAngle << "  end angle "<< endAngle <<endl;
+      cfile << "  start angle "  << startAngle << "  end angle "<< endAngle << " NN field " << angleNN[k] << endl;
       if (count[k] != 0)
-	totalCC[k] = totalCC[k] / (1.*count[k]) - 2.5;
+	angleNN[k] = angleNN[k] / (1.*count[k]);
       else
-	totalCC[k] = -999.999;
+	angleNN[k] = -999.999;
     }//end loop on k
-     return totalCC;
+     return angleNN;
 
   } //end of function sectorize_region
 
@@ -1048,8 +1249,7 @@ int main (int argc, char **argv)
     vector<double*> f;
     f.push_back(&TIME);
 
-    int vdegree = 0;
-    // int mdegree = 0;
+
      vector <double> rayv;
      vector <double> ringv;
 
@@ -1214,30 +1414,6 @@ int main (int argc, char **argv)
             displays[1].redrawDisplay(); //this MUST be outside the j loop so the whole image is
 	                                 //build BEFORE it is displayed
 
-	    // vector<double> plu = M.CC;
-            // double maxV1 = -1e7;
-            // double minV1 = +1e7;
-            // for (int i=0;i<M.n;i++) {
-            //     if (M.C[i]==6) {
-            //         if (plu[i]>maxV1) { maxV1 = plu[i]; }
-            //         if (plu[i]<minV1) { minV1 = plu[i]; }
-            //     }
-            // }
-            // double scaleV1= 1./(maxV1-minV1);
-            // vector<double> P1(M.n,0.);
-            // for (int i=0;i<M.n;i++) {
-            //     P1[i] = fmin (fmax (((plu[i])-minV1)*scaleV1,0.),1.);
-            //     // M.X[i][2] = P[i];
-            // }
-	    // //end of code for determining colour scale
-
-	    // //code for plotting, note this is on X not on H
-            // for (int i=0;i<M.n;i++) {
-            //     vector <double> cl1 = morph::Tools::getJetColor(P1[i]);
-            //     displays[1].drawTriFill(M.X[i],M.X[M.N[i][0]],M.X[M.N[i][1]],cl1);
-            //     displays[1].drawTriFill(M.X[i],M.X[M.N[i][3]],M.X[M.N[i][4]],cl1);
-            // }
-            // displays[1].redrawDisplay();
 
             break;
         }
@@ -1275,11 +1451,6 @@ int main (int argc, char **argv)
 
         case 5: // *** SAVE ***
         {
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 5=SAVE"<<endl<<flush;
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 6=LOAD"<<endl<<flush;
-	  //W.logfile<<W.processName<<"value of n "<<M.n<<endl<<flush;
-	    // for (int i=0; i<M.n;i++)
-	    // W.logfile<<"i =  "<<i<<"region = "<<M.region[0][i]<<endl<<flush;
 
             if (command.size()==2) {
                 ofstream outFile;
@@ -1306,34 +1477,79 @@ int main (int argc, char **argv)
             gfile<<"after correlate_edges" << endl;
             cout<<"after correlate_edges" << endl;
             int regionCount = 0;
-	    vector <double> tempvector;
+            int numSectors = 12;
+	    vector <double> angleVector;
+            vector <double> radiusVector;
+            int degreeRadius;
+            int degreeAngle;
 	    double tempArea;
 	    double tempPerimeter;
+
+
               for (int j=0;j<NUMPOINTS-1;j++) {
 	      if (M.regArea(j) != 0){
-	      tempvector = M.sectorize_region(j);
-	      tempArea = M.regArea(j)*(5.0/Dn);
-	      tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
-	      vdegree = M.find_max(tempvector);
-	      W.logfile<<W.processName<<" "<<vdegree<<"  "<<tempArea<<"  "<<tempPerimeter<<endl<<flush;
-	      regionCount++;
+                  //gfile<<"in the degree loop" << endl;
+                  //angle degree
+                  tempArea = M.regArea(j)*(5.0/Dn);
+                  tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
 
-	      //bfile <<"region "<<j<<" ";
-		for (int k=0; k <= (int) tempvector.size();k++){
-                bfile<< setw(5) << " "<< tempvector[k%tempvector.size()];
-		bfile <<endl;
-		} //end of for on printing sector values
+                  int sumAngle = 0;
+                  int radiusOffset = 0;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 3);
+                  // //  angleVector = M.meanzero_vector(angleVector);
+                  // degreeAngle = M.find_zeroAngle(angleVector,3);
+                  // sumAngle += degreeAngle;
+                  // //gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  // radiusOffset = 4;
+                  // angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 3);
+                  // // angleVector = M.meanzero_vector(angleVector);
+                  // degreeAngle = M.find_zeroAngle(angleVector,3);
+                  // sumAngle += degreeAngle;
+                  // //gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  // radiusOffset = 5;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
+                  // angleVector = M.meanzero_vector(angleVector);
+                  degreeAngle = M.find_max(angleVector,3);
+                  sumAngle += degreeAngle;
+                  // degreeAngle = sumAngle / 3;
+                  gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  //radial degree
+                  int sumRadius = 0;
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 4){
+                  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+                  //radiusVector = M.meanzero_vector(radiusVector);
+                  degreeRadius = M.find_zeroRadius(radiusVector,3);
+                  sumRadius += degreeRadius;
+                  }
+                  degreeRadius = sumRadius / 3;
+                  //gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+
+
+                  //degreeRadius = sumRadius / numSectors;
+                  gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+                  // radiusVector = M.meanzero_vector(radiusVector);
+                  // gfile << "tempvector size " << tempvector.size() << endl;
+                  //for (unsigned int i = 0; i<tempvector.size();i++)
+                  //   gfile << "i = 0 "<< i << " tempvector = " << tempvector[i] << endl;
+
+                  //gfile << "just before degree" <<endl;
+                  //  degreeTurn = M.find_max(tempvector);
+
+
+                  W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
+
+                  regionCount++;
+                  bfile <<"region "<<j<<" " << endl;;
+                  for (int k=0; k < (int) radiusVector.size();k++){
+                      bfile<< setw(5) << " radius "<< radiusVector[k];
+                      bfile<< setw(5) << " angle "<< angleVector[k];
+                      bfile <<endl;
+                  } //end of for on printing sector values
 	      } //end of if on non-zero regions
-		bfile <<regionCount<<endl;
+              bfile <<regionCount<<endl;
 	      } //end of loop on NUMPOINTs
 
 
-            // mdegree = M.find_max(ringv);
-
-            // W.logfile<<W.processName<<"  mdegree= "<<mdegree<<endl<<flush;
-	    // W.logfile<<W.processName<<"  rad  "<<rad<<endl<<flush;
-            // W.logfile<<W.processName<<"  ringvsize= "<<temp<<endl<<flush;
-	    // W.logfile<<W.processName<<"  ds "<<dstemp<<M.ds<<endl<<flush;
 
             break;
         }
