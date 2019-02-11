@@ -1,0 +1,1 @@
+/usr/bin/c++  -D__GLN__ -Wall -std=c++11  -rdynamic CMakeFiles/process.dir/process.cpp.o  -o process -L/usr/local/lib -lmorphologica 

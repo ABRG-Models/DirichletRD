@@ -10,8 +10,7 @@
 #include <random>
 #include <algorithm>
 #include <iomanip>
-#include <sstream>
-//#include <boost/math/special_functions/bessel.hpp> 
+#include <boost/math/special_functions/bessel.hpp>
 #define PI 3.14159265
 #define NUMPOINTS 79 //this is after deleting point 73
 
@@ -697,9 +696,9 @@ vector<int> sort_indexes(const vector<T> &v) {
             }
             irB = sort_indexes(rB); //indices after sort on theta
 
-             // double angleOffset = -rB[irB[0]];
-             // this->shift_polars(rB, angleOffset);
-             // hfile<<"after shift_polars call"<<endl;
+             double angleOffset = -rB[irB[0]];
+             this->shift_polars(rB, angleOffset);
+             hfile<<"after shift_polars call"<<endl;
 
              unsigned int idissect = 0;
              int count = 0;
@@ -708,7 +707,9 @@ vector<int> sort_indexes(const vector<T> &v) {
              unsigned int offset = 0;
              bool lvertex;
              vector<int> ihE; //contains the sorted indicies of each edge
-             while (offset < irB.size()) {
+             unsigned int wcount = 0;
+             while (offset < irB.size() && wcount < irB.size()) {
+                 wcount++;
                  if  (Creg[regionBoundary[irB[offset]]] > 1) {
                      Vcount++; //its a vertex
                      idissect++;
@@ -716,7 +717,7 @@ vector<int> sort_indexes(const vector<T> &v) {
                  }
                  offset++; //holds the number of edge indices before first vertex
               }
-             hfile<<"after offset loop" << " offset " << offset << " idissect " << idissect << endl;
+             hfile<<"after offset loop" << " wcount " << wcount << " idissect " << idissect << endl;
               unsigned int Size = irB.size();
               // if (Size == 0) {
               //     hfile << "region i " << region[i][0] << " irB size " << Size << endl;
@@ -1008,7 +1009,7 @@ int main (int argc, char **argv)
     displays[1].redrawDisplay();
 
 
-    Erm2009 M(8,0,0.);
+    Erm2009 M(9,0,0.);
    double  value;
   vector <double> ray;
    for (int i=0;i<M.n;i++) {
@@ -1213,32 +1214,6 @@ int main (int argc, char **argv)
 	    }//end of loop on j over regions
             displays[1].redrawDisplay(); //this MUST be outside the j loop so the whole image is
 	                                 //build BEFORE it is displayed
-
-	    // vector<double> plu = M.CC;
-            // double maxV1 = -1e7;
-            // double minV1 = +1e7;
-            // for (int i=0;i<M.n;i++) {
-            //     if (M.C[i]==6) {
-            //         if (plu[i]>maxV1) { maxV1 = plu[i]; }
-            //         if (plu[i]<minV1) { minV1 = plu[i]; }
-            //     }
-            // }
-            // double scaleV1= 1./(maxV1-minV1);
-            // vector<double> P1(M.n,0.);
-            // for (int i=0;i<M.n;i++) {
-            //     P1[i] = fmin (fmax (((plu[i])-minV1)*scaleV1,0.),1.);
-            //     // M.X[i][2] = P[i];
-            // }
-	    // //end of code for determining colour scale
-
-	    // //code for plotting, note this is on X not on H
-            // for (int i=0;i<M.n;i++) {
-            //     vector <double> cl1 = morph::Tools::getJetColor(P1[i]);
-            //     displays[1].drawTriFill(M.X[i],M.X[M.N[i][0]],M.X[M.N[i][1]],cl1);
-            //     displays[1].drawTriFill(M.X[i],M.X[M.N[i][3]],M.X[M.N[i][4]],cl1);
-            // }
-            // displays[1].redrawDisplay();
-
             break;
         }
 
