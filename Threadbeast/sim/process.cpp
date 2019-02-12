@@ -1,26 +1,40 @@
-#include "morph/world.h"
-#include "morph/sockserve.h"
-#include "morph/display.h"
-#include "morph/tools.h"
+#include <morph/display.h>
+#include <morph/tools.h>
+#include <morph/HexGrid.h>
+#include <morph/HdfData.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <iomanip>
 #include <math.h>
 #include <random>
 #include <algorithm>
-#include <iomanip>
-#include <boost/math/special_functions/bessel.hpp>
+#include <hdf5.h>
+#include <unistd.h>
+#include <bits/stdc++.h>
+#include <iostream>
+#include <sys/stat.h>
+#include <sys/types.h>
+// #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.14159265
 #define NUMPOINTS 79 //this is after deleting point 73
 
+using std::vector;
+using std::array;
+using std::string;
+using std::stringstream;
+using std::cerr;
+using std::endl;
+using std::runtime_error;
+using morph::HexGrid;
+using morph::HdfData;
 using namespace std;
 
 class Erm2009
 {
 public:
     int scale;
-    int offset;
     int n;
     double ds;
     struct extremum {
@@ -53,18 +67,16 @@ public:
   vector<double> NN, CC; //hold the field values for each hex
   vector <bool> boundary;
   vector <bool> outerBoundary;
+  vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   int base = 1000;
   //class constructor
-  Erm2009 (int scale, int offset, double z) {
-        ofstream afile ( "debug.out" );
-        ofstream jfile("correlateVector.out");
+  Erm2009 (int scale, string logpath) {
+        ofstream afile (logpath + "/debug.out" );
+//        ofstream jfile (logpath + "/correlateVector.out");
 
 
 	srand(time(NULL));
         this->scale = scale;
-        this->offset = offset;
-
-
         H.resize(6);
 
 	//centres.resize(NUMPOINTS);
@@ -85,21 +97,9 @@ public:
 	double radius = 0;
 	double theta = 0;
      // for (int i=0; i<NUMPOINTS; i++) {
-     // 	    red = rand()%inring;
-     // 	    blue = rand()%inring;
-     // 	    if (blue%2 == 0){
-     // 	    x = (red-blue)*sqrt(3.)/(2.*s);
-     // 	    y = (1.*(red+blue))/(2.*s);
-     // 	    }
-     // 	    else{
-     // 	     x = -(red-blue)*sqrt(3.)/(2.*s);
-
-     // 	     y =  -(1.*(red+blue))/(2.*s);
-     // 	    }
-     // 	    centres[i].xval = x;
-     //      centres[i].yval = y;
-     // 	 }
-
+     //     centres[i].xval = 0.88*(rand()/(RAND_MAX +1.0) - 0.5);
+     //     centres[i].yval = 1.34*(rand()/(RAND_MAX + 1.0) - 0.5);
+     // }
 
       vector<double> xy (2,0.);
 
@@ -201,6 +201,7 @@ public:
 	// centres[0].xval = -0.1; centres[0].yval = -0.5;
 	for (int j=0;j<NUMPOINTS;j++)
           afile << "j = " << j <<" x = " << centres[j] .xval  << "  y = " << centres[j].yval <<endl;
+	afile << " s = " << s << endl;
 
         n = 0;
 	x = 0;
@@ -237,6 +238,7 @@ public:
                           } //if on shape determination
 	  } //if on b
 	} //if on r
+		      afile << " s = " << s << endl;
 
 
 	for (int r=0; r<=3*s/2; r++) {
@@ -273,7 +275,7 @@ public:
 
 	} //if on r
 
-
+        afile << "after allocation of hexes" << endl;
 
 //these are the vectors of vectors for the regions
 	regionDist.resize(n);
@@ -395,16 +397,20 @@ public:
           for(int j=0;j<6;j++) {
               hexRegionList[i].push_back(region[N[i][j]][0]); //push back the region of each neighbour
               newRegion =  region[N[i][j]][0];
-              if ((oldRegion != newRegion) && (centralRegion != newRegion)){
+              if (centralRegion != newRegion){ //its a boundary hex
                   C[i]--;
                   N[i][j] = i;
-                  Creg[i]++;
-                  oldRegion = newRegion;
+                  if (oldRegion != newRegion){ // its a vertex
+                      Creg[i]++;
+                      oldRegion = newRegion;
+                  }
               }
           }
       } //end of logic determining hex types
 
 
+
+      afile << "after creating internal boundaries" << endl;
 
 
 
@@ -419,8 +425,6 @@ public:
       }
 
 
-
-      vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
       diff.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++){
           diff[j] = this->set_polars(j);
@@ -477,7 +481,7 @@ vector<int> sort_indexes(const vector<T> &v) {
     }
 
   //function to timestep coupled equations
-    void step(double dt, double Dn, double Dc) {
+    void step(double dt, double Dn, double Dchi) {
       dt = dt * 2.5 / Dn;
 
 
@@ -500,7 +504,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         double beta = 5.;
-        double a = 1., b = 1., mu = 1., chi = Dn;
+        double a = 1., b = 1., mu = 1., chi = Dchi, Dc = 0.3;
         vector<double> lapN = getLaplacian(NN,ds);
         vector<double> lapC = getLaplacian(CC,ds);
 
@@ -546,31 +550,116 @@ vector<int> sort_indexes(const vector<T> &v) {
     }//end step
 
 
-  //function find_max to find turning points both values and indices.
-  int find_max(vector<double> ray) {
-    int iend = ray.size();
-    ofstream dfile ("turn.txt");
-    dfile <<"iend = " << iend <<endl;
+    //function to smooth a vector by moving average
+    vector <double> smooth_vector(vector<double> invector, int window) {
+        vector<double> outvector;
+        int size = invector.size();
+        outvector.resize(size);
+        for (int i=1; i<size+1; i++) {
+            outvector[i%size] = (invector[(i -1)%size] + invector[i%size] + invector[(i + 1)%size])/3.0;
+        }
+        return outvector;
+    }
 
+
+  //function find_max to find turning points both values and indices.
+    int find_max(vector<double> ray, int window) {
+    int size = ray.size();
+    // ofstream dfile ("turn.txt",ios::app);
+    //dfile <<"size = " << size <<endl;
+    vector<double> smoothRay;
+    smoothRay = this->smooth_vector(ray, window);
     turnVal.resize(1000);
-    cout <<" "<<iend<<iend<<flush;
+    //cout <<" "<<iend<<iend<<flush;
     double old_slope = 0;
     double new_slope = 0;
     int count = 0;
-    old_slope = ray[1] - ray[0];
-    for (int i =2; i<=iend+1;i++){
+    old_slope = smoothRay[1] - smoothRay[0];
+    for (int i =2; i<=size+1;i++){
 
-      new_slope = ray[i%iend]-ray[(i-1)%iend];
-      dfile << " " << i%iend << " " << old_slope << " "<<new_slope <<endl;
+      new_slope = smoothRay[i%size]-smoothRay[(i-1)%size];
+      //dfile << " " << i%size << " " << old_slope << " "<<new_slope <<endl;
       if (new_slope*old_slope < 0.) {
 	turnVal[count].radialIndex = i;
-	turnVal[count].radialValue = ray[i]; //should really interpolate
+	turnVal[count].radialValue = smoothRay[i]; //should really interpolate
+      //  dfile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
         count++;
       }
       old_slope = new_slope;
     }
     return count;
   }
+
+    // find the zeros in a ray angular
+    int find_zeroAngle(vector<double> ray, int window) {
+    int size = ray.size();
+    // ofstream zerofile ("zero.txt",ios::app);
+    vector<double> smoothRay;
+    smoothRay = this->smooth_vector(ray, window);
+    //zerofile <<"size = " << size <<endl;
+    double sum = 0;
+    // to normalise the ray round 0
+    // for (int i=0;i<iend;i++)
+    //     sum += smoothRay[i];
+    // sum = sum /(size*1.0);
+    // for (int i=0;i<iend;i++)
+    //     smoothRay[i] -= sum;
+
+    turnVal.resize(1000);
+    double old_val = 0;
+    double new_val = 0;
+    int count = 0;
+    old_val = smoothRay[0];
+    for (int i =1; i<size+1;i++){
+      new_val = smoothRay[i%size];
+      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      if (new_val*old_val < 0.) {
+	turnVal[count].radialIndex = i;
+	turnVal[count].radialValue =smoothRay[i]; //should really interpolate
+        //zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
+        count++;
+      }
+      old_val = new_val;
+    }
+    return count;
+  }
+
+      // find the zeros in a ray angular
+    int find_zeroRadius(vector<double> ray, int window) {
+    int size = ray.size();
+    //ofstream zerofile ("zero.txt",ios::app);
+    // vector<double> smoothRay;
+    // smoothRay = this->smooth_vector(ray, window);
+    //zerofile <<"size = " << size <<endl;
+    double sum = 0;
+    // to normalise the ray round 0
+    // for (int i=0;i<iend;i++)
+    //     sum += smoothRay[i];
+    // sum = sum /(size*1.0);
+    // for (int i=0;i<iend;i++)
+    //     smoothRay[i] -= sum;
+
+    turnVal.resize(1000);
+    double old_val = 0;
+    double new_val = 0;
+    int count = 0;
+    old_val = ray[0];
+    for (int i =1; i<size+1;i++){
+      new_val = ray[i%size];
+      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      if (new_val*old_val < 0.) {
+	turnVal[count].radialIndex = i;
+	turnVal[count].radialValue = ray[i]; //should really interpolate
+        //zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
+        count++;
+      }
+      old_val = new_val;
+    }
+    return count;
+  }
+
+  //function bessel_ray for computing bessel functions along a ray
+  // takes a vector of doubles representing the radius
 
 
   //function bessel_ray for computing bessel functions along a ray
@@ -600,13 +689,37 @@ vector<int> sort_indexes(const vector<T> &v) {
 
   //function to return perimeter of a region
   double regPerimeter (int regNum) {
+    // cout << "in regPerimenter " << endl;
     double perimeter = 0;
     for (int i=0;i < (int) regionIndex[regNum].size();i++)
-      if (this->boundary[regionIndex[regNum][i]] == 1)
+      if (Creg[regionIndex[regNum][i]] > 0)
 	perimeter += 1.0;
     return perimeter;
   } //end of function regPerimeter
 
+
+    // transform vector so its mean is zero
+    vector<double> meanzero_vector(vector<double> invector) {
+        //ofstream meanzero ("meanzero.txt",ios::app);
+        vector <double> result;
+        int size = invector.size();
+        //meanzero << "size " << size << endl;
+        double sum = 0;
+        double absSum = 0;
+        for (int i=0; i <size; i++) {
+            sum += invector[i];
+            absSum += fabs(invector[i]);
+        }
+        sum = sum/(1.0*size);
+        absSum = absSum / (1.0 * size);
+        //meanzero << " mean  " << sum << endl;
+        //meanzero << " absolute mean  " << absSum << endl;
+        for (int i=0; i < size; i++) {
+            result.push_back(invector[i] - sum);
+            //meanzero << " i " << result[i] << endl;
+        }
+        return result;
+    }
 
 // function to give r and theta relative to region centre
     pair <double,double> set_polars(int regNum){
@@ -645,11 +758,12 @@ vector<int> sort_indexes(const vector<T> &v) {
             hexVector[*i] += angle;
     }
 
+
     //function to find all the edges and vertices of the internal boundary
-    vector <std::pair<double,double>> dissectBoundary(void) {
-        ofstream hfile ( "dissectdebug.out" );
-        ofstream ifile ( "regionList.out" );
-        ofstream kfile ( "edgesList.out" );
+    vector <std::pair<double,double>> dissectBoundary(string logpath) {
+        ofstream hfile ( logpath + "/dissectdebug.out" );
+        ofstream ifile ( logpath + "/regionList.out" );
+        ofstream kfile ( logpath + "/edgesList.out" );
         hfile<<"just in dissectBoundary"<<endl;
         vector<std::pair<double,double>> result;
         std::pair<double,double> holdpair;
@@ -696,9 +810,9 @@ vector<int> sort_indexes(const vector<T> &v) {
             }
             irB = sort_indexes(rB); //indices after sort on theta
 
-             double angleOffset = -rB[irB[0]];
-             this->shift_polars(rB, angleOffset);
-             hfile<<"after shift_polars call"<<endl;
+             // double angleOffset = -rB[irB[0]];
+             // this->shift_polars(rB, angleOffset);
+             // hfile<<"after shift_polars call"<<endl;
 
              unsigned int idissect = 0;
              int count = 0;
@@ -707,9 +821,7 @@ vector<int> sort_indexes(const vector<T> &v) {
              unsigned int offset = 0;
              bool lvertex;
              vector<int> ihE; //contains the sorted indicies of each edge
-             unsigned int wcount = 0;
-             while (offset < irB.size() && wcount < irB.size()) {
-                 wcount++;
+             while (offset < irB.size()) {
                  if  (Creg[regionBoundary[irB[offset]]] > 1) {
                      Vcount++; //its a vertex
                      idissect++;
@@ -717,7 +829,7 @@ vector<int> sort_indexes(const vector<T> &v) {
                  }
                  offset++; //holds the number of edge indices before first vertex
               }
-             hfile<<"after offset loop" << " wcount " << wcount << " idissect " << idissect << endl;
+             hfile<<"after offset loop" << " offset " << offset << " idissect " << idissect << endl;
               unsigned int Size = irB.size();
               // if (Size == 0) {
               //     hfile << "region i " << region[i][0] << " irB size " << Size << endl;
@@ -801,8 +913,8 @@ vector<int> sort_indexes(const vector<T> &v) {
     }//end of function dissectBoundary
 
     // function to correlate matching edges
-     void correlate_edges()  {
-        ofstream edgefile("logs/edgeCorrelations.txt");
+     void correlate_edges(string logpath)  {
+        ofstream edgefile(logpath + "/edgeCorrelations.txt");
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -864,12 +976,12 @@ vector<int> sort_indexes(const vector<T> &v) {
 
     //function to return the correlation of two vectors
     double correlate_Eqvector(vector<double> vector1, vector<double> vector2) {
-        ofstream jfile;
-        jfile.open("correlateEqvector.out",ios::app);
+        //ofstream jfile;
+        //jfile.open("correlateEqvector.out",ios::app);
         double result;
-        jfile << " In correlateEqvector " << endl;
+        //jfile << " In correlateEqvector " << endl;
         if (vector1.size() != vector2.size()){
-            jfile << "error: vectors must be same length" << endl;
+            //jfile << "error: vectors must be same length" << endl;
             return -2;
         }
         double vector1Norm = 0;
@@ -885,14 +997,14 @@ vector<int> sort_indexes(const vector<T> &v) {
             vector1Norm = sqrt(vector1Norm);
             vector2Norm = sqrt(vector2Norm);
             result = vector12Product / (vector1Norm*vector2Norm);
-            jfile << "result = " << result << endl;
+           // jfile << "result = " << result << endl;
             return result;
 
     } //end of function correlateEqvector
 
     vector <double> equalize_vector (vector<double> svector, vector<double> lvector) {
-        ofstream kfile;
-        kfile.open("eqVector.out",ios::app);
+        //ofstream kfile;
+        //kfile.open("eqVector.out",ios::app);
         vector <double> result;
         int sSize, lSize = 0;
         double sStep, lStep = 0;
@@ -919,64 +1031,164 @@ vector<int> sort_indexes(const vector<T> &v) {
             }
         }
         if (count != lSize){
-            kfile << " count " << count << " lSize " << lSize << " sSize " << sSize <<  " not filled" << endl;
+          //  kfile << " count " << count << " lSize " << lSize << " sSize " << sSize <<  " not filled" << endl;
             result.resize(0);
             return result;
         }
         else {
-            kfile << " count " << count << " l size " << lSize << " sSize " << sSize << " filled" << endl;
+            // kfile << " count " << count << " l size " << lSize << " sSize " << sSize << " filled" << endl;
             // result.push_back(svector[sSize - 1]);
             return result;
         }
     } //end of function equalize_vector
 
 
- //function to count the hexes in sectors of a region
-  vector <double> sectorize_region (int regNum) {
-    ofstream cfile ("logs/sector.txt");
+    double min_radius(int regNum) {
+        point  barycentre;
+        point boundHex;
+        barycentre.xval = this->diff[regNum].first + centres[regNum].xval;
+        barycentre.yval = this->diff[regNum].second + centres[regNum].yval;
+        double minRadius = 100000.0;
+        for (unsigned int i = 0; i < regionIndex[regNum].size();i++) {
+            if (Creg[regionIndex[regNum][i]] > 0) {
+                boundHex.xval = H[0][regionIndex[regNum][i]],
+                boundHex.yval = H[1][regionIndex[regNum][i]];
+                double boundDist = getdist(boundHex,barycentre);
+
+                if (boundDist < minRadius)
+                    minRadius = boundDist;
+            }
+        }
+        return minRadius;
+    }
+
+     double max_radius(int regNum) {
+        point  barycentre;
+        point boundHex;
+        barycentre.xval = this->diff[regNum].first + centres[regNum].xval;
+        barycentre.yval = this->diff[regNum].second + centres[regNum].yval;
+        double maxRadius = -100000.0;
+        for (unsigned int i = 0; i < regionIndex[regNum].size();i++) {
+                boundHex.xval = H[0][regionIndex[regNum][i]],
+                boundHex.yval = H[1][regionIndex[regNum][i]];
+                double boundDist = getdist(boundHex,barycentre);
+
+                if (boundDist > maxRadius)
+                    maxRadius = boundDist;
+        }
+        return maxRadius;
+    }
+
+
+
+    //sectorize over radius
+    vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
+        //ofstream dfile ("sectorRadius.txt");
+    vector <double>  radiusNN;
+    radiusNN.resize(numSectors);
+    vector <int> radiusCount;
+    vector <double> normalNN;
+    radiusCount.resize(numSectors);
+    double startRadius, finishRadius, radiusInc; //sector radii
+    double maxRadius = max_radius(regNum);
+    double minRadius = min_radius(regNum);
+    //dfile << "region " << regNum << " maxRadius used " << maxRadius << " minRadius used " << minRadius <<endl;
+    radiusInc = minRadius /(1.0*numSectors);
+    double startAngle, finishAngle, angleInc; //sector angles
+    angleInc = 2*PI/(1.*numSectors);
+    startAngle = beginAngle*angleInc;
+    finishAngle = endAngle*angleInc;
+    int size = (int) regionIndex[regNum].size();
+    // to normalise the NN field
+     for (int i=0;i<size;i++){
+          normalNN.push_back(this->NN[regionIndex[regNum][i]] - 2.5);
+      }
+      //normalNN = meanzero_vector(normalNN);
+      //for (int i=0;i<size;i++)
+          // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+
+    for (int k=0;k<numSectors;k++) {
+      startRadius = (k*radiusInc);
+      finishRadius = (k+1)*radiusInc;
+
+      for (int i=0; i< size;i++) {
+	if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<finishAngle) {
+	  if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
+	      radiusCount[k]++;
+	      //radiusCC[k] += this->CC[regionIndex[regNum][i]];
+              radiusNN[k] += normalNN[i];
+	  } //end of if on radius
+        } //end of if on angleSector
+      } //end of loop over i
+
+
+      if (radiusCount[k] != 0)
+	radiusNN[k] = radiusNN[k] / (1.*radiusCount[k]);
+      else
+	radiusNN[k] = 0.0;
+      //dfile << "startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
+    }//end loop on k
+     return radiusNN;
+
+  } //end of function sectorize_radius
+
+ //function to count the hexes in sectors of a region via angular sectors
+    vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
+    //  ofstream cfile ("logs/sectorAngle.txt");
     //std::pair<double,double> diff; //difference between seed point and CoG of region
     // diff = this->set_polars(regNum);
-    vector <double> totalCC; //average value of CC in each sector
+    vector <double> angleNN; //average value of CC in each sector
+    vector <double> normalNN;
     vector <double>  angleVal;
     vector <int> count; //number of hexes in each sector
-    int numSectors = 12; // number of sectors
-    totalCC.resize(numSectors);
+    angleNN.resize(numSectors);
     count.resize(numSectors);
     double startAngle, endAngle, angleInc; //sector angles
+    double startRadius, finishRadius,radiusInc;
+    double maxRadius = max_radius(regNum);
+    // double minRadius = min_radius(regNum);
+    radiusInc = maxRadius/ (1.0*numSectors);
+    startRadius = beginRadius*radiusInc;
+    finishRadius = endRadius*radiusInc;
     angleInc = 2*PI/(1.*numSectors);
+    // to normalise the NN field
+    int size = (int) regionIndex[regNum].size();
+     for (int i=0;i<size;i++){
+          normalNN.push_back(this->NN[regionIndex[regNum][i]] - 2.5);
+      }
+     // normalNN = meanzero_vector(normalNN);
+      for (int i=0;i<size;i++)
+          // cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+
     for (int k=0;k<numSectors;k++) {
       //double angle;
       startAngle = k*angleInc;
       endAngle = (k+1)*angleInc;
       if ((k+1) == numSectors)
 	 endAngle = 2*PI;
-      int size = (int) regionIndex[regNum].size();
+
 
       for (int i=0; i< size;i++) {
-	if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
-	  angleVal.push_back(H[5][regionIndex[regNum][i]]);
-	  count[k]++;
-	  totalCC[k] += this->CC[regionIndex[regNum][i]];
-	}
+          if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
+              if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
+                  angleVal.push_back(H[5][regionIndex[regNum][i]]);
+                  count[k]++;
+	  //angle[k] += this->[regionIndex[regNum][i]];
+                  angleNN[k] += normalNN[i];
+              }
 	//cfile << setw(5) << angleVal[i]  <<"  ";
+          }
       }
-      // if (k == 0) {
-      //   std::sort(angleVal.begin(),angleVal.end());
-      //   //for (int i=0; i< (int) angleVal.size();i++) {
-      //  	for (int i=0; i<2;i++) {
-      //   cfile << setw(5) << angleVal[i]  <<endl;
-      // 	//cfile << setw(5) << this->H[5][regionIndex[regNum][5]]  <<endl;
-      // 	}
-      // }
-      cfile << endl;
+
+      //cfile << endl;
       // cfile << "diff x " << diff.first << "diff y " << diff.second << endl;
-      cfile << " angleinc " <<angleInc << "  start angle "  << startAngle << "  end angle "<< endAngle <<endl;
+      //cfile << "  start angle "  << startAngle << "  end angle "<< endAngle << " NN field " << angleNN[k] << endl;
       if (count[k] != 0)
-	totalCC[k] = totalCC[k] / (1.*count[k]) - 2.5;
+	angleNN[k] = angleNN[k] / (1.*count[k]);
       else
-	totalCC[k] = -999.999;
+	angleNN[k] = -999.999;
     }//end loop on k
-     return totalCC;
+     return angleNN;
 
   } //end of function sectorize_region
 
@@ -986,367 +1198,165 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 int main (int argc, char **argv)
 {
-    srand(atoi(argv[3]));
-    ofstream bfile ( "logs/sector.out" );
-    ofstream gfile ( "logs/edges.out");
-    double dt = 0.00005;            // integration timestep // SHOULD BE 0.001
+    if (argc < 7) {
+      std::cout << "not enough arguments" << argc << endl;
+      return -1;
+    }
+    //const char* logdir = "cd logs";
+   // system (logdir);
+    string logpath = argv[1];
+    string commandStem;
+    const char* command;
+    double dt = stod(argv[2]); //timesetp passed to M.step
+    double Dn = stod(argv[3]); //Dn diffusion passed to M.step
+    double Dchi = stod(argv[4]); //Dc diffusion passed to M.step
+    int numsteps = atoi(argv[5]); //length of integration 
+    int numprint = atoi(argv[6]); //frequency of printing
+    commandStem = "mkdir " + logpath;
+    command = commandStem.c_str();
+    system(command);
+     //  cerr << "Error : " << strerror(errno) << endl;
+    // else
+    //   cout << "Directory created" << endl;
+	
+    //commandStem = "cd " + logpath;
+    //command = commandStem.c_str();
+    //system(command);
+    ofstream bfile ( logpath + "/maindebug.out" );
+    ofstream gfile ( logpath + "/edges.out");
 
-    // INITIALIZATION
-    morph::World W(argv[1],argv[2],atoi(argv[3]),atoi(argv[4]),dt);
-    //W.waitForConnection();
+    // int mdegree = 0;
+    vector <double> rayv;
+    vector <double> ringv;
 
     // DISPLAYS
-    vector<morph::Gdisplay> displays;
-    vector<double>fix(3,0.);
-    vector<double>eye(3,0.);
-    eye[2] = -0.4;
-    vector<double>rot(3,0.);
-    displays.push_back (morph::Gdisplay (600, "NN field", 0., 0., 0.));
-    displays[0].resetDisplay(fix,eye,rot);
-    displays[0].redrawDisplay();
-    displays.push_back (morph::Gdisplay (600, "CC field", 0., 0., 0.));
-    displays[1].resetDisplay(fix,eye,rot);
-    displays[1].redrawDisplay();
+    //vector<morph::Gdisplay> displays;
+    //vector<double>fix(3,0.0);
+    //vector<double>eye(3,0.0);
+    //vector<double>rot(3,0.0);
+    //displays.push_back (morph::Gdisplay (600, "NN field", 0., 0., 0.));
+    //displays[0].resetDisplay(fix,eye,rot);
+    //displays[0].redrawDisplay();
+    //displays.push_back (morph::Gdisplay (600, "CC field", 0., 0., 0.));
+    //displays[1].resetDisplay(fix,eye,rot);
+    //displays[1].redrawDisplay();
+    //bfile << "just after displays" << endl;
 
+// initialise Ermentrout class setting scale
+    Erm2009 M(8.0,logpath);
 
-    Erm2009 M(9,0,0.);
-   double  value;
-  vector <double> ray;
-   for (int i=0;i<M.n;i++) {
-     value  = boost::math::cyl_bessel_j(0,M.H[4][i]);
-       ray.push_back(value);
-  }
-
-
-
-
-
-
-
-   for (int i=0;i<M.n;i++) {
-       double choice = morph::Tools::randDouble();
-       if (choice > 0.5)
+// initialise with random field
+    for (int i=0;i<M.n;i++) {	
+	double choice = morph::Tools::randDouble();
+        if (choice > 0.5)
            M.NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
-       else
+        else
            M.NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
-       M.CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
-     //        M.CC[i]=sin(i*3.142)*0.1+2.5;
-     //	 M.CC[i]=sin(i*3.142)*0.1+2.5;
+        M.CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+      } //end of code to set initial random field
+      for (int i=0;i<numsteps;i++) {
+//	 bfile << " just before time step " << endl;
+         M.step(dt, Dn, Dchi);
+//         bfile << " just after time step i = " << i << endl;
+
+      }
+    //code run at end of timestepping
+    //first save the  ofstream outFile;
+     string fname = logpath + "/2Derm.h5";
+     morph::HdfData data (fname);
+    // save the fields
+     for (int i=0; i < M.n; i++) {
+	  stringstream vss;	  vss << "n_" << i;
+	  string vname = vss.str();
+	  data.add_val (vname.c_str(), M.NN[i]);
+	  vname[0] = 'c';
+	  data.add_val (vname.c_str(), M.CC[i]);
      }
+     data.add_val ("/Dchi", Dchi);
+     data.add_val ("/Dn", Dn);
+     
+     //post run analysis
 
-     // for (int i=0;i<M.n;i++) {
-     //   // M.NN[i]= 1. + sin(i*3.142)*sin(i*3.142)*0.001;
-     //    M.NN[i]= 1.;
-     //   M.CC[i]=ray[i]*0.1+2.5;
-     //  }
-
-    unsigned int frameN = 0;
-    unsigned int frameM = 0;
-    //initial values for Dn Dc
-    double Dn = 100.;
-    double Dc = Dn*0.3;
-    double TIME=0.;
-    vector<double*> f;
-    f.push_back(&TIME);
-
-    int vdegree = 0;
-    // int mdegree = 0;
-     vector <double> rayv;
-     vector <double> ringv;
-
-    vector<vector<double*> > S;
-    {
-        vector<double*> s;
-        for(unsigned int i=0;i<M.CC.size();i++){
-            s.push_back(&M.CC[i]);
-        } S.push_back(s);
-    }
-    {
-        vector<double*> s;
-        for(unsigned int i=0;i<M.NN.size();i++){
-            s.push_back(&M.NN[i]);
-        } S.push_back(s);
-    }
-
-    bool doing = true;
-    while (doing) {
-
-        std::stringstream TIMEss;
-        TIMEss<<setw(10)<<setfill('0')<<TIME;
-        // const char* TIMEcs = TIMEss.str().c_str();
-
-        std::stringstream out;
-        out.clear();
-        out.setf(ios::fixed,ios::floatfield);
-
-        // DEFINE OUTPUT MESSAGE
-        out<<TIME<<",";
-
-        vector <string> command;
-        string messageI=W.master.exchange(out.str().c_str());
-        stringstream ss(messageI);
-        while (ss.good()){
-            string substr;
-            getline(ss,substr,',');
-            command.push_back(substr);
-        } ss.clear();
-
-        // Interpret commands:
-        switch (stoi(command[0])) {
-
-        case 0: // *** QUIT ***
-        {
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 0=QUIT"<<endl<<flush;
-	  // W.logfile.close();
-            for(unsigned int i=0;i<displays.size();i++){
-                displays[i].closeDisplay();
-            }
-            W.master.closeSocket();
-            for(unsigned int i=0;i<W.ports.size();i++){
-                W.ports[i].closeSocket();
-            }
-            doing=false;
-            break;
-        }
-
-        case 1: // *** STEP ***
-        {
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 1=STEP"<<endl<<flush;
-
-            // Exchange comms
-            vector< vector <string> > commands(W.ports.size());
-            for(unsigned int i=0;i<W.ports.size();i++){
-                string messageI=W.ports[i].exchange(out.str().c_str());
-                stringstream ss(messageI);
-                while (ss.good()){
-                    string substr;
-                    getline(ss,substr,',');
-                    commands[i].push_back(substr);
-                } ss.clear();
-            }
-
-            // DO STUFF HERE
-
-            M.step(dt, Dn, Dc);
-
-
-            // END STEP
-            TIME++;
-            break;
-        }
-
-        case 2: // *** PLOT ***
-        {
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 2=PLOT"<<endl<<flush;
-            displays[0].resetDisplay(fix,eye,rot);
-	    displays[1].resetDisplay(fix,eye,rot);
-//start of code for determining colour scale
-	     for (int j=0;j<NUMPOINTS;j++){
-	       vector<double> plt;
-	       int index;
-	       double tempNN;
-	       double maxV = -1e7;
-	       double minV = +1e7;
-	       int size= (int) M.regionIndex[j].size();
-	       for (int i=0;i<size ;i++){
-	         index = M.regionIndex[j][i];
-		 tempNN = M.NN[index];
-		 plt.push_back(tempNN);
-
-		 //for (int i=0;i<M.n;i++) {
-                if (M.C[index]==6) {
-		  if (tempNN>maxV) { maxV = tempNN; }
-                    if (tempNN<minV) { minV = tempNN; }
-		}//if on M.C
-	       }//if on i, going through the region
-
-            double scaleV = 1./(maxV-minV);
-            vector<double> P(size,0.);
-            for (int i=0;i<size;i++) {
-                P[i] = fmin (fmax (((plt[i])-minV)*scaleV,0.),1.);
-                // M.X[i][2] = P[i];
-            }
-
-            for (int i=0;i<size;i++) {
-	      index = M.regionIndex[j][i];
-                vector <double> cl = morph::Tools::getJetColor(P[i]);
-                displays[0].drawTriFill(M.X[index],M.X[M.N[index][0]],M.X[M.N[index][1]],cl);
-		displays[0].drawTriFill(M.X[index],M.X[M.N[index][3]],M.X[M.N[index][4]],cl);
-            } //end of loop on i
-
-	    }//end of loop on j over regions
-	    displays[0].redrawDisplay();//this MUST be outside the j loop so the whole image is
-	                                 //build BEFORE it is displayed
-
-	    //start of code for determining colour scale CC field
-	    for (int j=0;j<NUMPOINTS;j++){
-	       vector<double> plu;
-	       int index1;
-	       double tempCC;
-	       double maxV1 = -1e7;
-	       double minV1 = +1e7;
-	       int size1= (int) M.regionIndex[j].size();
-	       for (int i=0;i<size1 ;i++){
-	         index1 = M.regionIndex[j][i];
-		 tempCC = M.CC[index1];
-		 plu.push_back(tempCC);
-
-		 //for (int i=0;i<M.n;i++) {
-                if (M.C[index1]==6) {
-		  if (tempCC>maxV1) { maxV1 = tempCC; }
-                    if (tempCC<minV1) { minV1 = tempCC; }
-                }//if on M.C
-	       }//if on i, going through the region
-
-            double scaleV1 = 1./(maxV1-minV1);
-            vector<double> P1(size1,0.);
-            for (int i=0;i<size1;i++) {
-                P1[i] = fmin (fmax (((plu[i])-minV1)*scaleV1,0.),1.);
-                // M.X[i][2] = P[i];
-            }
-
-            for (int i=0;i<size1;i++) {
-	      index1 = M.regionIndex[j][i];
-                vector <double> cl1 = morph::Tools::getJetColor(P1[i]);
-                displays[1].drawTriFill(M.X[index1],M.X[M.N[index1][0]],M.X[M.N[index1][1]],cl1);
-		displays[1].drawTriFill(M.X[index1],M.X[M.N[index1][3]],M.X[M.N[index1][4]],cl1);
-            } //end of loop on
-	    }//end of loop on j over regions
-            displays[1].redrawDisplay(); //this MUST be outside the j loop so the whole image is
-	                                 //build BEFORE it is displayed
-            break;
-        }
-
-        case 3:
-        {
-
-            std::stringstream frameFile1;
-            frameFile1<<"logs/"<<W.processName<<"frameNN";
-            frameFile1<<setw(5)<<setfill('0')<<frameN;
-            frameFile1<<".png";
-            displays[0].saveImage(frameFile1.str());
-            frameN++;
-	    std::stringstream frameFile2;
-            frameFile2<<"logs/"<<W.processName<<"frameCC";
-            frameFile2<<setw(5)<<setfill('0')<<frameM;
-            frameFile2<<".png";
-            displays[1].saveImage(frameFile2.str());
-            frameM++;
-
-
-            break;
-        }
-
-        case 4:
-        {
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 4=RECD"<<endl<<flush;
-	   switch(stoi(command[1]))
-            {
-            case 0: Dn = stod(command[2]); break;
-            case 1: Dc = stod(command[2]); break;
-            }
-            break;
-        }
-
-        case 5: // *** SAVE ***
-        {
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 5=SAVE"<<endl<<flush;
-	  //W.logfile<<W.processName<<"@"<<TIMEcs<<": 6=LOAD"<<endl<<flush;
-	  //W.logfile<<W.processName<<"value of n "<<M.n<<endl<<flush;
-	    // for (int i=0; i<M.n;i++)
-	    // W.logfile<<"i =  "<<i<<"region = "<<M.region[0][i]<<endl<<flush;
-
-            if (command.size()==2) {
-                ofstream outFile;
-                std::stringstream oFile; oFile<<command[1];
-                outFile.open(oFile.str().c_str(),ios::out|ios::binary);
-                double n=(double)S.size();double* N=&n;
-                outFile.write((char*)N,sizeof(double));
-                for (unsigned int i=0;i<S.size();i++) {
-                    double m=(double)S[i].size();double* M=&m;
-                    outFile.write((char*)M,sizeof(double));
-                    for (unsigned int j=0;j<S[i].size();j++) {
-                        outFile.write((char*)S[i][j],sizeof(double));
-                    }
-                }
-                outFile.close();
-            } else {
-	      //    W.logfile<<"No output filename."<<endl<<flush;
-            }
 
             vector<std::pair<double,double>> centroids;
-            centroids = M.dissectBoundary();
+            centroids = M.dissectBoundary(logpath);
             gfile<<"before correlate_edges" << endl;
-            M.correlate_edges();
+            M.correlate_edges(logpath);
             gfile<<"after correlate_edges" << endl;
             cout<<"after correlate_edges" << endl;
             int regionCount = 0;
-	    vector <double> tempvector;
+            int numSectors = 12;
+	    vector <double> angleVector;
+            vector <double> radiusVector;
+            int degreeRadius;
+            int degreeAngle;
 	    double tempArea;
 	    double tempPerimeter;
+
+
               for (int j=0;j<NUMPOINTS-1;j++) {
 	      if (M.regArea(j) != 0){
-	      tempvector = M.sectorize_region(j);
-	      tempArea = M.regArea(j)*(5.0/Dn);
-	      tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
-	      vdegree = M.find_max(tempvector);
-	      W.logfile<<W.processName<<" "<<vdegree<<"  "<<tempArea<<"  "<<tempPerimeter<<endl<<flush;
-	      regionCount++;
+                  //gfile<<"in the degree loop" << endl;
+                  //angle degree
+                  tempArea = M.regArea(j)*(5.0/Dn);
+                  tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
 
-	      //bfile <<"region "<<j<<" ";
-		for (int k=0; k <= (int) tempvector.size();k++){
-                bfile<< setw(5) << " "<< tempvector[k%tempvector.size()];
-		bfile <<endl;
-		} //end of for on printing sector values
+                  int sumAngle = 0;
+                  int radiusOffset = 0;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 3);
+                  // //  angleVector = M.meanzero_vector(angleVector);
+                  // degreeAngle = M.find_zeroAngle(angleVector,3);
+                  // sumAngle += degreeAngle;
+                  // //gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  // radiusOffset = 4;
+                  // angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 3);
+                  // // angleVector = M.meanzero_vector(angleVector);
+                  // degreeAngle = M.find_zeroAngle(angleVector,3);
+                  // sumAngle += degreeAngle;
+                  // //gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  // radiusOffset = 5;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
+                  // angleVector = M.meanzero_vector(angleVector);
+                  degreeAngle = M.find_max(angleVector,3);
+                  sumAngle += degreeAngle;
+                  // degreeAngle = sumAngle / 3;
+                  gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  //radial degree
+                  int sumRadius = 0;
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 4){
+                  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+                  //radiusVector = M.meanzero_vector(radiusVector);
+                  degreeRadius = M.find_zeroRadius(radiusVector,3);
+                  sumRadius += degreeRadius;
+                  }
+                  degreeRadius = sumRadius / 3;
+                  //gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+
+
+                  //degreeRadius = sumRadius / numSectors;
+                  gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+                  // radiusVector = M.meanzero_vector(radiusVector);
+                  // gfile << "tempvector size " << tempvector.size() << endl;
+                  //for (unsigned int i = 0; i<tempvector.size();i++)
+                  //   gfile << "i = 0 "<< i << " tempvector = " << tempvector[i] << endl;
+
+                  //gfile << "just before degree" <<endl;
+                  //  degreeTurn = M.find_max(tempvector);
+
+
+                  //W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
+
+                  regionCount++;
+                  bfile <<"region "<<j<<" " << endl;;
+                  for (int k=0; k < (int) radiusVector.size();k++){
+                      bfile<< setw(5) << " radius "<< radiusVector[k];
+                      bfile<< setw(5) << " angle "<< angleVector[k];
+                      bfile <<endl;
+                  } //end of for on printing sector values
 	      } //end of if on non-zero regions
-		bfile <<regionCount<<endl;
+              bfile <<regionCount<<endl;
 	      } //end of loop on NUMPOINTs
 
-
-            // mdegree = M.find_max(ringv);
-
-            // W.logfile<<W.processName<<"  mdegree= "<<mdegree<<endl<<flush;
-	    // W.logfile<<W.processName<<"  rad  "<<rad<<endl<<flush;
-            // W.logfile<<W.processName<<"  ringvsize= "<<temp<<endl<<flush;
-	    // W.logfile<<W.processName<<"  ds "<<dstemp<<M.ds<<endl<<flush;
-
-            break;
-        }
-
-        case 6: // *** LOAD ***
-        {
-            if (command.size()==2) {
-                double dummy;
-                ifstream inFile;
-                std::stringstream iFile;
-                iFile<<command[1];
-                inFile.open(iFile.str().c_str(),ios::in|ios::binary);
-                inFile.read((char*)&dummy,sizeof(double));
-                int I=(int)dummy;
-                if (I==static_cast<int>(S.size())) {
-                    for (int i=0;i<I;i++) {
-                        inFile.read((char*)&dummy,sizeof(double));
-                        int J=(int)dummy;
-                        if (J==static_cast<int>(S[i].size())) {
-                            for (int j=0;j<J;j++) {
-                                inFile.read((char*)S[i][j],sizeof(double));
-                            }
-                        } else {
-                            W.logfile<<"Wrong dims I."<<endl<<flush;
-                        }
-                    }
-                } else {
-                    W.logfile<<"Wrong dims J."<<endl<<flush;
-                }
-                inFile.close();
-            } else {
-                W.logfile<<"No input filename."<<endl<<flush;
-            }
-
-            break;
-        }
-	}
-    }
 
     return 0;
 };
