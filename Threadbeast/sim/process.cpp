@@ -1243,7 +1243,7 @@ int main (int argc, char **argv)
     //bfile << "just after displays" << endl;
 
 // initialise Ermentrout class setting scale
-    Erm2009 M(8.0,logpath);
+    Erm2009 M(9.0,logpath);
 
 // initialise with random field
     for (int i=0;i<M.n;i++) {	
@@ -1268,12 +1268,12 @@ int main (int argc, char **argv)
      for (int i=0; i < M.n; i++) {
 	  stringstream vss;	  vss << "n_" << i;
 	  string vname = vss.str();
-	  data.add_val (vname.c_str(), M.NN[i]);
+	  data.add_float (vname.c_str(), M.NN[i]);
 	  vname[0] = 'c';
-	  data.add_val (vname.c_str(), M.CC[i]);
+	  data.add_float (vname.c_str(), M.CC[i]);
      }
-     data.add_val ("/Dchi", Dchi);
-     data.add_val ("/Dn", Dn);
+     data.add_float ("/Dchi", Dchi);
+     data.add_float ("/Dn", Dn);
      
      //post run analysis
 
