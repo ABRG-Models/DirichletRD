@@ -71,7 +71,7 @@ public:
   int base = 1000;
   //class constructor
   Erm2009 (int scale, string logpath) {
-        ofstream afile (logpath + "/debug.out" );
+//        ofstream //afile (logpath + "/debug.out" );
 //        ofstream jfile (logpath + "/correlateVector.out");
 
 
@@ -200,8 +200,8 @@ public:
 	// centres[1].xval = -0.5; centres[1].yval = -0.5;
 	// centres[0].xval = -0.1; centres[0].yval = -0.5;
 	for (int j=0;j<NUMPOINTS;j++)
-          afile << "j = " << j <<" x = " << centres[j] .xval  << "  y = " << centres[j].yval <<endl;
-	afile << " s = " << s << endl;
+//          afile << "j = " << j <<" x = " << centres[j] .xval  << "  y = " << centres[j].yval <<endl;
+//	afile << " s = " << s << endl;
 
         n = 0;
 	x = 0;
@@ -238,7 +238,7 @@ public:
                           } //if on shape determination
 	  } //if on b
 	} //if on r
-		      afile << " s = " << s << endl;
+//		      afile << " s = " << s << endl;
 
 
 	for (int r=0; r<=3*s/2; r++) {
@@ -275,7 +275,7 @@ public:
 
 	} //if on r
 
-        afile << "after allocation of hexes" << endl;
+//        afile << "after allocation of hexes" << endl;
 
 //these are the vectors of vectors for the regions
 	regionDist.resize(n);
@@ -320,7 +320,7 @@ public:
 	 }
        }
 
-       afile <<"number of boundary elements  " <<boundaryCount<<endl;
+       //afile <<"number of boundary elements  " <<boundaryCount<<endl;
 
 
 	//X is used in plotting, potentially also for stacked grids hence 3-vector
@@ -366,7 +366,7 @@ public:
 
     }
 
-     afile <<"list of all the regions"<<endl;
+     //afile <<"list of all the regions"<<endl;
      for(int i=0;i<n;i++){
 
        if (sortedDist[i][0] == sortedDist[i][1]){
@@ -410,7 +410,7 @@ public:
 
 
 
-      afile << "after creating internal boundaries" << endl;
+      //afile << "after creating internal boundaries" << endl;
 
 
 
@@ -428,7 +428,7 @@ public:
       diff.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++){
           diff[j] = this->set_polars(j);
-          afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
+          //afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
       }
   } //end of constructor
 
@@ -1222,7 +1222,7 @@ int main (int argc, char **argv)
     //commandStem = "cd " + logpath;
     //command = commandStem.c_str();
     //system(command);
-    ofstream bfile ( logpath + "/maindebug.out" );
+    // ofstream bfile ( logpath + "/maindebug.out" );
     ofstream gfile ( logpath + "/edges.out");
 
     // int mdegree = 0;
@@ -1243,7 +1243,7 @@ int main (int argc, char **argv)
     //bfile << "just after displays" << endl;
 
 // initialise Ermentrout class setting scale
-    Erm2009 M(8.0,logpath);
+    Erm2009 M(9.0,logpath);
 
 // initialise with random field
     for (int i=0;i<M.n;i++) {	
@@ -1262,7 +1262,7 @@ int main (int argc, char **argv)
       }
     //code run at end of timestepping
     //first save the  ofstream outFile;
-     string fname = logpath + "/2Derm.h5";
+     string fname = logpath + "/fileVal.h5";
      morph::HdfData data (fname);
     // save the fields
      for (int i=0; i < M.n; i++) {
@@ -1320,7 +1320,8 @@ int main (int argc, char **argv)
                   degreeAngle = M.find_max(angleVector,3);
                   sumAngle += degreeAngle;
                   // degreeAngle = sumAngle / 3;
-                  gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  // gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  gfile << " "<< j << " "<< degreeAngle << "  " << degreeRadius << " " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
                   //radial degree
                   int sumRadius = 0;
                   for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 4){
@@ -1334,7 +1335,7 @@ int main (int argc, char **argv)
 
 
                   //degreeRadius = sumRadius / numSectors;
-                  gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+                  // gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
                   // radiusVector = M.meanzero_vector(radiusVector);
                   // gfile << "tempvector size " << tempvector.size() << endl;
                   //for (unsigned int i = 0; i<tempvector.size();i++)
@@ -1347,14 +1348,14 @@ int main (int argc, char **argv)
                   //W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
 
                   regionCount++;
-                  bfile <<"region "<<j<<" " << endl;;
+                  // bfile <<"region "<<j<<" " << endl;;
                   for (int k=0; k < (int) radiusVector.size();k++){
-                      bfile<< setw(5) << " radius "<< radiusVector[k];
-                      bfile<< setw(5) << " angle "<< angleVector[k];
-                      bfile <<endl;
+                     // bfile<< setw(5) << " radius "<< radiusVector[k];
+                     // bfile<< setw(5) << " angle "<< angleVector[k];
+                     // bfile <<endl;
                   } //end of for on printing sector values
 	      } //end of if on non-zero regions
-              bfile <<regionCount<<endl;
+              //bfile <<regionCount<<endl;
 	      } //end of loop on NUMPOINTs
 
 
