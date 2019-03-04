@@ -1276,12 +1276,12 @@ int main (int argc, char **argv)
      for (int i=0; i < M.n; i++) {
 	  stringstream vss;	  vss << "n_" << i;
 	  string vname = vss.str();
-	  data.add_val (vname.c_str(), M.NN[i]);
+	  data.add_float (vname.c_str(), M.NN[i]);
 	  vname[0] = 'c';
-	  data.add_val (vname.c_str(), M.CC[i]);
+	  data.add_float (vname.c_str(), M.CC[i]);
      }
-     data.add_val ("/Dchi", Dchi);
-     data.add_val ("/Dn", Dn);
+     data.add_float ("/Dchi", Dchi);
+     data.add_float ("/Dn", Dn);
      
      //post run analysis
 
