@@ -9,8 +9,10 @@
 #include <math.h>
 #include <random>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
+//#include <boost/math/special_functions/bessel.hpp> 
 #include <map>
-#include <boost/math/special_functions/bessel.hpp>
 #define PI 3.14159265
 #define NUMPOINTS 78  //this is after deleting point 73
 

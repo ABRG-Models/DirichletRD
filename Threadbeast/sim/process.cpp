@@ -709,6 +709,63 @@ vector<int> sort_indexes(const vector<T> &v) {
   //function bessel_ray for computing bessel functions along a ray
   // takes a vector of doubles representing the radius
 
+    // find the zeros in a ray angular
+    int find_zeroAngle(vector<double> ray, int window) {
+    int size = ray.size();
+    // ofstream zerofile ("zero.txt",ios::app);
+    vector<double> smoothRay;
+    smoothRay = this->smooth_vector(ray, window);
+    //zerofile <<"size = " << size <<endl;
+
+    turnVal.resize(1000);
+    double old_val = 0;
+    double new_val = 0;
+    int count = 0;
+    old_val = smoothRay[0];
+    for (int i =1; i<size+1;i++){
+      new_val = smoothRay[i%size];
+      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      if (new_val*old_val < 0.) {
+	turnVal[count].radialIndex = i;
+	turnVal[count].radialValue =smoothRay[i]; //should really interpolate
+        //zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
+        count++;
+      }
+      old_val = new_val;
+    }
+    return count;
+  }
+
+      // find the zeros in a radial ray
+    int find_zeroRadius(vector<double> ray, int window) {
+    int size = ray.size();
+    //ofstream zerofile ("zero.txt",ios::app);
+     vector<double> smoothRay;
+     smoothRay = this->smooth_vector(ray, window);
+    //zerofile <<"size = " << size <<endl;
+
+    turnVal.resize(1000);
+    double old_val = 0;
+    double new_val = 0;
+    int count = 0;
+    old_val = smoothRay[0];
+    for (int i =1; i<size;i++){
+      new_val = smoothRay[i%size];
+      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      if (new_val*old_val < 0.) {
+	turnVal[count].radialIndex = i;
+	turnVal[count].radialValue = smoothRay[i]; //should really interpolate
+        //zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
+        count++;
+      }
+      old_val = new_val;
+    }
+    return count;
+  }
+
+  //function bessel_ray for computing bessel functions along a ray
+  // takes a vector of doubles representing the radius
+
 
   //function bessel_ray for computing bessel functions along a ray
   // takes a vector of doubles representing the radius
@@ -1174,7 +1231,6 @@ vector<int> sort_indexes(const vector<T> &v) {
     }
 
 
-/*
     //sectorize over radius
     vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
         //ofstream dfile ("sectorRadius.txt");
@@ -1288,6 +1344,12 @@ if (radiusCount[k] == 0) {
      //function to count the hexes in sectors of a region via angular sectors
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
         ofstream cfile ("logs/sectorAngle.txt",ios::app);
+
+
+ //function to count the hexes in sectors of a region via angular sectors
+    vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
+    //  ofstream cfile ("logs/sectorAngle.txt");
+>>>>>>> 9d2e48b7de181e7a60a6d5707154cd73c437f8ac
     //std::pair<double,double> diff; //difference between seed point and CoG of region
     // diff = this->set_polars(regNum);
     vector <double> angleNN; //average value of CC in each sector
@@ -1413,7 +1475,90 @@ if (angleCount[k] == 0) {
      return angleNN;
 
   } //end of function sectorize_region
+}; // Erm2009
 
+
+int main (int argc, char **argv)
+{
+    if (argc < 7) {
+      std::cout << "not enough arguments" << argc << endl;
+      return -1;
+    }
+    //const char* logdir = "cd logs";
+   // system (logdir);
+    string logpath = argv[1];
+    string commandStem;
+    const char* command;
+    double dt = stod(argv[2]); //timesetp passed to M.step
+    double Dn = stod(argv[3]); //Dn diffusion passed to M.step
+    double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
+    int numsteps = atoi(argv[5]); //length of integration 
+    int numprint = atoi(argv[6]); //frequency of printing
+    commandStem = "mkdir " + logpath;
+    command = commandStem.c_str();
+    system(command);
+     //  cerr << "Error : " << strerror(errno) << endl;
+    // else
+    //   cout << "Directory created" << endl;
+	
+    //commandStem = "cd " + logpath;
+    //command = commandStem.c_str();
+    //system(command);
+    // ofstream bfile ( logpath + "/maindebug.out" );
+    ofstream gfile ( logpath + "/edges.out");
+
+    // int mdegree = 0;
+    vector <double> rayv;
+    vector <double> ringv;
+
+    // DISPLAYS
+    //vector<morph::Gdisplay> displays;
+    //vector<double>fix(3,0.0);
+    //vector<double>eye(3,0.0);
+    //vector<double>rot(3,0.0);
+    //displays.push_back (morph::Gdisplay (600, "NN field", 0., 0., 0.));
+    //displays[0].resetDisplay(fix,eye,rot);
+    //displays[0].redrawDisplay();
+    //displays.push_back (morph::Gdisplay (600, "CC field", 0., 0., 0.));
+    //displays[1].resetDisplay(fix,eye,rot);
+    //displays[1].redrawDisplay();
+    //bfile << "just after displays" << endl;
+
+// initialise Ermentrout class setting scale
+    Erm2009 M(9.0,logpath);
+
+// initialise with random field
+    for (int i=0;i<M.n;i++) {	
+	double choice = morph::Tools::randDouble();
+        if (choice > 0.5)
+           M.NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
+        else
+           M.NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
+        M.CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+      } //end of code to set initial random field
+      for (int i=0;i<numsteps;i++) {
+//	 bfile << " just before time step " << endl;
+         M.step(dt, Dn, Dchi);
+//         bfile << " just after time step i = " << i << endl;
+>>>>>>> 9d2e48b7de181e7a60a6d5707154cd73c437f8ac
+
+      }
+    //code run at end of timestepping
+    //first save the  ofstream outFile;
+     string fname = logpath + "/fileVal.h5";
+     morph::HdfData data (fname);
+    // save the fields
+     for (int i=0; i < M.n; i++) {
+	  stringstream vss;	  vss << "n_" << i;
+	  string vname = vss.str();
+	  data.add_float (vname.c_str(), M.NN[i]);
+	  vname[0] = 'c';
+	  data.add_float (vname.c_str(), M.CC[i]);
+     }
+     data.add_float ("/Dchi", Dchi);
+     data.add_float ("/Dn", Dn);
+     
+     //post run analysis
 
 
 
@@ -1602,5 +1747,38 @@ for (int j=0;j<NUMPOINTS-1;j++) {
        if (j>jmax) jmax = j;
     }
     gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
+
+              for (int j=0;j<NUMPOINTS-1;j++) {
+	      if (M.regArea(j) != 0){
+	          gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
+                  tempArea = M.regArea(j)*(5.0/Dn);
+                  tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
+
+                  int radiusOffset = 0;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
+                  angleVector = M.meanzero_vector(angleVector);
+                  degreeAngle = M.find_zeroAngle(angleVector,3);
+                  //radial degree
+                  int holdRadius = 0;
+		  degreeRadius = 0;
+		  int numiters = 0;
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 4){
+                  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+                  radiusVector = M.meanzero_vector(radiusVector);
+                  holdRadius = M.find_zeroRadius(radiusVector,3);
+		  //degreeRadius += holdRadius;
+		  //numiters++;
+		  if (holdRadius > degreeRadius)
+			  degreeRadius = holdRadius;
+                  }
+                //  degreeRadius = degreeRadius/numiters;
+
+                  gfile << " degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
+                  regionCount++;
+	      } //end of if on non-zero regions
+	      } //end of loop on NUMPOINTs
+
+
+>>>>>>> 9d2e48b7de181e7a60a6d5707154cd73c437f8ac
     return 0;
 };
