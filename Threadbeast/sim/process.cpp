@@ -609,6 +609,7 @@ vector<int> sort_indexes(const vector<T> &v) {
   }
 
 
+/*
     // find the zeros in a ray angular
     int find_zeroAngle(vector<double> ray, int window) {
     int size = ray.size();
@@ -636,8 +637,6 @@ vector<int> sort_indexes(const vector<T> &v) {
     return count;
   }
 
-/*
-      // find the zeros in a radial ray
     int find_zeroRadius(vector<double> ray, int window) {
     int size = ray.size();
     //ofstream zerofile ("zero.txt",ios::app);
@@ -1280,7 +1279,6 @@ vector<int> sort_indexes(const vector<T> &v) {
      return radiusNN;
 
   } //end of function sectorize_radius
-*/
 
      //sectorize over radius
     //adapted for digital output
@@ -1341,16 +1339,12 @@ if (radiusCount[k] == 0) {
 
   } //end of function sectorize_radius
 
-     //function to count the hexes in sectors of a region via angular sectors
-    vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
-        ofstream cfile ("logs/sectorAngle.txt",ios::app);
 
 
  //function to count the hexes in sectors of a region via angular sectors
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
-    //  ofstream cfile ("logs/sectorAngle.txt");
->>>>>>> 9d2e48b7de181e7a60a6d5707154cd73c437f8ac
     //std::pair<double,double> diff; //difference between seed point and CoG of region
+    ofstream cfile ("logs/sectorAngle.txt",ios::app);
     // diff = this->set_polars(regNum);
     vector <double> angleNN; //average value of CC in each sector
     vector <double> normalNN;
@@ -1475,93 +1469,6 @@ if (angleCount[k] == 0) {
      return angleNN;
 
   } //end of function sectorize_region
-}; // Erm2009
-
-
-int main (int argc, char **argv)
-{
-    if (argc < 7) {
-      std::cout << "not enough arguments" << argc << endl;
-      return -1;
-    }
-    //const char* logdir = "cd logs";
-   // system (logdir);
-    string logpath = argv[1];
-    string commandStem;
-    const char* command;
-    double dt = stod(argv[2]); //timesetp passed to M.step
-    double Dn = stod(argv[3]); //Dn diffusion passed to M.step
-    double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
-    int numsteps = atoi(argv[5]); //length of integration 
-    int numprint = atoi(argv[6]); //frequency of printing
-    commandStem = "mkdir " + logpath;
-    command = commandStem.c_str();
-    system(command);
-     //  cerr << "Error : " << strerror(errno) << endl;
-    // else
-    //   cout << "Directory created" << endl;
-	
-    //commandStem = "cd " + logpath;
-    //command = commandStem.c_str();
-    //system(command);
-    // ofstream bfile ( logpath + "/maindebug.out" );
-    ofstream gfile ( logpath + "/edges.out");
-
-    // int mdegree = 0;
-    vector <double> rayv;
-    vector <double> ringv;
-
-    // DISPLAYS
-    //vector<morph::Gdisplay> displays;
-    //vector<double>fix(3,0.0);
-    //vector<double>eye(3,0.0);
-    //vector<double>rot(3,0.0);
-    //displays.push_back (morph::Gdisplay (600, "NN field", 0., 0., 0.));
-    //displays[0].resetDisplay(fix,eye,rot);
-    //displays[0].redrawDisplay();
-    //displays.push_back (morph::Gdisplay (600, "CC field", 0., 0., 0.));
-    //displays[1].resetDisplay(fix,eye,rot);
-    //displays[1].redrawDisplay();
-    //bfile << "just after displays" << endl;
-
-// initialise Ermentrout class setting scale
-    Erm2009 M(9.0,logpath);
-
-// initialise with random field
-    for (int i=0;i<M.n;i++) {	
-	double choice = morph::Tools::randDouble();
-        if (choice > 0.5)
-           M.NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
-        else
-           M.NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
-        M.CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
-      } //end of code to set initial random field
-      for (int i=0;i<numsteps;i++) {
-//	 bfile << " just before time step " << endl;
-         M.step(dt, Dn, Dchi);
-//         bfile << " just after time step i = " << i << endl;
->>>>>>> 9d2e48b7de181e7a60a6d5707154cd73c437f8ac
-
-      }
-    //code run at end of timestepping
-    //first save the  ofstream outFile;
-     string fname = logpath + "/fileVal.h5";
-     morph::HdfData data (fname);
-    // save the fields
-     for (int i=0; i < M.n; i++) {
-	  stringstream vss;	  vss << "n_" << i;
-	  string vname = vss.str();
-	  data.add_float (vname.c_str(), M.NN[i]);
-	  vname[0] = 'c';
-	  data.add_float (vname.c_str(), M.CC[i]);
-     }
-     data.add_float ("/Dchi", Dchi);
-     data.add_float ("/Dn", Dn);
-     
-     //post run analysis
-
-
-
 }; // Erm2009
 
 
@@ -1730,8 +1637,8 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 
                   regionCount++;
                   
-              } //end of if on non-zero regions
-              } //end of loop on NUMPOINTs
+	      } //end of if on non-zero regions
+} //end of loop on NUMPOINTs
 //writing out of the image files
     int imin = 1000000;
     int imax = -1000000;
@@ -1779,6 +1686,5 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 	      } //end of loop on NUMPOINTs
 
 
->>>>>>> 9d2e48b7de181e7a60a6d5707154cd73c437f8ac
     return 0;
 };
