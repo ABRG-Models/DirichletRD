@@ -29,6 +29,7 @@ using std::endl;
 using std::runtime_error;
 using morph::HexGrid;
 using morph::HdfData;
+using morph::Tools;
 using namespace std;
 
 class Erm2009
@@ -591,7 +592,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 // find the zeros in a ray angular
     int find_zeroDAngle(vector<int> ray) {
     int size = ray.size();
-    ofstream zerofile ("zero.txt",ios::app);
+    //ofstream zerofile ("zero.txt",ios::app);
     int old_val = ray[0];
     int new_val;
     int count = 0;
@@ -603,7 +604,7 @@ vector<int> sort_indexes(const vector<T> &v) {
            }
         old_val = new_val;
         }
-      zerofile << " radius " << i%size << " " << old_val << " "<<new_val <<endl;
+      //zerofile << " radius " << i%size << " " << old_val << " "<<new_val <<endl;
       }
     return count;
   }
@@ -667,7 +668,7 @@ vector<int> sort_indexes(const vector<T> &v) {
  // find the zeros in a ray angular
     int find_zeroDRadius(vector<int> ray) {
     int size = ray.size();
-    ofstream zerofile ("zero.txt",ios::app);
+    //ofstream zerofile ("zero.txt",ios::app);
     int old_val = ray[0];
     int new_val;
     int count = 0;
@@ -679,7 +680,7 @@ vector<int> sort_indexes(const vector<T> &v) {
            }
         old_val = new_val;
         }
-      zerofile << " angle " << i%size << " " << old_val << " "<<new_val <<endl;
+      //zerofile << " angle " << i%size << " " << old_val << " "<<new_val <<endl;
       }
     return count;
   }
@@ -688,7 +689,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 // find the zeros in a ray angular
     int find_zeroRadius(vector<int> ray) {
     int size = ray.size();
-    ofstream zerofile ("zero.txt",ios::app);
+    //ofstream zerofile ("zero.txt",ios::app);
     int old_val = 0;
     int new_val = 0;
     int count = 0;
@@ -697,10 +698,10 @@ vector<int> sort_indexes(const vector<T> &v) {
            new_val = ray[i%size];
            if (old_val*new_val == -1) {
                    count++;
-                   old_val = new_val;
            }
+	   old_val = new_val;
         }
-      zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
+      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
       }
     return count;
   }
@@ -713,9 +714,9 @@ vector<int> sort_indexes(const vector<T> &v) {
     int size = ray.size();
     // ofstream zerofile ("zero.txt",ios::app);
     vector<double> smoothRay;
-    smoothRay = this->smooth_vector(ray, window);
+    //smoothRay = this->smooth_vector(ray, window);
+    smoothRay = ray;
     //zerofile <<"size = " << size <<endl;
-
     turnVal.resize(1000);
     double old_val = 0;
     double new_val = 0;
@@ -740,7 +741,8 @@ vector<int> sort_indexes(const vector<T> &v) {
     int size = ray.size();
     //ofstream zerofile ("zero.txt",ios::app);
      vector<double> smoothRay;
-     smoothRay = this->smooth_vector(ray, window);
+    // smoothRay = this->smooth_vector(ray, window);
+     smoothRay = ray;
     //zerofile <<"size = " << size <<endl;
 
     turnVal.resize(1000);
@@ -1234,10 +1236,10 @@ vector<int> sort_indexes(const vector<T> &v) {
     vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
         //ofstream dfile ("sectorRadius.txt");
     vector <double>  radiusNN;
-    radiusNN.resize(numSectors);
+    radiusNN.resize(numSectors,0);
     vector <int> radiusCount;
     vector <double> normalNN;
-    radiusCount.resize(numSectors);
+    radiusCount.resize(numSectors,0);
     double startRadius, finishRadius, radiusInc; //sector radii
     double maxRadius = max_radius(regNum);
     double minRadius = min_radius(regNum);
@@ -1271,7 +1273,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
       if (radiusCount[k] != 0)
-	radiusNN[k] = radiusNN[k] / (1.*radiusCount[k]);
+	radiusNN[k] = radiusNN[k];
       else
 	radiusNN[k] = 0.0;
       //dfile << "startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
@@ -1285,10 +1287,12 @@ vector<int> sort_indexes(const vector<T> &v) {
     vector <int> sectorize_reg_Dradius (int regNum, int numSectors, int beginAngle, int endAngle) {
         ofstream dfile ( "logs/sectorRadius.txt",ios::app);
     vector <int>  radiusNN;
-    radiusNN.resize(numSectors);
+    radiusNN.resize(numSectors,0);
     vector <int> radiusCount;
+    vector <double> radiusHold;
     vector <double> normalNN;
-    radiusCount.resize(numSectors);
+    radiusCount.resize(numSectors,0);
+    radiusHold.resize(numSectors,0);
     double startRadius, finishRadius, radiusInc; //sector radii
     double maxRadius = max_radius(regNum);
     double minRadius = min_radius(regNum);
@@ -1300,35 +1304,39 @@ vector<int> sort_indexes(const vector<T> &v) {
     finishAngle = endAngle*angleInc;
     int size = (int) regionIndex[regNum].size();
     for (int i=0;i<size;i++){
-          normalNN.push_back(this->NN[regionIndex[regNum][i]] - 1.0);
+          normalNN.push_back(this->NN[regionIndex[regNum][i]]);
       }
     // to normalise the NN field
     normalNN = meanzero_vector(normalNN);
-    double epsilon = 0.05*(maxVal(normalNN) - minVal(normalNN));
+    double epsilon = 0.0001*(maxVal(normalNN) - minVal(normalNN));
       //for (int i=0;i<size;i++)
           // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
     for (int k=0;k<numSectors;k++) {
       startRadius = (k*radiusInc);
       finishRadius = (k+1)*radiusInc;
-      double sum = 0;
       for (int i=0; i< size;i++) {
         if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<finishAngle) {
           if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
               radiusCount[k]++;
               //radiusCC[k] += this->CC[regionIndex[regNum][i]];
-              sum += normalNN[i];
+              radiusHold[k] += normalNN[i];
           } //end of if on radius
         } //end of if on angleSector
       } //end of loop over i
-if (radiusCount[k] == 0) {
-           radiusNN[k] = 2;
-           continue;
-        }
-        sum  = sum  / (1.*radiusCount[k]);
-        if (sum > epsilon)
+    }//end of loop over k
+    
+    for (int k=0;k<numSectors;k++){
+	    startRadius = (k*radiusInc);
+	    finishRadius = (k+1)*radiusInc;
+	    if (radiusCount[k] == 0) {
+		    radiusNN[k] = 2;
+		    continue;
+	    }
+//	    radiusHold[k]  = radiusHold[k]  / (1.*radiusCount[k]);
+        if (radiusHold[k] > epsilon)
                 radiusNN[k] = 1;
-        else if (sum < epsilon)
+        else if (radiusHold[k] < epsilon)
                 radiusNN[k] = -1;
         else
                 radiusNN[k] = 0;
@@ -1344,14 +1352,14 @@ if (radiusCount[k] == 0) {
  //function to count the hexes in sectors of a region via angular sectors
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
     //std::pair<double,double> diff; //difference between seed point and CoG of region
-    ofstream cfile ("logs/sectorAngle.txt",ios::app);
+//    ofstream cfile ("logs/sectorAngle.txt",ios::app);
     // diff = this->set_polars(regNum);
     vector <double> angleNN; //average value of CC in each sector
     vector <double> normalNN;
     vector <double>  angleVal;
     vector <int> count; //number of hexes in each sector
-    angleNN.resize(numSectors);
-    count.resize(numSectors);
+    angleNN.resize(numSectors,0);
+    count.resize(numSectors,0);
     double startAngle, endAngle, angleInc; //sector angles
     double startRadius, finishRadius,radiusInc;
     double maxRadius = max_radius(regNum);
@@ -1366,8 +1374,8 @@ if (radiusCount[k] == 0) {
           normalNN.push_back(this->NN[regionIndex[regNum][i]]);
       }
       normalNN = meanzero_vector(normalNN);
-      for (int i=0;i<size;i++)
-           cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+      //for (int i=0;i<size;i++)
+        //   cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
     for (int k=0;k<numSectors;k++) {
       //double angle;
@@ -1384,33 +1392,39 @@ if (radiusCount[k] == 0) {
                   count[k]++;
           //angle[k] += this->[regionIndex[regNum][i]];
                   angleNN[k] += normalNN[i];
-              }
+              }//end if on angle
         //cfile << setw(5) << angleVal[i]  <<"  ";
-          }
-      }
+          }//end if on radius
+      }//end loop on i
+    }//end loop on k
 
-      cfile << endl;
-      // cfile << "diff x " << diff.first << "diff y " << diff.second << endl;
-cfile << "  start angle "  << startAngle << "  end angle "<< endAngle << " NN field " << angleNN[k] << endl;
-      if (count[k] != 0)
-        angleNN[k] = angleNN[k] / (1.*count[k]);
-      else
-        angleNN[k] = -999.999;
-    }  //end loop on k
+    angleNN = meanzero_vector(angleNN);
+    for (int k=0;k<numSectors;k++){
+	    startAngle = k*angleInc;
+	    endAngle = k*angleInc;
+	    if (count[k] != 0)
+		    angleNN[k] = angleNN[k]/(1.*count[k]);
+	    else
+		    angleNN[k] = -999.999;
+    }//end loop on k
+
+     
      return angleNN;
 
   } //end of function sectorize_region
 
  //function to count the hexes in sectors of a region via angular sectors
     vector <int> sectorize_reg_Dangle (int regNum, int numSectors, int beginRadius, int endRadius) {
-        ofstream cfile ("logs/sectorAngle.txt");
+    //    ofstream cfile ("logs/sectorAngle.txt");
     //std::pair<double,double> diff; //difference between seed point and CoG of region
     // diff = this->set_polars(regNum);
     vector <int> angleNN; //digitized value of NN in each sector
+    vector <double> angleHold;
     vector <double> normalNN;
     vector <double>  angleVal;
     vector <int> angleCount; //number of hexes in each sector
     angleNN.resize(numSectors,0);
+    angleHold.resize(numSectors,0);
     angleCount.resize(numSectors);
     double startAngle, endAngle, angleInc; //sector angles
     double startRadius, finishRadius,radiusInc;
@@ -1426,45 +1440,46 @@ cfile << "  start angle "  << startAngle << "  end angle "<< endAngle << " NN fi
           normalNN.push_back(this->NN[regionIndex[regNum][i]]);
       }
       normalNN = meanzero_vector(normalNN);
-      double epsilon = 0.1*(maxVal(normalNN) - minVal(normalNN));
-      for (int i=0;i<size;i++)
-           cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+      double epsilon = 0.0001*(maxVal(normalNN) - minVal(normalNN));
+     // for (int i=0;i<size;i++)
+       //    cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
     for (int k=0;k<numSectors;k++) {
-      //double angle;
       startAngle = k*angleInc;
       endAngle = (k+1)*angleInc;
       if ((k+1) == numSectors)
          endAngle = 2*PI;
 
-      double sum = 0;
       for (int i=0; i< size;i++) {
           if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
               if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
                   angleVal.push_back(H[5][regionIndex[regNum][i]]);
                   angleCount[k]++;
           //angle[k] += this->[regionIndex[regNum][i]];
-                  sum += normalNN[i];
-              }
+                  angleHold[k] += normalNN[i];
+              }//end if on angle
         //cfile << setw(5) << angleVal[i]  <<"  ";
-          }
-      }
+          }//end if on radius
+      } //end if on i
+    }//end if on k
 
-      cfile << endl;
-      // cfile << "diff x " << diff.first << "diff y " << diff.second << endl;
-if (angleCount[k] == 0) {
+      angleHold = meanzero_vector(angleHold);
+
+      for (int k=0;k<numSectors;k++){
+      startAngle = k*angleInc;
+      endAngle = (k+1)*angleInc;
+      if (angleCount[k] == 0) {
            angleNN[k] = 2;
            continue;
         }
-        sum  = sum  / (1.*angleCount[k]);
-        if (sum > epsilon)
+        //angleHold[k] = angleHold[k] / (1.*angleCount[k]);
+        if (angleHold[k] > epsilon)
                 angleNN[k] = 1;
-        else if (sum < epsilon)
+        else if (angleHold[k] < epsilon)
                 angleNN[k] = -1;
         else
                 angleNN[k] = 0;
 
-       cfile << "  start angle "  << startAngle << "  end angle "<< endAngle << " NN field " << angleNN[k] << endl;
     } //end loop on k
      return angleNN;
 
@@ -1482,6 +1497,7 @@ int main (int argc, char **argv)
    // system (logdir);
     string logpath = argv[1];
     string commandStem;
+    bool overwrite_logs = true;
     const char* command;
     double dt = stod(argv[2]); //timesetp passed to M.step
     double Dn = stod(argv[3]); //Dn diffusion passed to M.step
@@ -1489,6 +1505,30 @@ int main (int argc, char **argv)
     int numsteps = atoi(argv[5]); //length of integration 
     int numprint = atoi(argv[6]); //frequency of printing
     int Lcontinue = atoi(argv[7]); //logical to determine if coldstart
+      /*
+     * Now create a log directory if necessary, and exit on any
+     * failures.
+     */
+    if (morph::Tools::dirExists (logpath) == false) {
+        morph::Tools::createDir (logpath);
+        if (morph::Tools::dirExists (logpath) == false) {
+            cerr << "Failed to create the logpath directory "
+                 << logpath << " which does not exist."<< endl;
+            return 1;
+        }
+    } else {
+        // Directory DOES exist. See if it contains a previous run and
+        // exit without overwriting to avoid confusion.
+        if (overwrite_logs == false
+            && (morph::Tools::fileExists (logpath + "/params.json") == true
+                || morph::Tools::fileExists (logpath + "/guidance.h5") == true
+                || morph::Tools::fileExists (logpath + "/positions.h5") == true)) {
+            cerr << "Seems like a previous simulation was logged in " << logpath << ".\n"
+                 << "Please clean it out manually, choose another directory or set\n"
+                 << "overwrite_logs to true in your parameters config JSON file." << endl;
+            return 1;
+        }
+    }
 //    commandStem = "mkdir " + logpath;
 //    command = commandStem.c_str();
 //    system(command);
@@ -1544,9 +1584,9 @@ int main (int argc, char **argv)
     } //end of else on Lcontinue
     cout <<  "just after field creation" << endl;
       for (int i=0;i<numsteps;i++) {
-//	 bfile << " just before time step " << endl;
+	 //gfile << " just before time step " << endl;
          M.step(dt, Dn, Dchi);
-//         bfile << " just after time step i = " << i << endl;
+         //gfile << " just after time step i = " << i << endl;
 
       }
     //code run at end of timestepping
@@ -1559,6 +1599,7 @@ int main (int argc, char **argv)
      data.add_val ("/Dchi", Dchi);
      data.add_val ("/Dn", Dn);
      
+     gfile << " just after writing data "  << endl;
      //post run analysis
 
 
@@ -1602,8 +1643,8 @@ for (int j=0;j<NUMPOINTS-1;j++) {
                   //radial degree
                   degreeRadius = -100;
                   int newdegreeRadius = 0;
-                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3){
-                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 3);
+                  for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=1){
+                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 1);
                   //gfile <<"after sectorize_reg_radius"<<endl;
                   // radiusVector = M.meanzero_vector(radiusVector);
 
@@ -1612,26 +1653,20 @@ for (int j=0;j<NUMPOINTS-1;j++) {
                   if (newdegreeRadius > degreeRadius)
                           degreeRadius = newdegreeRadius;
                   }
-                  //gfile << "region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
-
-
-                  //degreeRadius = sumRadius / numSectors;
                   gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl << endl;
+		  
                   ///radial degree
-                  //degreeRadius = -100;
-                  //newdegreeRadius = 0;
-                  //for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 11){
-                  //radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
-                  //gfile <<"after sectorize_reg_radius"<<endl;
-                   //radiusVector = M.meanzero_vector(radiusVector);
-                  //newdegreeRadius = M.find_zeroRadius(radiusVector,3);
-                  // gfile << " ndR " << newdegreeRadius;
-                  //if (newdegreeRadius > degreeRadius)
-                   //             degreeRadius = newdegreeRadius;
-                 // }
+                  degreeRadius = -100;
+                  newdegreeRadius = 0;
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 1){
+			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 1);
+			  newdegreeRadius = M.find_zeroRadius(radiusVector,3);
+			  if (newdegreeRadius > degreeRadius)
+				  degreeRadius = newdegreeRadius;
+		  }
 
 
-                  //gfile <<  " region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+                  gfile <<  " region "<< j << " degreeRadius  "<< degreeRadius << "  " <<endl;
 
 //                  W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
 
