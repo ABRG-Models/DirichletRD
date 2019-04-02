@@ -9,8 +9,10 @@
 #include <math.h>
 #include <random>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
+//#include <boost/math/special_functions/bessel.hpp> 
 #include <map>
-#include <boost/math/special_functions/bessel.hpp>
 #define PI 3.14159265
 #define NUMPOINTS 78  //this is after deleting point 73
 
@@ -1684,12 +1686,12 @@ int main (int argc, char **argv)
                   gfile << "region "<< j << " degreeDAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
 
 		  // analogue version
-                  //radiusOffset = 0;
-                  //angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 3);
-                  //angleVector = M.meanzero_vector(angleVector);
-                  //degreeAngle = M.find_max(angleVector,3);
-		  //degreeAngle = M.find_zeroAngle(angleVector,3);
-                  //gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  radiusOffset = 0;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 3);
+                  angleVector = M.meanzero_vector(angleVector);
+                  //`:degreeAngle = M.find_max(angleVector,3);
+		  degreeAngle = M.find_zeroAngle(angleVector,3);
+                  gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
                   //radial degree
 		  degreeRadius = -100;
 		  int newdegreeRadius = 0;
@@ -1709,21 +1711,21 @@ int main (int argc, char **argv)
                   //degreeRadius = sumRadius / numSectors;
                   gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl << endl;
                   ///radial degree
-		  //degreeRadius = -100;
-		  //newdegreeRadius = 0;
-                  //for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 11){
-                  //radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
-		  //gfile <<"after sectorize_reg_radius"<<endl;
-                  // radiusVector = M.meanzero_vector(radiusVector);
+		  degreeRadius = -100;
+		  newdegreeRadius = 0;
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 11){
+                  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+		  gfile <<"after sectorize_reg_radius"<<endl;
+                   radiusVector = M.meanzero_vector(radiusVector);
 
-                  //newdegreeRadius = M.find_zeroRadius(radiusVector,3);
-		  // gfile << " ndR " << newdegreeRadius;
-                  //if (newdegreeRadius > degreeRadius)
-	          //		  degreeRadius = newdegreeRadius;
-		  //}
+                  newdegreeRadius = M.find_zeroRadius(radiusVector,3);
+		   gfile << " ndR " << newdegreeRadius;
+                  if (newdegreeRadius > degreeRadius)
+	          		  degreeRadius = newdegreeRadius;
+		  }
 
 
-                  //gfile <<  " region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
+                  gfile <<  " region "<< j << " degreeRadius "<< degreeRadius << "  " <<endl;
 
 //                  W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
 
