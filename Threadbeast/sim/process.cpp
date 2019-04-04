@@ -1234,7 +1234,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
     //sectorize over radius
     vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
-        //ofstream dfile ("sectorRadius.txt");
+    ofstream dfile ("logs/sectorRadius.txt",ios::app);
     vector <double>  radiusNN;
     radiusNN.resize(numSectors,0);
     vector <int> radiusCount;
@@ -1276,7 +1276,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 	radiusNN[k] = radiusNN[k];
       else
 	radiusNN[k] = 0.0;
-      //dfile << "startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
+      dfile << " region " << regNum << " startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
     }//end loop on k
      return radiusNN;
 
@@ -1341,7 +1341,7 @@ vector<int> sort_indexes(const vector<T> &v) {
         else
                 radiusNN[k] = 0;
 
- //     dfile << "startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
+       dfile << " region " << regNum <<" startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << radiusNN[k] << endl;
     }//end loop on k
      return radiusNN;
 
@@ -1352,7 +1352,7 @@ vector<int> sort_indexes(const vector<T> &v) {
  //function to count the hexes in sectors of a region via angular sectors
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginRadius, int endRadius) {
     //std::pair<double,double> diff; //difference between seed point and CoG of region
-//    ofstream cfile ("logs/sectorAngle.txt",ios::app);
+    ofstream cfile ("logs/sectorAngle.txt",ios::app);
     // diff = this->set_polars(regNum);
     vector <double> angleNN; //average value of CC in each sector
     vector <double> normalNN;
@@ -1406,6 +1406,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 		    angleNN[k] = angleNN[k]/(1.*count[k]);
 	    else
 		    angleNN[k] = -999.999;
+       cfile << " region " << regNum <<" startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << angleNN[k] << endl;
     }//end loop on k
 
      
@@ -1415,7 +1416,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
  //function to count the hexes in sectors of a region via angular sectors
     vector <int> sectorize_reg_Dangle (int regNum, int numSectors, int beginRadius, int endRadius) {
-    //    ofstream cfile ("logs/sectorAngle.txt");
+    ofstream cfile ("logs/sectorAngle.txt");
     //std::pair<double,double> diff; //difference between seed point and CoG of region
     // diff = this->set_polars(regNum);
     vector <int> angleNN; //digitized value of NN in each sector
@@ -1479,6 +1480,7 @@ vector<int> sort_indexes(const vector<T> &v) {
                 angleNN[k] = -1;
         else
                 angleNN[k] = 0;
+       cfile << " region " << regNum <<" startRadius "<<startRadius<<"  finishRadius "<<finishRadius<< " radiusNN " << angleNN[k] << endl;
 
     } //end loop on k
      return angleNN;
@@ -1563,13 +1565,14 @@ int main (int argc, char **argv)
     Erm2009 M(9.0,logpath);
 
     string fname = logpath + "/fileVal.h5";
+    //cout<< "just before first data read"<< endl;
 // initialise with random field
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
-	    cout<< "just after first data read"<< endl;
+	    //cout<< "just after first data read"<< endl;
 	    input.read_contained_vals("n",M.NN);
 	    input.read_contained_vals("c",M.CC);
-	    cout<< "just after input of NN and CC1"<< endl;
+	    //cout<< "just after input of NN and CC1"<< endl;
 //	    input.close();
     }
     else {
@@ -1582,7 +1585,7 @@ int main (int argc, char **argv)
 		    M.CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
 	    } //end of code to set initial random field
     } //end of else on Lcontinue
-    cout <<  "just after field creation" << endl;
+    //cout <<  "just after field creation" << endl;
       for (int i=0;i<numsteps;i++) {
 	 //gfile << " just before time step " << endl;
          M.step(dt, Dn, Dchi);
@@ -1608,7 +1611,7 @@ int main (int argc, char **argv)
             gfile<<"before correlate_edges" << endl;
             M.correlate_edges(logpath);
             gfile<<"after correlate_edges" << endl;
-            cout<<"after correlate_edges" << endl;
+          //  cout<<"after correlate_edges" << endl;
             int regionCount = 0;
             int numSectors = 12;
 	    vector <int> angleDVector;
@@ -1643,8 +1646,8 @@ for (int j=0;j<NUMPOINTS-1;j++) {
                   //radial degree
                   degreeRadius = -100;
                   int newdegreeRadius = 0;
-                  for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=1){
-                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 1);
+                  for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=3){
+                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 3);
                   //gfile <<"after sectorize_reg_radius"<<endl;
                   // radiusVector = M.meanzero_vector(radiusVector);
 
@@ -1653,20 +1656,20 @@ for (int j=0;j<NUMPOINTS-1;j++) {
                   if (newdegreeRadius > degreeRadius)
                           degreeRadius = newdegreeRadius;
                   }
-                  gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl << endl;
+                  gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl ;
 		  
                   ///radial degree
                   degreeRadius = -100;
                   newdegreeRadius = 0;
-                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 1){
-			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 1);
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3){
+			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
 			  newdegreeRadius = M.find_zeroRadius(radiusVector,3);
 			  if (newdegreeRadius > degreeRadius)
 				  degreeRadius = newdegreeRadius;
 		  }
 
 
-                  gfile <<  " region "<< j << " degreeRadius  "<< degreeRadius << "  " <<endl;
+                  gfile <<  " region "<< j << " degreeRadius  "<< degreeRadius << "  " <<endl << endl;
 
 //                  W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
 
@@ -1688,6 +1691,33 @@ for (int j=0;j<NUMPOINTS-1;j++) {
        if (j<jmin) jmin = j;
        if (j>jmax) jmax = j;
     }
+    int iextent = imax - imin + 1;
+    int jextent = jmax - jmin + 1;
+    //cout << " imax " << imax << " imin " << imin << " jmax " << jmax << " jmin " << jmin << endl;
+    //cout << " iextent " << iextent << " jextent " << jextent << " gridsize " << M.n << endl;
+    double NNfield[iextent][jextent];
+    for (int i=0;i<iextent;i++){
+	    for (int j=0;j<jextent;j++){
+		    NNfield[i][j] = 0;
+	    }
+    }
+    //cout << " after filling NNfield " << endl;
+    for (int index=0; index<M.n;index++) {
+       i = M.H[2][index] - M.H[3][index] - imin;
+       j = M.H[2][index] + M.H[3][index] - jmin;
+       //cout << " i " << i << " j " << j << endl;
+       NNfield[i][j] = M.NN[index];
+    }
+    ofstream hfile (logpath + "/NNfield.txt");
+    //cout << " after creating NNfield.txt " << endl;
+
+    for (int i=0;i<iextent;i++){
+	    for (int j=0;j<jextent;j++){
+		    hfile << setprecision(10) << setw(15) << NNfield[i][j];
+	    }
+    }
+
+
     gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
 
               for (int j=0;j<NUMPOINTS-1;j++) {
