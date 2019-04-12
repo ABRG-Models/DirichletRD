@@ -481,7 +481,7 @@ vector<int> sort_indexes(const vector<T> &v) {
     }
 
   //function to timestep coupled equations
-    void step(double dt, double Dn, double Dchi) {
+    void step(double dt, double Dn, double Dchi, double Dc) {
       dt = dt * 2.5 / Dn;
 
 
@@ -504,7 +504,8 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         double beta = 5.;
-        double a = 1., b = 1., mu =Dchi*Dn, Dc = 0.3*Dn;
+      //  double a = 1., b = 1., mu =Dchi*Dn;
+        double a = 1., b = 1., mu = 1;
         vector<double> lapN = getLaplacian(NN,ds);
         vector<double> lapC = getLaplacian(CC,ds);
 
@@ -873,6 +874,32 @@ vector<int> sort_indexes(const vector<T> &v) {
         return result;
     }
 
+    // return the mean of a vector
+        double mean_vector(vector<double> invector) {
+        double result;
+        int size = invector.size();
+        //meanzero << "size " << size << endl;
+        double sum = 0;
+        for (int i=0; i <size; i++) {
+            sum += invector[i];
+        }
+        sum = sum/(1.0*size);
+        return result;
+    }
+
+    // return the mean of the absolute values of a  vector
+        double absmean_vector(vector<double> invector) {
+        //ofstream meanzero ("meanzero.txt",ios::app);
+        double result = 0;
+	double sum = 0;
+        int size = invector.size();
+        //meanzero << "size " << size << endl;
+        for (int i=0; i <size; i++) {
+            sum += fabs(invector[i]);
+        }
+        sum = sum/(1.0*size);
+        return result;
+    }
 // function to give r and theta relative to region centre
     pair <double,double> set_polars(int regNum){
         pair <double, double> result;
@@ -1065,20 +1092,33 @@ vector<int> sort_indexes(const vector<T> &v) {
     }//end of function dissectBoundary
 
     // function to correlate matching edges
-     void correlate_edges(string logpath)  {
+     double correlate_edges(string logpath)  {
+	double result = 0;     
         ofstream edgefile(logpath + "/edgeCorrelations.txt");
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
-        //edgefile << " In correlate_edges " << endl;
+        edgefile << " In correlate_edges " << endl;
         // iterate over regions
         //for each region iterate over region edges
         // for each edge pair (i,j), (j,i) call correlate_vectors
         // write the i,j and correlation to a file
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
+        int countResult = 0;
         for (int i = 0; i <NUMPOINTS; i++) {
-            //edgefile << " i iteration " << i << endl;
+		vector<double> normalNN;
+		double NNmean;
+		int size = (int) regionIndex[i].size();
+		normalNN.resize(size,0.0);
+		// create a vector of the NN values in the region
+		for (int j=0;j<size;j++){
+			//edgefile << "create normalNN j " << j <<endl;
+		       	normalNN.push_back(this->NN[regionIndex[i][j]]);
+		}
+	       	NNmean = absmean_vector(normalNN);
+		edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
+                edgefile << " i iteration " << i << endl;
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
                 //edgefile << " j iteration " << *j << endl;
                 tempvect1.resize(0);
@@ -1091,12 +1131,12 @@ vector<int> sort_indexes(const vector<T> &v) {
                 int count1 = 0;
                 int count2 = 0;
                 for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++){
-                    tempvect1.push_back(this->NN[*itr] - 1.0);
+                    tempvect1.push_back(this->NN[*itr] - NNmean);
                     count1++;
                 }
                 // edgefile << " after filling tempvector1 " << endl;
                 for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++) {
-                    tempvect2.push_back(this->NN[*itr] - 1.0);
+                    tempvect2.push_back(this->NN[*itr] - NNmean);
                     count2++;
                 }
                    std::reverse(tempvect2.begin(),tempvect2.end());
@@ -1105,6 +1145,8 @@ vector<int> sort_indexes(const vector<T> &v) {
                 //edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
                 if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0){
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+		    result += fabs(correlationValue);
+                    countResult++;
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                     //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
                 } //end of code if both edges are equal
@@ -1113,6 +1155,8 @@ vector<int> sort_indexes(const vector<T> &v) {
                     if (tempvect3.size() == 0)
                         edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+		    result += fabs(correlationValue);
+                    countResult++;
                     edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
                 else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
@@ -1120,10 +1164,15 @@ vector<int> sort_indexes(const vector<T> &v) {
                     if (tempvect3.size() == 0)
                         edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     double correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+		    result += fabs(correlationValue);
+                    countResult++;
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
             } //end of single edge comparison
         } // end of loop on regions
+	edgefile << " countResult "<<countResult<<endl;
+	result = result / (countResult * 1.0);
+	return result;
      } //end of function correlate_edges
 
     //function to return the correlation of two vectors
@@ -1247,8 +1296,8 @@ vector<int> sort_indexes(const vector<T> &v) {
     radiusInc = minRadius /(1.0*numSectors);
     double startAngle, finishAngle, angleInc; //sector angles
     angleInc = 2*PI/(1.*numSectors);
-    startAngle = beginAngle*angleInc;
-    finishAngle = endAngle*angleInc;
+    startAngle = (beginAngle%numSectors)*angleInc;
+    finishAngle = (endAngle%numSectors)*angleInc;
     int size = (int) regionIndex[regNum].size();
     // to normalise the NN field
      for (int i=0;i<size;i++){
@@ -1300,8 +1349,8 @@ vector<int> sort_indexes(const vector<T> &v) {
     radiusInc = minRadius /(1.0*numSectors);
     double startAngle, finishAngle, angleInc; //sector angles
     angleInc = 2*PI/(1.*numSectors);
-    startAngle = beginAngle*angleInc;
-    finishAngle = endAngle*angleInc;
+    startAngle = (beginAngle%numSectors)*angleInc;
+    finishAngle = (endAngle%numSectors)*angleInc;
     int size = (int) regionIndex[regNum].size();
     for (int i=0;i<size;i++){
           normalNN.push_back(this->NN[regionIndex[regNum][i]]);
@@ -1491,7 +1540,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 int main (int argc, char **argv)
 {
-    if (argc < 8) {
+    if (argc < 9) {
       std::cout << "not enough arguments" << argc << endl;
       return -1;
     }
@@ -1504,9 +1553,10 @@ int main (int argc, char **argv)
     double dt = stod(argv[2]); //timesetp passed to M.step
     double Dn = stod(argv[3]); //Dn diffusion passed to M.step
     double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
-    int numsteps = atoi(argv[5]); //length of integration 
-    int numprint = atoi(argv[6]); //frequency of printing
-    int Lcontinue = atoi(argv[7]); //logical to determine if coldstart
+    double Dc = stod(argv[5]);
+    int numsteps = atoi(argv[6]); //length of integration 
+    int numprint = atoi(argv[7]); //frequency of printing
+    int Lcontinue = atoi(argv[8]); //logical to determine if coldstart
       /*
      * Now create a log directory if necessary, and exit on any
      * failures.
@@ -1543,6 +1593,7 @@ int main (int argc, char **argv)
     //system(command);
     // ofstream bfile ( logpath + "/maindebug.out" );
     ofstream gfile ( logpath + "/edges.out");
+    ofstream jfile ( logpath + "/results.txt");
 
     // int mdegree = 0;
     vector <double> rayv;
@@ -1588,7 +1639,7 @@ int main (int argc, char **argv)
     //cout <<  "just after field creation" << endl;
       for (int i=0;i<numsteps;i++) {
 	 //gfile << " just before time step " << endl;
-         M.step(dt, Dn, Dchi);
+         M.step(dt, Dn, Dchi, Dc);
          //gfile << " just after time step i = " << i << endl;
 
       }
@@ -1601,6 +1652,7 @@ int main (int argc, char **argv)
      data.add_contained_vals("Y",M.X[1]);
      data.add_val ("/Dchi", Dchi);
      data.add_val ("/Dn", Dn);
+     data.add_val ("/Dc",Dc);
      
      gfile << " just after writing data "  << endl;
      //post run analysis
@@ -1609,7 +1661,8 @@ int main (int argc, char **argv)
             vector<std::pair<double,double>> centroids;
             centroids = M.dissectBoundary(logpath);
             gfile<<"before correlate_edges" << endl;
-            M.correlate_edges(logpath);
+	    double avAbsCorrelation;
+            avAbsCorrelation = M.correlate_edges(logpath);
             gfile<<"after correlate_edges" << endl;
           //  cout<<"after correlate_edges" << endl;
             int regionCount = 0;
@@ -1720,35 +1773,47 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 
     gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
 
+	      double avDegreeAngle = 0;
+	      double avDegreeRadius = 0;
+	      double occupancy = 0;
+	      double totalDegree = 0;
+	      int countRegions = 0;
               for (int j=0;j<NUMPOINTS-1;j++) {
 	      if (M.regArea(j) != 0){
+	          countRegions++;
 	          gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
+		  occupancy += M.regNNfrac(j);
                   tempArea = M.regArea(j)*(5.0/Dn);
                   tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
 
                   int radiusOffset = 0;
-                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
-                  angleVector = M.meanzero_vector(angleVector);
-                  degreeAngle = M.find_zeroAngle(angleVector,3);
+                  angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
+                  degreeAngle = M.find_zeroDAngle(angleDVector);
+		  avDegreeAngle += degreeAngle;
                   //radial degree
                   int holdRadius = 0;
 		  degreeRadius = 0;
 		  int numiters = 0;
-                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 4){
-                  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
-                  radiusVector = M.meanzero_vector(radiusVector);
-                  holdRadius = M.find_zeroRadius(radiusVector,3);
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3){
+                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 3);
+                  holdRadius = M.find_zeroDRadius(radiusDVector);
 		  //degreeRadius += holdRadius;
 		  //numiters++;
 		  if (holdRadius > degreeRadius)
 			  degreeRadius = holdRadius;
                   }
-                //  degreeRadius = degreeRadius/numiters;
+                  avDegreeRadius += degreeRadius;
 
                   gfile << " degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
                   regionCount++;
 	      } //end of if on non-zero regions
 	      } //end of loop on NUMPOINTs
+              avDegreeAngle = avDegreeAngle / (1.0 * countRegions);
+              avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
+	      occupancy = occupancy / (1.0 * countRegions);
+	      totalDegree = avDegreeAngle + 4.0*avDegreeRadius;
+	     // jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
+	      jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
 
 
     return 0;
