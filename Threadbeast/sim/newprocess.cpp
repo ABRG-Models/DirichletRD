@@ -47,9 +47,11 @@ public:
   };
 
   // list of objects visible to member functions
+  /* these two containers are no longer needed now I am using morphologica
   vector<vector<double> > H; // hex-grid info
   vector<vector<double> > N; // hex neighbourhood
-    //   vector<vector<double> > Nold; // holds values before resetting b.c.s
+  */
+  vector<vector<hex> > N; // hex neighbourhood (redundant but convenient)
   vector<vector<int> > region; //indices of all the regions
   vector<vector<int>> hexRegionList; //list of the different regions around a hex
   vector<vector<int>> regionList; // list of the regions around a region
@@ -64,8 +66,6 @@ public:
   vector<extremum> turnVal; //radial turning points
 
   vector<double> NN, CC; //hold the field values for each hex
-  vector <bool> boundary;
-  vector <bool> outerBoundary;
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   int base = 1000;
   //class constructor
@@ -207,17 +207,33 @@ public:
   y = 0;
   radius = 0;
   theta = 0;
-  HexGrid * H = HexGrid(this->ds, 0.45, 0.0, HexDomainShape::Parallelogram)
-  n = morph::num();
+  HexGrid * Hgrid = HexGrid(this->ds, 0.45, 0.0, HexDomainShape::Parallelogram);
+  Hgrid->init();
+  Hgrid->setEllipticalBoundary(0.4,0.6);
+  vector<Hex> H (Hgrid->hexen.begin(),Hgrid->hexen.end());
+  n = H.size();
 //these are the vectors of vectors for the regions
 	regionDist.resize(n);
 	region.resize(n);  
+/* these are not needed in the morphologica version 
     N.resize(n); //neighbouring hexes
     C.resize(n,0); //count of neighbouring hexes
+*/
+    N.resize(n);
     Creg.resize(n,0);
     hexRegionList.resize(n); //neighbouring regions for a hex
     regionList.resize(n); //neighbouring regions for a region
     
+// making a neighbour array for convenience
+    for (h = H.begin(); h<H.end(); h++) {
+      N[h.vi].resize(6,h.vi);
+      N[h.vi][0] = d_ne[h.vi];
+      N[h.vi][1] = d_nne[h.vi];
+      N[h.vi][2] = d_nnw[h.vi];
+      N[h.vi][3] = d_nw[h.vi];
+      N[h.vi][4] = d_nsw[h.vi];
+      N[h.vi][5] = d_nse[h.vi];
+    }
     /* 
      this code of mine needs to be replaced by a call to set the boundary.
      All the hexes on the boundary will be marked as boundary Hexes but 
@@ -259,16 +275,16 @@ public:
     */
 
 	//arrays to hold the field values
-        NN.resize(n);
-        CC.resize(n);
+    NN.resize(n);
+    CC.resize(n);
 
 	// get a list of distances from each Dirichlet point for each hex.
-    list<Hex>::const_iterator h = H->hexen.begin();
-    while (h != H->hexen.end()) {
+    list<Hex>::const_iterator h = H.begin();
+    while (h != H.end()) {
       for (int j=0;j<NUMPOINTS;j++) {
-        double temp = hexen->distanceFrom(centres[j]);
+        double temp = h->distanceFrom(centres[j]);
         // afile << "   " <<hexcen.xval <<"  "<<hexcen.yval;
-        regionDist[i].push_back(temp);
+        regionDist[h.vi].push_back(temp);
         // afile << temp <<"  ";
       }
     // afile << endl;
@@ -295,43 +311,32 @@ public:
      for(int i=0;i<n;i++){
 
        if (sortedDist[i][0] == sortedDist[i][1]){
-           //afile<<"i ="<<i;
-     	   //afile << "  "<<region[i][0]<<"  "<< region[i][1];
+           afile<<"i ="<<i;
+     	   afile << "  "<<region[i][0]<<" is equidistant from "<< region[i][1];
        }
      }
 
 
-     // this determines the internal boundaries
-     // for(int i=0;i<n;i++){
-     //    for(int j=0;j<6;j++){
-     //       if ((region[i][0] !=region[N[i][j]][0])) {
-     //          N[i][j] = i;
-     //          C[i]--;
-     //       }
-     //    }
-     // }
-
      // this determines the type of hex
-      for (int i=0;i < n ;i++){
-          if(outerBoundary[i] == true)
+      for (h = H.begin();h < H.end(); h++){
+          if(h.boundaryHex == true)
               continue;
-          int centralRegion = region[i][0];
+          int centralRegion = region[h.vi][0];
           int oldRegion = centralRegion;
           int newRegion = 0;
 
           for(int j=0;j<6;j++) {
-              hexRegionList[i].push_back(region[N[i][j]][0]); //push back the region of each neighbour
-              newRegion =  region[N[i][j]][0];
+              hexRegionList[h.vi].push_back(region[N[h.vi][j]][0]); //push back the region of each neighbour
+              newRegion =  region[N[h.vi][j]][0];
               if (centralRegion != newRegion){ //its a boundary hex
-                  C[i]--;
-                  N[i][j] = i;
+                  C[h.vi]--;
+              //    N[i][j] = h.vi; pre-morphologica 
                   if (oldRegion != newRegion){ //logic to test if vertex
                     oldRegion = newRegion;
-                    Creg[i]++;
+                    Creg[h.vi]++;
                     }
                   }
               }
-          }
       } //end of logic determining hex types
 
 
@@ -344,9 +349,9 @@ public:
     //information about the indexes of hexes in regions
      regionIndex.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++) {
-        for (int i=0;i<this->n;i++){
-	  if (region[i][0] == j)
-      	   regionIndex[j].push_back(i);
+        for (h = H->begin(); h < H.end();h++){
+	      if (region[h.vi][0] == j)
+      	   regionIndex[j].push_back(h.vi);
         }
       }
 
@@ -358,12 +363,15 @@ public:
       }
   } //end of constructor
 
-  //function, gets distance between points
+  //function, gets distance between points now supseded by morphologica function
+  //float distanceFrom (const pair<float, float> cartesianPoint) const {
+/*
   double getdist(point a, point b) {
     double result;
     result = sqrt((a.xval-b.xval)*(a.xval-b.xval) + (a.yval-b.yval)*(a.yval-b.yval));
     return result;
   }
+*/
 
   //function, finds the indexes from original list in sorted order
   // now using stable_sort to ensure consistency in case of hexes equidistant between
@@ -396,15 +404,111 @@ vector<int> sort_indexes(const vector<T> &v) {
         return result;
     }
 
-  //function derives Laplacian for a given field
     vector<double> getLaplacian(vector<double> Q, double dx) {
       double overdxSquare = 1./(1.5*dx*dx);
         vector<double> L(n,0.);
-        for(int i=0;i<n;i++){
+        for(h = H->begin(); h < H.end() ; h++){
+          i = h.vi;
             L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overdxSquare;
         }
         return L;
     }
+ /* Seb's code
+void compute_lapl (vector<Flt>& fa) {
+
+        Flt norm  = (2) / (3 * this->d * this->d);
+
+#pragma omp parallel for schedule(static)
+        for (unsigned int hi=0; hi<this->nhex; ++hi) {
+
+            // 1. The D Del^2 term
+
+            // Compute the sum around the neighbours
+            Flt thesum = -6 * fa[hi];
+            if (HAS_NE(hi)) {
+                thesum += fa[NE(hi)];
+            } else {
+                thesum += fa[hi]; // A ghost neighbour-east with same value as Hex_0
+            }
+            if (HAS_NNE(hi)) {
+                thesum += fa[NNE(hi)];
+            } else {
+                thesum += fa[hi];
+            }
+            if (HAS_NNW(hi)) {
+                thesum += fa[NNW(hi)];
+            } else {
+                thesum += fa[hi];
+            }
+            if (HAS_NW(hi)) {
+                thesum += fa[NW(hi)];
+            } else {
+                thesum += fa[hi];
+            }
+            if (HAS_NSW(hi)) {
+                thesum += fa[NSW(hi)];
+            } else {
+                thesum += fa[hi];
+            }
+            if (HAS_NSE(hi)) {
+                thesum += fa[NSE(hi)];
+            } else {
+                thesum += fa[hi];
+            }
+
+            this->lapl[hi] = norm * thesum;
+        }
+    }
+
+//Now Seb's function for computing the Poisson term
+void compute_poiss (vector<Flt>& fa1, vector<Flt>& fa2) {
+
+        // Compute non-linear term
+
+#pragma omp parallel for schedule(static)
+        for (unsigned int hi=0; hi<this->nhex; ++hi) {
+
+            vector<Flt> dum1(6,fa1[hi]);
+            vector<Flt> dum2(6,fa2[hi]);
+
+            if (HAS_NE(hi)) {
+                dum1[0] = fa1[NE(hi)];
+                dum2[0] = fa2[NE(hi)];
+            }
+            if (HAS_NNE(hi)) {
+                dum1[1] = fa1[NNE(hi)];
+                dum2[1] = fa2[NNE(hi)];
+            }
+            if (HAS_NNW(hi)) {
+                dum1[2] = fa1[NNW(hi)];
+                dum2[2] = fa2[NNW(hi)];
+            }
+            if (HAS_NW(hi)) {
+                dum1[3] = fa1[NW(hi)];
+                dum2[3] = fa2[NW(hi)];
+            }
+            if (HAS_NSW(hi)) {
+                dum1[4] = fa1[NSW(hi)];
+                dum2[4] = fa2[NSW(hi)];
+            }
+            if (HAS_NSE(hi)) {
+                dum1[5] = fa1[NSE(hi)];
+                dum2[5] = fa2[NSE(hi)];
+            }
+
+            // John Brooke's final thesis solution (based on 'finite volume method'
+            // of Lee et al. https://doi.org/10.1080/00207160.2013.864392
+            Flt val =
+            (dum1[0]+fa1[hi])*(dum2[0]-fa2[hi])+
+            (dum1[1]+fa1[hi])*(dum2[1]-fa2[hi])+
+            (dum1[2]+fa1[hi])*(dum2[2]-fa2[hi])+
+            (dum1[3]+fa1[hi])*(dum2[3]-fa2[hi])+
+            (dum1[4]+fa1[hi])*(dum2[4]-fa2[hi])+
+            (dum1[5]+fa1[hi])*(dum2[5]-fa2[hi]);
+            this->poiss[hi] = val / (3 * this->d * this->d);
+        }
+    }
+*/
 
   //function to timestep coupled equations
     void step(double dt, double Dn, double Dchi, double Dc) {
@@ -413,14 +517,11 @@ vector<int> sort_indexes(const vector<T> &v) {
 
        // Set up boundary conditions with ghost points
 
-      for(int i=0;i<n;i++){
+      for(h = H->begin(); h < H.end();h++){
+        int i = h.vi;
         if(C[i]<6){
           for(int j=0;j<6;j++){
              if(N[i][j] == i) {
-		    // int temp = (j+3) % 6;
-		    //   NN[N[i][j]] = NN[N[i][temp]];
-		    //   CC[N[i][j]] = CC[N[i][temp]];
-		    // I think this is the correct ghost point to enforce no-flux
        	     NN[N[i][j]] = NN[i];
 	     CC[N[i][j]] = CC[i];
 	     }
@@ -430,13 +531,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         double beta = 5.;
-      //  double a = 1., b = 1., mu =Dchi*Dn;
         double a = 1., b = 1., mu = 1;
-        vector<double> lapN = getLaplacian(NN,ds);
-        vector<double> lapC = getLaplacian(CC,ds);
-
-
-        vector<double> G(n,0.);
 
         for (int i=0;i<n;i++) {
         // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
@@ -476,6 +571,42 @@ vector<int> sort_indexes(const vector<T> &v) {
         }
     }//end step
 
+/* Seb's code
+// Resize and zero-initialise the various containers
+        this->resize(this->CC);
+        this->resize(this->NN
+        this->resize(this->lapl);
+        this->resize(this->poiss);
+        double beta = 5.;
+        double a = 1., b = 1., mu = 1.;
+
+        // Initialise a with noise
+        //this->noiseify_vector_vector (this->n, 1., 0.01);
+        //this->noiseify_vector_vector (this->c, beta*0.5, 0.01);
+
+        void step (double dt, double Dn, double Dchi, double Dc) {
+
+          dt = dt * 2.5 / Dn; chi = Dn*Dchi;
+
+          this->compute_poiss (NN,CC,1);  // compute the non-linear Poission term in Eq1
+          this->compute_lapl (NN, 1);       // populate lapl[i] with laplacian of n
+
+          // integrate n
+          for (unsigned int i=0; i<this->nhex; ++h) {
+                NN[i] += (a - b*NN[i] + Dn*lapl[i] - chi*poiss[i])*dt;
+            }
+
+          this->compute_lapl (CC, 1);       // populate lapl[i] with laplacian of c
+
+            // integrate c
+          Flt NN2;
+          for (unsigned int i=0; i<this->nhex; ++i) {
+              NN2 = NN[i]*NN[i];
+              CC[i] += (beta*NN2/(1 + NN2) - mu*CC[i] +Dc*lapl[i])*dt;
+            }
+        }
+
+*/
 
     //function to smooth a vector by moving average
     vector <double> smooth_vector(vector<double> invector, int window) {
@@ -537,61 +668,6 @@ vector<int> sort_indexes(const vector<T> &v) {
   }
 
 
-/*
-    // find the zeros in a ray angular
-    int find_zeroAngle(vector<double> ray, int window) {
-    int size = ray.size();
-    // ofstream zerofile ("zero.txt",ios::app);
-    vector<double> smoothRay;
-    smoothRay = this->smooth_vector(ray, window);
-    //zerofile <<"size = " << size <<endl;
-
-    turnVal.resize(1000);
-    double old_val = 0;
-    double new_val = 0;
-    int count = 0;
-    old_val = smoothRay[0];
-    for (int i =1; i<size+1;i++){
-      new_val = smoothRay[i%size];
-      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
-      if (new_val*old_val < 0.) {
-	turnVal[count].radialIndex = i;
-	turnVal[count].radialValue =smoothRay[i]; //should really interpolate
-        //zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
-        count++;
-      }
-      old_val = new_val;
-    }
-    return count;
-  }
-
-    int find_zeroRadius(vector<double> ray, int window) {
-    int size = ray.size();
-    //ofstream zerofile ("zero.txt",ios::app);
-     vector<double> smoothRay;
-     smoothRay = this->smooth_vector(ray, window);
-    //zerofile <<"size = " << size <<endl;
-
-    turnVal.resize(1000);
-    double old_val = 0;
-    double new_val = 0;
-    int count = 0;
-    old_val = smoothRay[0];
-    for (int i =1; i<size;i++){
-      new_val = smoothRay[i%size];
-      //zerofile << " " << i%size << " " << old_val << " "<<new_val <<endl;
-      if (new_val*old_val < 0.) {
-	turnVal[count].radialIndex = i;
-	turnVal[count].radialValue = smoothRay[i]; //should really interpolate
-        //zerofile << "turn index " << turnVal[count].radialIndex << " turn value " << turnVal[count].radialValue << endl;
-        count++;
-      }
-      old_val = new_val;
-    }
-    return count;
-  }
-*/
-
  // find the zeros in a ray angular
     int find_zeroDRadius(vector<int> ray) {
     int size = ray.size();
@@ -633,8 +709,6 @@ vector<int> sort_indexes(const vector<T> &v) {
     return count;
   }
 
-  //function bessel_ray for computing bessel functions along a ray
-  // takes a vector of doubles representing the radius
 
     // find the zeros in a ray angular
     int find_zeroAngle(vector<double> ray, int window) {
@@ -691,8 +765,6 @@ vector<int> sort_indexes(const vector<T> &v) {
     return count;
   }
 
-  //function bessel_ray for computing bessel functions along a ray
-  // takes a vector of doubles representing the radius
 
 
   //function bessel_ray for computing bessel functions along a ray
@@ -836,7 +908,7 @@ vector<int> sort_indexes(const vector<T> &v) {
         int hexcount = 0;
         for (int i=0;i< (int) this->regionIndex[regNum].size();i++) {
             hexcount++;
-            xav += this->H[0][regionIndex[regNum][i]];
+            xav += this->H[regionIndex[regNum][i]];
             yav += this->H[1][regionIndex[regNum][i]];
         }
         xav = xav / hexcount;
