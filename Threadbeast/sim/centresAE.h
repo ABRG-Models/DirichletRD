@@ -1,0 +1,27 @@
+    double sc= 1.6;
+
+    centres[0].first=0.2699*sc; centres[3].second=0.4171*sc;
+    centres[1].first=0.1718*sc; centres[2].second=0.4248*sc;
+    centres[2].first=0.0589*sc; centres[1].second=0.4221*sc;
+    centres[3].first=-0.06748*sc; centres[0].second=0.3829*sc;
+    centres[4].first=-0.1679*sc; centres[7].second=0.2928*sc;
+    centres[5].first=0.2158*sc; centres[4].second=0.3605*sc;
+    centres[6].first=0.1081*sc; centres[5].second=0.3532*sc;
+    centres[7].first=0.0027*sc; centres[6].second=0.327*sc;
+    centres[8].first=-0.1041*sc; centres[8].second=0.2645*sc;
+    centres[9].first=-0.2066*sc; centres[16].second=0.1974*sc;
+    centres[10].first=0.217*sc; centres[11].second=0.2803*sc;
+    centres[11].first=0.115*sc; centres[10].second=0.2747*sc;
+    centres[12].first=0.0073*sc; centres[9].second=0.2438*sc;
+    centres[13].first=-0.1184*sc; centres[15].second=0.1793*sc;
+    centres[14].first=-0.2406*sc; centres[17].second=0.0977*sc;
+    centres[15].first=0.2239*sc; centres[12].second=0.2094*sc;
+    centres[16].first=0.12*sc; centres[13].second=0.2024*sc;
+    centres[17].first=-0.0*sc; centres[14].second=0.1718*sc;
+    centres[18].first=-0.1329*sc; centres[18].second=0.1067*sc;
+    centres[19].first=-0.2499*sc; centres[75].second=0.0177*sc;
+    centres[20].first=0.2155*sc; centres[21].second=0.1462*sc;
+    centres[21].first=0.1206*sc; centres[20].second=0.1322*sc;
+    centres[22].first=-0.0007*sc; centres[19].second=0.113*sc;
+    centres[23].first=-0.1276*sc; centres[33].second=0.0408*sc;
+    centres[24].first=-0.2245*sc; centres[74].second=-0.0243*sc;
