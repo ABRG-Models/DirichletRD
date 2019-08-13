@@ -143,8 +143,8 @@ int main (int argc, char **argv)
      morph::HdfData data (fname);
      data.add_contained_vals("c",M.CC);
      data.add_contained_vals("n",M.NN);
-     data.add_contained_vals("X",M.X[0]);
-     data.add_contained_vals("Y",M.X[1]);
+     //data.add_contained_vals("X",M.X[0]);
+     //data.add_contained_vals("Y",M.X[1]);
      data.add_val ("/Dchi", Dchi);
      data.add_val ("/Dn", Dn);
      data.add_val ("/Dc",Dc);
@@ -231,9 +231,9 @@ for (int j=0;j<NUMPOINTS-1;j++) {
     int jmin =  1000000;
     int jmax = -1000000;
     int i,j;
-    for (auto h = M.H.begin(); h<M.H.end();h++) {
-       i = M.H[h].ri - M.H[h].bi;
-       j = M.H[h].ri + M.H[h].bi;
+    for (auto h : *(M.H)) {
+       i = h.ri -h.bi;
+       j = h.ri + h.bi;
        if (i<imin) imin = i;
        if (i>imax) imax = i;
        if (j<jmin) jmin = j;
@@ -250,11 +250,11 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 	    }
     }
     //cout << " after filling NNfield " << endl;
-    for (auto h = M.H.begin(); h < M.H.end(); h++) {
-       i = M.H[h].ri - M.H[h].bi - imin;
-       j = M.H[h].ri + M.H[h].bi - jmin;
+    for (auto h : *(M.H)) {
+       i = h.ri - h.bi - imin;
+       j = h.ri + h.bi - jmin;
        //cout << " i " << i << " j " << j << endl;
-       NNfield[i][j] = M.NN[h];
+       NNfield[i][j] = M.NN[h.vi];
     }
     ofstream hfile (logpath + "/NNfield.txt");
     //cout << " after creating NNfield.txt " << endl;
