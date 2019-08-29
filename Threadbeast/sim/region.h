@@ -1,4 +1,3 @@
-
 #include <morph/tools.h>
 #include <morph/HexGrid.h>
 #include <morph/ReadCurves.h>
@@ -75,13 +74,14 @@ public:
   pair <float, float> centres[NUMPOINTS]; //seed points
   vector<vector<double> > regionDist; //distances to each seed point
   vector<vector<int> > regionIndex; //indexes of hexes in each region
-  vector<int> C; //count of neighbours
+ // vector<int> Cnbr(int qsize=10000); //count of neighbours
   vector<int> Creg; //count of regions
+  vector<int> Cnbr; //count of neighbours
 
   vector<double> NN, CC; //hold the field values for each hex
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   morph::HexGrid* Hgrid;
-  vector<morph::Hex> *H;
+  vector<morph::Hex> H;
   int base = 1000;
   //class constructor
   Region (int scale, string logpath) {
@@ -91,6 +91,7 @@ public:
 	srand(time(NULL));
     this->scale = scale;
 
+    this->Creg.resize(10000);
 	//centres.resize(NUMPOINTS);
 
     double s = pow(2.0, scale-1);
@@ -122,22 +123,28 @@ public:
   Hgrid = new HexGrid(this->ds, 0.45, 0.0, morph::HexDomainShape::Boundary);
   morph::ReadCurves r("./barrelAE.svg");
   Hgrid->setBoundary (r.getCorticalPath());
+  cout << "before filling H " << Hgrid->num() << endl;
+  //H.resize(0);
   for (auto h : Hgrid->hexen) {
-    H->push_back(h);
+    H.push_back(h);
+//	Creg.push_back(0);
   }	
-  n = H->size();
+  n = H.size();
+  cout << "after  filling H " << " n = " << n <<endl;
 //these are the vectors of vectors for the regions
   regionDist.resize(n);
   region.resize(n);  
-  C.resize(n,0); //count of neighbouring hexes
   N.resize(n);
-  Creg.resize(n,0);
+  cout << "after  filleting fish " << " n = " << n <<endl;
+  cout << "after  filleting fish " << " n = " << n <<endl;
+  this->Cnbr.resize(n,6); //count of neighbouring hexes
+  cout << "before hexRegionList"<<endl;
   hexRegionList.resize(n); //neighbouring regions for a hex
-  regionList.resize(NUMPOINTS); //neighbouring regions for a region
+  regionList.resize(n); //neighbouring regions for a region
   regionVertex.resize(NUMPOINTS); //vertices for a region
-    
+  cout << "before neighbour array" << endl;  
 // making a neighbour array for convenience
-  for (unsigned int idx = 0; idx < H->size(); idx++) {
+  for (unsigned int idx = 0; idx < H.size(); idx++) {
     N[idx].resize(6);
     N[idx][0] = Hgrid->d_ne[idx];
     N[idx][1] = Hgrid->d_nne[idx];
@@ -146,22 +153,25 @@ public:
     N[idx][4] = Hgrid->d_nsw[idx];
     N[idx][5] = Hgrid->d_nse[idx];
   }
+cout << "after neighbour array" << endl;  
 
 	//arrays to hold the field values
     NN.resize(n);
     CC.resize(n);
+	cout << "after alloc NN and CC" <<endl;
 
 	// get a list of distances from each Dirichlet point for each hex.
-    for (auto h : *H) {
+    for (auto h : H) {
       for (int j=0;j<NUMPOINTS;j++) {
         double temp = h.distanceFrom(centres[j]);
+    //cout << "after access h " << h.vi  <<endl;
         // afile << "   " <<hexcen.xval <<"  "<<hexcen.yval;
         regionList[h.vi].push_back(temp);
         // afile << temp <<"  ";
       }
     // afile << endl;
     }
-
+    cout << "after regionList allocated " <<endl;
     // to produce a list of the sorted distances of each hex from the seed points
     // Note the process of sorting the indexes in distance order is completely independent
     // from the production of Sorted list but we assume that the similar sorting used for
@@ -188,11 +198,13 @@ public:
        }
      }
 
-
+     cout << "before hex list loop" << endl;
      // this determines the type of hex
-      for (auto h : *H){
+      for (auto h : H){
+	    Cnbr.at(h.vi) = 6;
 
           if(h.boundaryHex == true) {
+		    Cnbr[h.vi]--;
             if (!HAS_NE(h.vi)) {
 				hexRegionList[h.vi][0] = -1;
             } 
@@ -222,7 +234,7 @@ public:
               hexRegionList[h.vi].push_back(region[N[h.vi][j]][0]); //push back the region of each neighbour
               newRegion =  region[N[h.vi][j]][0];
               if (centralRegion != newRegion){ //its a boundary hex
-                  C[h.vi]--;
+                  Cnbr[h.vi]--;
               //    N[i][j] = h.vi; pre-morphologica 
                   if (oldRegion != newRegion){ //logic to test if vertex
                     oldRegion = newRegion;
@@ -242,7 +254,7 @@ public:
     //information about the indexes of hexes in regions
      regionIndex.resize(NUMPOINTS);
       for (int j=0;j<NUMPOINTS;j++) {
-        for (auto h : *H){
+        for (auto h : H){
 	      if (region[h.vi][0] == j)
       	   regionIndex[j].push_back(h.vi);
         }
@@ -299,7 +311,7 @@ vector<int> sort_indexes(const vector<T> &v) {
     vector<double> getLaplacian(vector<double> Q, double dx) {
       double overdxSquare = 1./(1.5*dx*dx);
         vector<double> L(n,0.);
-        for(auto h : *this->H){
+        for(auto h : this->H){
          int i = int(h.vi);
             L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overdxSquare;
         }
@@ -313,8 +325,8 @@ vector<int> sort_indexes(const vector<T> &v) {
 
        // Set up boundary conditions with ghost points
 
-      for(auto h : *this->H){
-        if(C[h.vi]<6){
+      for(auto h : this->H){
+        if(Cnbr[h.vi]<6){
           for(int j=0;j<6;j++){
 		     int i = int(h.vi);
              if(N[h.vi][j] == i) {
@@ -332,7 +344,7 @@ vector<int> sort_indexes(const vector<T> &v) {
         vector<double> G(n,0.);
         double a = 1., b = 1., mu = 1;
 
-        for (auto h : *H) {
+        for (auto h : H) {
 		  unsigned int i = h.vi;
         // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
 	      double dr0N = (NN[N[i][0]]+NN[i])/2.;
@@ -359,13 +371,13 @@ vector<int> sort_indexes(const vector<T> &v) {
         } //matches for on i
 
         // step N
-        for (auto h : *H) {
+        for (auto h : H) {
           NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*G[h.vi]);
         }
 
         // step C
         double N2;
-        for(auto h : *H){
+        for(auto h : H){
 		    unsigned int i = h.vi;
             N2 = NN[i]*NN[i];
             CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
@@ -391,6 +403,64 @@ vector<int> sort_indexes(const vector<T> &v) {
     return perimeter;
   } //end of function regPerimeter
 
+    // transform vector so its mean is zero
+    vector<double> meanzero_vector(vector<double> invector) {
+        //ofstream meanzero ("meanzero.txt",ios::app);
+        vector <double> result;
+        int size = invector.size();
+        //meanzero << "size " << size << endl;
+        double sum = 0;
+        double absSum = 0;
+        for (int i=0; i <size; i++) {
+            sum += invector[i];
+            absSum += fabs(invector[i]);
+        }
+        sum = sum/(1.0*size);
+        absSum = absSum / (1.0 * size);
+        //meanzero << " mean  " << sum << endl;
+        //meanzero << " absolute mean  " << absSum << endl;
+        for (int i=0; i < size; i++) {
+            result.push_back(invector[i] - sum);
+            //meanzero << " i " << result[i] << endl;
+        }
+        return result;
+    }
+
+    // return the mean of the absolute values of a  vector
+        double absmean_vector(vector<double> invector) {
+        //ofstream meanzero ("meanzero.txt",ios::app);
+          double result = 0;
+	      double sum = 0;
+          int size = invector.size();
+        //meanzero << "size " << size << endl;
+          for (int i=0; i <size; i++) {
+            sum += fabs(invector[i]);
+        }
+        sum = sum/(1.0*size);
+        return result;
+    } 
+
+
+
+    double maxVal( vector<double> invector) {
+            double result = -1.0e7;
+            for (unsigned int i = 0; i < invector.size(); i++) {
+                    if (invector[i] > result)
+                            result = invector[i];
+            }
+            return result;
+    }
+
+
+    // to find the minimum value of a vector
+    double minVal( vector<double> invector) {
+            double result = 1.0e7;
+            for (unsigned int i = 0; i < invector.size(); i++) {
+                    if (invector[i] < result)
+                            result = invector[i];
+            }
+            return result;
+    }
   //function to return fraction of area with NN positive
   double regNNfrac (int regNum) {
     double area = 0;
@@ -401,7 +471,7 @@ vector<int> sort_indexes(const vector<T> &v) {
      for (int i=0;i<size;i++){
           normalNN.push_back(this->NN[regionIndex[regNum][i]]);
       }
-      normalNN = Analysis::meanzero_vector(normalNN);
+      normalNN = this->meanzero_vector(normalNN);
       for (int i=0;i < (int) regionIndex[regNum].size();i++){
 	  area += 1.;
 	  if ((normalNN[i]) > 0) {
@@ -421,8 +491,8 @@ vector<int> sort_indexes(const vector<T> &v) {
         int hexcount = 0;
         for (int i=0;i< (int) this->regionIndex[regNum].size();i++) {
             hexcount++;
-            xav += this->H[regionIndex[regNum][i]].x;
-            yav += this->H[regionIndex[regNum][i]].y;
+            xav += this->H.at(regionIndex[regNum][i]).x;
+            yav += this->H.at(regionIndex[regNum][i]).y;
         }
         xav = xav / hexcount;
         yav = yav / hexcount;
@@ -430,12 +500,12 @@ vector<int> sort_indexes(const vector<T> &v) {
 //go over the region and put the hexes into bins then average
         for (int i=0;i< (int) this->regionIndex[regNum].size();i++) {
             int index = regionIndex[regNum][i];
-            this->H[index].r = sqrt((this->H[index].x-xav)*(this->H[index].x-xav) + \
-                                     (this->H[index].y-yav)*(this->H[index].y-yav));
-            if (this->H[i].x >= 0)
-                this->H[index].phi = atan2((this->H[index].y-yav), (this->H[index].x-xav));
+            this->H.at(index).r = sqrt((this->H.at(index).x-xav)*(this->H.at(index).x-xav) + \
+                                     (this->H.at(index).y-yav)*(this->H.at(index).y-yav));
+            if (this->H.at(i).x >= 0)
+                this->H.at(index).phi = atan2((this->H.at(index).y-yav), (this->H.at(index).x-xav));
             else
-                this->H[index].phi = PI + atan2((this->H[index].y-yav), (this->[index].x-xav));
+                this->H.at(index).phi = PI + atan2((this->H.at(index).y-yav), (this->H.at(index).x-xav));
         }
 
         result.first = xav - xcentre; //diff between seed point and barycentre
@@ -479,7 +549,7 @@ vector<int> sort_indexes(const vector<T> &v) {
          vector<int> irB; //holds the sorted boundary indicies
          for (unsigned int j = 0; j < regionBoundary.size();j++){
                 //  hfile<< "index "<< j <<" vertex angle = " <<H[5][regionIndex[i][j]]<<endl;
-           rB.push_back(H[regionBoundary[j]].theta);
+           rB.push_back(H.at(regionBoundary[j]).phi);
          }
          irB = sort_indexes(rB); //indices after sort on theta
 
@@ -487,7 +557,7 @@ vector<int> sort_indexes(const vector<T> &v) {
          // this->shift_polars(rB, angleOffset);
          // hfile<<"after shift_polars call"<<endl;
          // we now walk round the boundary in theta order
-         int count = 0;
+         unsigned int count = 0;
          int Vcount = 0; //count of the vertices
          int Ecount = 0; //count of the edges
          unsigned int offset = 0; //number of boundary hexes before the first vertex
@@ -496,12 +566,12 @@ vector<int> sort_indexes(const vector<T> &v) {
          while (offset < irB.size()) {
                if  (Creg[regionBoundary[irB[offset]]] > 1) {
                  Vcount++; //its a vertex
-				 regionVertex[i].pushback(irB[offset]);
+				 regionVertex[i].push_back(irB[offset]);
                  break;
                 }
                 offset++; //holds the number of edge indices before first vertex
          }
-         hfile<<"after offset loop" << " offset " << offset << " idissect " << idissect << endl;
+         hfile<<"after offset loop" << " offset " << offset  << endl;
          unsigned int Size = irB.size();
               // if (Size == 0) {
               //     hfile << "region i " << region[i][0] << " irB size " << Size << endl;
@@ -519,11 +589,11 @@ vector<int> sort_indexes(const vector<T> &v) {
               hfile << "after vertex loop" <<endl;
               if (lvertex) {
                 Vcount++;
-				regionVertex[i].pushback(irb[(count+offset)%Size]);
+				regionVertex[i].push_back(irB[(count+offset)%Size]);
 				}
               //walk along the edge until the next vertex
-              while (Creg[regionBoundary[irB[(idissect + offset)%Size]]] == 1) {
-                   ihE.push_back(regionBoundary[irB[(idissect+offset)%Size]]);
+              while (Creg[regionBoundary[irB[(count + offset)%Size]]] == 1) {
+                   ihE.push_back(regionBoundary[irB[(count+offset)%Size]]);
                    Ecount++;
                  }
                  hfile << "after edge loop" <<endl;
@@ -618,7 +688,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 			//edgefile << "create normalNN j " << j <<endl;
 		       	normalNN.push_back(this->NN[regionIndex[i][j]]);
 		}
-	       	NNmean = absmean_vector(normalNN);
+	       	NNmean = this->absmean_vector(normalNN);
 		edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
                 edgefile << " i iteration " << i << endl;
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
@@ -754,8 +824,8 @@ vector<int> sort_indexes(const vector<T> &v) {
         double minRadius = 100000.0;
         for (unsigned int i = 0; i < regionIndex[regNum].size();i++) {
             if (Creg[regionIndex[regNum][i]] > 0) {
-                boundHex.xval = H[regionIndex[regNum][i]].x,
-                boundHex.yval = H[regionIndex[regNum][i]].y;
+                boundHex.xval = H.at(regionIndex[regNum][i]).x,
+                boundHex.yval = H.at(regionIndex[regNum][i]).y;
                 double boundDist = getdist(boundHex,barycentre);
 
                 if (boundDist < minRadius)
@@ -772,8 +842,8 @@ vector<int> sort_indexes(const vector<T> &v) {
         barycentre.yval = this->diff[regNum].second + centres[regNum].second;
         double maxRadius = -100000.0;
         for (unsigned int i = 0; i < regionIndex[regNum].size();i++) {
-                boundHex.xval = H[regionIndex[regNum][i]].x,
-                boundHex.yval = H[regionIndex[regNum][i]].y;
+                boundHex.xval = H.at(regionIndex[regNum][i]).x,
+                boundHex.yval = H.at(regionIndex[regNum][i]).y;
                 double boundDist = getdist(boundHex,barycentre);
 
                 if (boundDist > maxRadius)
@@ -792,7 +862,7 @@ vector<int> sort_indexes(const vector<T> &v) {
     vector <double> normalNN;
     radiusCount.resize(numSectors,0);
     double startRadius, finishRadius, radiusInc; //sector radii
-    double maxRadius = max_radius(regNum);
+    //double maxRadius = max_radius(regNum);
     double minRadius = min_radius(regNum);
     //dfile << "region " << regNum << " maxRadius used " << maxRadius << " minRadius used " << minRadius <<endl;
     radiusInc = minRadius /(1.0*numSectors);
@@ -814,8 +884,8 @@ vector<int> sort_indexes(const vector<T> &v) {
       finishRadius = (k+1)*radiusInc;
 
       for (int i=0; i< size;i++) {
-	if (this->H[5][regionIndex[regNum][i]]>=startAngle && this->H[5][regionIndex[regNum][i]]<finishAngle) {
-	  if (this->H[4][regionIndex[regNum][i]]>=startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
+	if (this->H.at(regionIndex[regNum][i]).phi>=startAngle && this->H.at(regionIndex[regNum][i]).phi<finishAngle) {
+	  if (this->H.at(regionIndex[regNum][i]).r>=startRadius && this->H.at(regionIndex[regNum][i]).r<finishRadius) {
 	      radiusCount[k]++;
               radiusNN[k] += normalNN[i];
 	  } //end of if on radius
@@ -859,7 +929,7 @@ vector<int> sort_indexes(const vector<T> &v) {
       }
     // to normalise the NN field
     normalNN = meanzero_vector(normalNN);
-    double epsilon = 0.0001*(maxVal(normalNN) - minVal(normalNN));
+    double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
       //for (int i=0;i<size;i++)
           // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
@@ -867,8 +937,8 @@ vector<int> sort_indexes(const vector<T> &v) {
       startRadius = (k*radiusInc);
       finishRadius = (k+1)*radiusInc;
       for (int i=0; i< size;i++) {
-        if (this->H[regionIndex[regNum][i]].phi >= startAngle && this->H[5][regionIndex[regNum][i]]<finishAngle) {
-          if (this->H[regionIndex[regNum][i]].r >= startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
+        if (this->H.at(regionIndex[regNum][i]).phi >= startAngle && this->H.at(regionIndex[regNum][i]).phi<finishAngle) {
+          if (this->H.at(regionIndex[regNum][i]).r >= startRadius && this->H.at(regionIndex[regNum][i]).r<finishRadius) {
               radiusCount[k]++;
               //radiusCC[k] += this->CC[regionIndex[regNum][i]];
               radiusHold[k] += normalNN[i];
@@ -937,9 +1007,9 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
       for (int i=0; i< size;i++) {
-          if (this->H[regionIndex[regNum][i]].r >= startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
-              if (this->H[regionIndex[regNum][i]].phi >= startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
-                  angleVal.push_back(H[regionIndex[regNum][i]].phi);
+          if (this->H.at(regionIndex[regNum][i]).r >= startRadius && this->H.at(regionIndex[regNum][i]).r<finishRadius) {
+              if (this->H.at(regionIndex[regNum][i]).phi >= startAngle && this->H.at(regionIndex[regNum][i]).phi<endAngle) {
+                  angleVal.push_back(H.at(regionIndex[regNum][i]).phi);
                   count[k]++;
           //angle[k] += this->[regionIndex[regNum][i]];
                   angleNN[k] += normalNN[i];
@@ -992,7 +1062,7 @@ vector<int> sort_indexes(const vector<T> &v) {
           normalNN.push_back(this->NN[regionIndex[regNum][i]]);
       }
       normalNN = meanzero_vector(normalNN);
-      double epsilon = 0.0001*(maxVal(normalNN) - minVal(normalNN));
+      double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
      // for (int i=0;i<size;i++)
        //    cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
@@ -1003,9 +1073,9 @@ vector<int> sort_indexes(const vector<T> &v) {
          endAngle = 2*PI;
 
       for (int i=0; i< size;i++) {
-          if (this->H[regionIndex[regNum][i]].r >= startRadius && this->H[4][regionIndex[regNum][i]]<finishRadius) {
-              if (this->H[regionIndex[regNum][i]].phi >=startAngle && this->H[5][regionIndex[regNum][i]]<endAngle) {
-                  angleVal.push_back(H[regionIndex[regNum][i]].phi);
+          if (this->H.at(regionIndex[regNum][i]).r >= startRadius && this->H.at(regionIndex[regNum][i]).r<finishRadius) {
+              if (this->H.at(regionIndex[regNum][i]).phi >=startAngle && this->H.at(regionIndex[regNum][i]).phi<endAngle) {
+                  angleVal.push_back(H.at(regionIndex[regNum][i]).phi);
                   angleCount[k]++;
           //angle[k] += this->[regionIndex[regNum][i]];
                   angleHold[k] += normalNN[i];

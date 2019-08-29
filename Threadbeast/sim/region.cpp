@@ -121,9 +121,13 @@ public:
   Hgrid = new HexGrid(this->ds, 0.45, 0.0, morph::HexDomainShape::Boundary);
   morph::ReadCurves r("./barrelAE.svg");
   Hgrid->setBoundary (r.getCorticalPath());
+  cout << "before filling H " << Hgrid->num() << endl;
+  H->resize(Hgrid->num());
   for (auto h : Hgrid->hexen) {
+    cout << " in H fill loop" << endl;
     H->push_back(h);
   }	
+  cout << "after  filling H " << endl;
   n = H->size();
 //these are the vectors of vectors for the regions
   regionDist.resize(n);

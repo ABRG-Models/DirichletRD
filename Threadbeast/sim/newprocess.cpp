@@ -111,7 +111,7 @@ int main (int argc, char **argv)
     Analysis L;
 
     string fname = logpath + "/fileVal.h5";
-    //cout<< "just before first data read"<< endl;
+    cout<< "just before first data read"<< endl;
 // initialise with random field
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
@@ -231,7 +231,7 @@ for (int j=0;j<NUMPOINTS-1;j++) {
     int jmin =  1000000;
     int jmax = -1000000;
     int i,j;
-    for (auto h : *(M.H)) {
+    for (auto h : M.H) {
        i = h.ri -h.bi;
        j = h.ri + h.bi;
        if (i<imin) imin = i;
@@ -250,7 +250,7 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 	    }
     }
     //cout << " after filling NNfield " << endl;
-    for (auto h : *(M.H)) {
+    for (auto h : M.H) {
        i = h.ri - h.bi - imin;
        j = h.ri + h.bi - jmin;
        //cout << " i " << i << " j " << j << endl;
