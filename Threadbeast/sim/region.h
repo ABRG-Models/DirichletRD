@@ -103,7 +103,6 @@ public:
   morph::ReadCurves r("./barrelAE.svg");
   Hgrid->setBoundary (r.getCorticalPath());
   cout << "before filling H " << Hgrid->num() << endl;
-  //H.resize(0);
   n = Hgrid->num();
   cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
   cout << "after  filling H " << " n = " << n <<endl;
@@ -120,7 +119,7 @@ public:
   regionList.resize(n); //neighbouring regions for a region
   regionVertex.resize(NUMPOINTS); //vertices for a region
   cout << "before neighbour array" << endl;  
-  this->rad.resize(200,0.0); // vector of radii
+  this->rad.resize(n,0.0); // vector of radii
 // making a neighbour array for convenience
   for (int idx = 0; idx < n; idx++) {
     N[idx].resize(6);
@@ -293,7 +292,7 @@ cout << "after neighbour array" << endl;
           diff[j] = this->set_polars(j);
 		  }
 	      cout << "after set_polars" << endl;
-          //afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
+          afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
    cout<<"at end of constructor" << " hexes counted " << totalHex << " n " << n << endl;
   } //end of constructor
 
@@ -568,11 +567,8 @@ vector<int> sort_indexes(const vector<T> &v) {
             int index = this->regionIndex[regNum][i];
 			cout <<"in set polars index " << index << " i " << i <<endl;
 			cout << "d_x " << this->Hgrid->d_x[index] << endl;
-            //this->rad[index] = sqrt((this->Hgrid->d_x[index]-xav)*(this->Hgrid->d_x[index]-xav) 
-			//+ (this->Hgrid->d_y[index]-yav)*(this->Hgrid->d_y[index]-yav));
-			this->rad[index] = 0;
-			}
-			/*
+            this->rad[index] = sqrt((this->Hgrid->d_x[index]-xav)*(this->Hgrid->d_x[index]-xav) 
+			+ (this->Hgrid->d_y[index]-yav)*(this->Hgrid->d_y[index]-yav));
             if (this->Hgrid->d_x[index] >= 0)
               this->psi[index] = atan2((this->Hgrid->d_y[index]-yav), (this->Hgrid->d_x[index]-xav));
             else
@@ -582,7 +578,6 @@ vector<int> sort_indexes(const vector<T> &v) {
         result.first = xav - xcentre; //diff between seed point and barycentre
         result.second = yav - ycentre;
 		cout << " result.first " << result.first << " result.second " << result.second <<endl;
-		*/
         return result;
     } //end of function set_polars
 
@@ -679,7 +674,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 				}
               cout << "after vertex loop time 2" << " Vcount " << Vcount <<endl;
               //walk along the edge until the next vertex
-              cout << "Creg " << Creg[regionBoundary[irB[(count + offset)%Size]]] << regionBoundary[irB[(count + offset)%Size]] << endl;
+              cout << "Creg " << Creg[regionBoundary[irB[(count + offset)%Size]]] << " boundary " << regionBoundary[irB[(count + offset)%Size]] << endl;
 			  int rcount = 0;
               while ((this->Creg[regionBoundary[irB[(count + offset)]]] == 1) && (rcount < Size)) {
 			       rcount++;
@@ -865,12 +860,12 @@ vector<int> sort_indexes(const vector<T> &v) {
 
     //function to return the correlation of two vectors
     double correlate_Eqvector(vector<double> vector1, vector<double> vector2) {
-        //ofstream jfile;
-        //jfile.open("correlateEqvector.out",ios::app);
+        ofstream jfile;
+        jfile.open("correlateEqvector.out",ios::app);
         double result;
-        //jfile << " In correlateEqvector " << endl;
+        jfile << " In correlateEqvector " << endl;
         if (vector1.size() != vector2.size()){
-            //jfile << "error: vectors must be same length" << endl;
+            jfile << "error: vectors must be same length" << endl;
             return -2;
         }
         double vector1Norm = 0;
@@ -885,7 +880,7 @@ vector<int> sort_indexes(const vector<T> &v) {
             vector1Norm = sqrt(vector1Norm);
             vector2Norm = sqrt(vector2Norm);
             result = vector12Product / (vector1Norm*vector2Norm);
-           // jfile << "result = " << result << endl;
+            jfile << "result = " << result << endl;
             return result;
 
     } //end of function correlateEqvector
