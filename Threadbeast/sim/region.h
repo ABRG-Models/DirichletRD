@@ -2,6 +2,9 @@
 #include <morph/HexGrid.h>
 #include <morph/ReadCurves.h>
 #include <morph/HdfData.h>
+#include <morph/BezCurve.h>
+#include <morph/BezCurvePath.h>
+#include <morph/BezCoord.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -31,6 +34,9 @@ using morph::HexGrid;
 using morph::HdfData;
 using morph::ReadCurves;
 using morph::Tools;
+using morph::BezCurve;
+using morph::BezCurvePath;
+using morph::BezCoord;
 using namespace std;
 
 #define NE(hi) (this->Hgrid->d_ne[hi])
@@ -85,24 +91,31 @@ public:
   ofstream afile (logpath + "/debug.out" );
   ofstream jfile (logpath + "/correlateVector.out");
 
+  cout << "before creating BezCurve" <<endl;;
 	srand(time(NULL));
     this->scale = scale;
 
 
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
-#include "centresAE.h"
+ #include "centresAE.h"
+ #include "bezRectangle.h"
+  cout << "after creating BezCurve" << endl;
 
-	
 //	for (int j=0;j<NUMPOINTS;j++)
 //          afile << "j = " << j <<" x = " << centres[j] .xval  << "  y = " << centres[j].yval <<endl;
 //	afile << " s = " << s << endl;
 
   n = 0;
-  Hgrid = new HexGrid(this->ds, 4.0, 0.0, morph::HexDomainShape::Boundary);
-  morph::ReadCurves r("./barrelAE.svg");
-  Hgrid->setBoundary (r.getCorticalPath());
+  Hgrid = new HexGrid(this->ds, 0.8, 0.0, morph::HexDomainShape::Boundary);
+  n = Hgrid->num();
+  cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
   cout << "before filling H " << Hgrid->num() << endl;
+  cout << "after creating HexGrid"<<endl;
+  //morph::ReadCurves r("./barrelAE.svg");
+  //Hgrid->setBoundary (r.getCorticalPath());
+  Hgrid->setBoundary (bound);
+  cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
   cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
   cout << "after  filling H " << " n = " << n <<endl;

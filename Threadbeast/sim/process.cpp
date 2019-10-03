@@ -106,7 +106,7 @@ int main (int argc, char **argv)
     //bfile << "just after displays" << endl;
 
 // initialise Region class setting scale
-    Region M(6,logpath);
+    Region M(7,logpath);
 // include the analysis methods
     Analysis L;
 
