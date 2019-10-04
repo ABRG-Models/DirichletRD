@@ -21,7 +21,7 @@
 #include <sys/types.h>
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-#define NUMPOINTS 25 //just the A-E rows.
+#define NUMPOINTS 79 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -57,7 +57,7 @@ using namespace std;
 #define NSW(hi) (this->Hgrid->d_nsw[hi])
 #define HAS_NSW(hi) (this->Hgrid->d_nsw[hi] == -1 ? false : true)
   
-class Region
+class DRegion
 {
 public:
     int scale;
@@ -87,18 +87,18 @@ public:
   morph::HexGrid* Hgrid;
   int base = 1000;
   //class constructor
-  Region (int scale, string logpath) {
+  DRegion (int scale, string logpath) {
   ofstream afile (logpath + "/debug.out" );
   ofstream jfile (logpath + "/correlateVector.out");
 
   cout << "before creating BezCurve" <<endl;;
-	srand(time(NULL));
+  srand(time(NULL));
     this->scale = scale;
 
 
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
- #include "centresAE.h"
+ #include "centres.h"
  #include "bezRectangle.h"
   cout << "after creating BezCurve" << endl;
 
@@ -107,13 +107,13 @@ public:
 //	afile << " s = " << s << endl;
 
   n = 0;
-  Hgrid = new HexGrid(this->ds, 0.8, 0.0, morph::HexDomainShape::Boundary);
+  Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
   n = Hgrid->num();
   cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
   cout << "before filling H " << Hgrid->num() << endl;
   cout << "after creating HexGrid"<<endl;
-  //morph::ReadCurves r("./barrelAE.svg");
-  //Hgrid->setBoundary (r.getCorticalPath());
+//  morph::ReadCurves r("./barrelAE.svg");
+//  Hgrid->setBoundary (r.getCorticalPath());
   Hgrid->setBoundary (bound);
   cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
@@ -310,7 +310,7 @@ cout << "after neighbour array" << endl;
   } //end of constructor
 
   //function, gets distance between points now supseded by morphologica function
-  //float distanceFrom (const pair<float, float> cartesianPoint) const {
+  //float distanceFrom (const pair<float, float> cartesianPoint) const 
 
   double getdist(point a, point b) {
     double result;
@@ -373,13 +373,13 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
        // Set up boundary conditions with ghost points
-      cout << " in time step before ghost points" << endl;
+      //cout << " in time step before ghost points" << endl;
       for(auto h : Hgrid->hexen){
-	    cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
+	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
         if(Cnbr[h.vi]<6){
           for(int j=0;j<6;j++){
 		     int i = int(h.vi);
-		  cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
+		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
              if(N[h.vi][j] == i) {
        	       NN[N[h.vi][j]] = NN[h.vi];
 			   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
@@ -391,7 +391,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         double beta = 5.;
-		cout << " before calls to Laplacian " << endl;
+		//cout << " before calls to Laplacian " << endl;
         vector<double> lapN = getLaplacian(NN,ds);
         vector<double> lapC = getLaplacian(CC,ds);
         vector<double> G(n,0.);
@@ -607,9 +607,8 @@ vector<int> sort_indexes(const vector<T> &v) {
         ofstream kfile ( logpath + "/edgesList.out" );
         ofstream lfile ( logpath + "/verticesList.out" );
         hfile<<"just in dissectBoundary"<<endl;
-        vector<std::pair<double,double>> result;
-        // std::pair<double,double> holdpair;
-        vector<int> regionBoundary;
+        vector<std::pair<double,double>> result; 
+        vector<int> regionBoundary; //holding array for the hexes in each region boundary
         for (int i=0; i < NUMPOINTS; i++) {
           regionBoundary.resize(0);
           cout << " region index " << i << " size "  <<this->regionIndex[i].size() << endl;
@@ -624,14 +623,13 @@ vector<int> sort_indexes(const vector<T> &v) {
           } //end of loop on a single region
 
 
-         cout<<"after the filling of regionEdge and regionVertex" <<endl;
+         cout<<"after filling of regionEdge and regionVertex" <<endl;
          cout<<"regionBoundary.size "<<regionBoundary.size() << endl;
 
 
          vector<double> rB; //contains the boundary thetas
          vector<int> irB; //holds the sorted boundary indicies
          for (unsigned int j = 0; j < regionBoundary.size();j++){
-                //  hfile<< "index "<< j <<" vertex angle = " <<H[5][this->regionIndex[i][j]]<<endl;
            rB.push_back(psi[regionBoundary[j]]);
          }
          irB = sort_indexes(rB); //indices after sort on theta
@@ -641,25 +639,24 @@ vector<int> sort_indexes(const vector<T> &v) {
          // this->shift_polars(rB, angleOffset);
          // hfile<<"after shift_polars call"<<endl;
          // we now walk round the boundary in theta order
-         unsigned int idissect = 0;
+         unsigned int idissect = 0; //counts number of boundary hexes processed
          int Vcount = 0; //count of the vertices
          int Ecount = 0; //count of the edges
          unsigned int offset = 0; //number of boundary hexes before the first vertex
-         bool lvertex;
          vector<int> ihE; //contains the sorted indicies of each edge
          while (offset < irB.size()) {
-            //cout << " offset " << offset << endl;
-             //cout << "Creg " << Creg[regionBoundary[irB[offset]]] <<endl;
+            cout << " offset " << offset << endl;
+            cout << "Creg " << Creg[regionBoundary[irB[offset]]] <<endl;
                if  (Creg[regionBoundary[irB[offset]]] > 1) {
                  Vcount++; //its a vertex
-				 idissect++;
-				 cout << " offset " << offset << " idissect " << idissect<<endl;
+				// cout << " offset " << offset << " idissect " << idissect<<endl;
 				 regionVertex[i].push_back(irB[offset]);
+				 idissect++;
 				 break;
-           }
-		 offset++;
-         //cout << " offset " << offset << " idissect " << idissect<<endl;
-         }
+           } 
+		   offset++;
+		 }
+         cout << " offset " << offset << " idissect " << idissect<<endl;
          cout<<"after offset loop" << " offset " << offset  << endl;
          unsigned int Size = irB.size();
 		 //cout << " irB size " << Size << endl;
@@ -667,25 +664,19 @@ vector<int> sort_indexes(const vector<T> &v) {
                  cout << "region i " << region[i][0] << " irB size " << Size << endl;
                  continue;
               }
-         while ((idissect < Size+1)) {
-              lvertex = false;
+         while ((idissect < Size)) {
               Ecount = 0;
               ihE.resize(0);
               while (Creg[regionBoundary[irB[(idissect + offset) % Size]]] > 1) {
-              cout << "in vertex loop" << " idissect " << idissect << endl;
-                   lvertex = true;
-				   idissect++;
+                   cout << "in vertex loop" << " idissect " << idissect << endl;
+			       idissect++;
+                   Vcount++;
+				   regionVertex[i].push_back(irB[(idissect+offset)%Size]);
                    break;
-              }
-              cout << "after vertex loop 1 " << lvertex <<endl;
-              if (lvertex) {
-                Vcount++;
-				regionVertex[i].push_back(irB[(idissect+offset)%Size]);
-				idissect++;
 				}
-              cout << "after vertex loop time 2" << " Vcount " << Vcount <<endl;
+              //cout << "after vertex loop " << " Vcount " << Vcount <<endl;
               //walk along the edge until the next vertex
-              cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%Size]]] << " boundary " << regionBoundary[irB[(idissect + offset)%Size]] << endl;
+              //cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%Size]]] << " boundary " << regionBoundary[irB[(idissect + offset)%Size]] << endl;
               while ((this->Creg[regionBoundary[irB[(idissect + offset)%Size]]] == 1) && (idissect < Size + 1)) {
                    ihE.push_back(regionBoundary[irB[(idissect + offset)%Size]]);
                    Ecount++;
@@ -693,18 +684,23 @@ vector<int> sort_indexes(const vector<T> &v) {
                  }
               cout << "after edge loop Ecount " << Ecount << " Vcount " << Vcount <<endl;
                if (Ecount == 0){
-               cout<<"======================================================="<<endl;
-               break;
+               cout<<"Oops - empty edge=========================================="<<endl;
+               continue;
                 }
-               cout<<"after filling tempvector"<<endl;
-			   unsigned int tempsize = ihE.size();
-               cout<<"ihE Size "<<ihE.size()<< " tempsize " << tempsize <<endl;
-			   if (tempsize > 0) {
-			     cout << " in the tempsize loop " << endl;
+              // cout<<"after filling tempvector"<<endl;
+               cout<<"ihE Size "<<ihE.size() <<endl;
+			   if (ihE.size() > 0) {
+			    // cout << " in the tempsize loop " << endl;
 			     for (unsigned int ii = 0; ii<ihE.size();ii++){
-                   hfile<<ihE[ii]<<endl;
+				   int central = region[ihE[ii]][0];
+                   for (int ihex = 0; ihex<6; ihex++){ 
+				   if (hexRegionList[ihE[ii]][ihex] != central) {
+                     hfile<<" central " <<region[ihE[ii]][0]<< " nbr region " << hexRegionList[ihE[ii]][ihex]<<endl;
+					 central = hexRegionList[ihE[ii]][ihex];
+			       }
+				   }
 			     }
-			   }	 
+			   }
 			   else {
 			     cout << " not in the tempsize loop " << endl;
 				 }
@@ -730,17 +726,14 @@ vector<int> sort_indexes(const vector<T> &v) {
                   this->regionList[i].push_back(edgeOuter);
 				}
                 else {
-                      cout << "edgeouter "<< edgeOuter;
+                      cout << "edgeouter "<< edgeOuter << endl;
                 } 
              } // end of idissect loop
 			 cout << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<endl;
 			 if (regionList[i].size() == 0){ 
 			   continue;
 			   }
-			   else{
-			 cout << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<endl;
-               }
-			   
+			   //write out to  regionList file
 			 ifile << "number of nbrs for region " << i << " is " << regionList[i].size() << endl;
              for (unsigned int iregion = 0; iregion < regionList[i].size(); iregion++){
                 ifile << " r " << i << " rNbr " << regionList[i][iregion];
@@ -748,7 +741,8 @@ vector<int> sort_indexes(const vector<T> &v) {
                 ifile << endl;
                 ifile << "---------------------------------------"<< endl;
              }
-
+			 cout <<endl;
+             //write to vertexlist file
 			 lfile << "number of vertices for region " << i << " is " << regionVertex[i].size() << endl;
              for (unsigned int iregion = 0; iregion < regionVertex[i].size(); iregion++){
                 lfile << " r " << i << " vertex " << regionVertex[i][iregion];
@@ -1221,4 +1215,4 @@ vector<int> sort_indexes(const vector<T> &v) {
      return angleNN;
 
   } //end of function sectorize_region
-}; // Region
+}; // DRegion

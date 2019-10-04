@@ -19,15 +19,20 @@
 */
 #include "analysis.h"
 #include "region.h"
+#include <morph/display.h>
 using std::array;
 using std::string;
 using std::stringstream;
 using std::cerr;
 using std::endl;
 using std::runtime_error;
+/*
 using morph::HexGrid;
 using morph::HdfData;
 using morph::Tools;
+using morph::Display
+*/
+using namespace morph;
 using namespace std;
 
 
@@ -105,8 +110,8 @@ int main (int argc, char **argv)
     //displays[1].redrawDisplay();
     //bfile << "just after displays" << endl;
 
-// initialise Region class setting scale
-    Region M(7,logpath);
+// initialise DRegion class setting scale
+    DRegion M(8,logpath);
 // include the analysis methods
     Analysis L;
 
@@ -132,6 +137,54 @@ int main (int argc, char **argv)
 	    } //end of code to set initial random field
     } //end of else on Lcontinue
     cout <<  "just after field creation" << endl;
+
+        vector<double> fix(3, 0.0);
+        vector<double> eye(3, 0.0);
+        vector<double> rot(3, 0.0);
+        double rhoInit = 1.7;
+        morph::Gdisplay disp(2400, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+        disp.resetDisplay (fix, eye, rot);
+
+        // plot stuff here.
+        array<float,3> cl_a = morph::Tools::getJetColorF (0.78);
+        array<float,3> cl_c = morph::Tools::getJetColorF (0.28);
+        array<float,3> cl_b = morph::Tools::getJetColorF (0.58);
+        array<float,3> offset = {{0, 0, 0}};
+        for (auto h : M.Hgrid->hexen) {
+            if (M.Creg[h.vi] ==  1 ) {
+                disp.drawHex (h.position(), (h.d/2.0f), cl_a);
+			} else if (M.Creg[h.vi] > 1) {
+                disp.drawHex (h.position(), (h.d/2.0f), cl_c);
+            } else {
+                disp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
+            }
+        }
+
+
+        // Draw small hex at boundary centroid
+        array<float,3> c;
+        c[2] = 0;
+        c[0] = M.Hgrid->boundaryCentroid.first;
+        c[1] = M.Hgrid->boundaryCentroid.second;
+        cout << "d/2: " << M.Hgrid->hexen.begin()->d/4.0f << endl;
+        disp.drawHex (c, offset, (M.Hgrid->hexen.begin()->d/2.0f), cl_a);
+        cout << "boundaryCentroid x,y: " << c[0] << "," << c[1] << endl;
+
+        // red hex at zero
+        array<float,3> cl_aa = morph::Tools::getJetColorF (0.98);
+        array<float,3> pos = { { 0, 0, 0} };
+        disp.drawHex (pos, 0.05, cl_aa);
+
+        usleep (1000000);
+        disp.redrawDisplay();
+
+        unsigned int sleep_seconds = 1;
+        cout << "Sleep " << sleep_seconds << " s before closing display..." << endl;
+        while (sleep_seconds--) {
+            usleep (10000000); // one hundred seconds
+        }
+
+        disp.closeDisplay();
       for (int i=0;i<numsteps;i++) {
 	     cout << " just before time step " << " i " << i << endl;
          M.step(dt, Dn, Dchi, Dc);
