@@ -111,7 +111,7 @@ int main (int argc, char **argv)
     //bfile << "just after displays" << endl;
 
 // initialise DRegion class setting scale
-    DRegion M(8,logpath);
+    DRegion M(9,logpath);
 // include the analysis methods
     Analysis L;
 
@@ -181,7 +181,7 @@ int main (int argc, char **argv)
         unsigned int sleep_seconds = 1;
         cout << "Sleep " << sleep_seconds << " s before closing display..." << endl;
         while (sleep_seconds--) {
-            usleep (10000000); // one hundred seconds
+            usleep (100000000); // one hundred seconds
         }
 
         disp.closeDisplay();
