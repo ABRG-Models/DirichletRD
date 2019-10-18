@@ -181,7 +181,7 @@ int main (int argc, char **argv)
         unsigned int sleep_seconds = 1;
         cout << "Sleep " << sleep_seconds << " s before closing display..." << endl;
         while (sleep_seconds--) {
-            usleep (100000000); // one hundred seconds
+            usleep (1000000); // one hundred seconds
         }
 
         disp.closeDisplay();
