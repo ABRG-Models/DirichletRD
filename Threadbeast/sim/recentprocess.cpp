@@ -182,49 +182,26 @@ int main (int argc, char **argv)
           morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
-		  vector<double> normalNN;
-		  normalNN.resize(M.n);
-		  int countHex = 0;
-		  for (int j=0;j<NUMPOINTS;j++) {
-		    cout << "in loop over regions " << j << " size is " << M.region[j].size() << endl;
-			countHex += M.region[j].size();
-		    vector<double> regionNN(M.region[j].size());
-			vector<double> tempNN(M.region[j].size());
-			vector<int> regionIdx(M.region[j].size());
-		    for (unsigned int k=0;k<M.regionIndex[j].size();k++){
-			  int index = M.regionIndex[j][k];
-			  tempNN[k] = M.NN[index];
-			  regionIdx[k] = index;
-			  }
-		   //normalise over the region then write normalised values to normalised NN over hexGrid
-           regionNN = L.normalise(tempNN);
-		   for (int k=0;k<M.region[j].size();k++) {
-		     normalNN[regionIdx[k]] = regionNN[k];
-			 }
-		   } //end of loop over regions
-		   cout << "total number of hexes counted " << countHex << endl;
-
+           vector <double> normalNN = L.normalise(M.NN);
 		   for (auto h : M.Hgrid->hexen) {
 		     if (M.Cnbr[h.vi] == 6) {
 			   array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
-		       cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
 	           disp.drawHex(h.position(),(h.d/2.0f),colour);
-		       cout << "just after drawHex"<<endl;
-			}
-			   }
 			   }
 		    // else {
 			//  disp.drawHex(h.position(),(h.d/2.0f),0.0f);
 			// }
+        } 
         //disp.resetDisplay (fix, eye, rot);
           disp.redrawDisplay();
           usleep (10000000); // one hundred seconds
 		  if (i == (numsteps - numprint)) {
-		    disp.saveImage(logpath + "logs/nnField.png");
+		    disp.saveImage(logpath + "/nnField.png");
 			}
 
-        } 
           disp.closeDisplay();
+      }
+	}
          //cout << " just after time step i = " << i << endl;
 
     //code run at end of timestepping
