@@ -79,23 +79,9 @@ int main (int argc, char **argv)
             return 1;
         }
     }
-//    commandStem = "mkdir " + logpath;
-//    command = commandStem.c_str();
-//    system(command);
-     //  cerr << "Error : " << strerror(errno) << endl;
-    // else
-    //   cout << "Directory created" << endl;
-	
-    //commandStem = "cd " + logpath;
-    //command = commandStem.c_str();
-    //system(command);
-    // ofstream bfile ( logpath + "/maindebug.out" );
     ofstream gfile ( logpath + "/edges.out");
     ofstream jfile ( logpath + "/results.txt");
 
-    // int mdegree = 0;
-    vector <double> rayv;
-    vector <double> ringv;
 
     // DISPLAYS
     //vector<morph::Gdisplay> displays;
@@ -142,7 +128,7 @@ int main (int argc, char **argv)
         vector<double> eye(3, 0.0);
         vector<double> rot(3, 0.0);
         double rhoInit = 1.7;
-        morph::Gdisplay disp(2400, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+        morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
         disp.resetDisplay (fix, eye, rot);
 
         // plot stuff here.
@@ -175,22 +161,73 @@ int main (int argc, char **argv)
         array<float,3> pos = { { 0, 0, 0} };
         disp.drawHex (pos, 0.05, cl_aa);
 
-        usleep (1000000);
+      //  usleep (1000000);
         disp.redrawDisplay();
-
-        unsigned int sleep_seconds = 1;
-        cout << "Sleep " << sleep_seconds << " s before closing display..." << endl;
-        while (sleep_seconds--) {
-            usleep (1000000); // one hundred seconds
-        }
-
-        disp.closeDisplay();
-      for (int i=0;i<numsteps;i++) {
-	     cout << " just before time step " << " i " << i << endl;
-         M.step(dt, Dn, Dchi, Dc);
-         cout << " just after time step i = " << i << endl;
-
+      unsigned int sleep_seconds = 1;
+      while (sleep_seconds--) {
+         usleep (1000000); // one hundred seconds
       }
+      disp.closeDisplay();
+
+      for (int i=0;i<numsteps;i++) {
+	     //cout << " just before time step " << " i " << i << endl;
+         M.step(dt, Dn, Dchi, Dc);
+		 /*
+		 if (i % numprint == numprint/2) {
+          disp.closeDisplay();
+	      usleep(1000000); 
+		  }
+		  */
+		 if (i % numprint == 0) {
+          morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+          disp.resetDisplay (fix, eye, rot);
+		  cout << "in print routine"<<endl;
+		  vector<double> normalNN;
+		  normalNN.resize(M.n);
+		  int countHex = 0;
+		  for (int j=0;j<NUMPOINTS;j++) {
+		    cout << "in loop over regions " << j << " size is " << M.regionIndex[j].size() << endl;
+			countHex += M.regionIndex[j].size();
+		    vector<double> regionNN(M.regionIndex[j].size());
+			vector<double> tempNN(M.regionIndex[j].size());
+			vector<int> regionIdx(M.regionIndex[j].size());
+		    for (unsigned int k=0;k<M.regionIndex[j].size();k++){
+			  int index = M.regionIndex[j][k];
+			  tempNN[k] = M.NN[index];
+			  regionIdx[k] = index;
+			  }
+		   //normalise over the region then write normalised values to normalised NN over hexGrid
+           regionNN = L.normalise(tempNN);
+		   for (int k=0;k<M.region[j].size();k++) {
+		     normalNN[regionIdx[k]] = regionNN[k];
+			 }
+		   } //end of loop over regions
+		   cout << "total number of hexes counted " << countHex << endl;
+
+		   for (auto h : M.Hgrid->hexen) {
+		     cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
+		     if (M.Cnbr[h.vi] == 6) {
+			   array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
+	           disp.drawHex(h.position(),(h.d/2.0f),colour);
+		       cout << "just after drawHex"<<endl;
+			}
+			   }
+			   }
+		    // else {
+			//  disp.drawHex(h.position(),(h.d/2.0f),0.0f);
+			// }
+        //disp.resetDisplay (fix, eye, rot);
+		 cout << "just berore redraw display" << endl;
+          disp.redrawDisplay();
+          usleep (10000000); // one hundred seconds
+		  if (i == (numsteps - numprint)) {
+		    disp.saveImage(logpath + "logs/nnField.png");
+			}
+
+        } 
+          disp.closeDisplay();
+         //cout << " just after time step i = " << i << endl;
+
     //code run at end of timestepping
     //first save the  ofstream outFile;
      morph::HdfData data (fname);

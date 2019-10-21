@@ -63,6 +63,7 @@ public:
     int scale;
     int n;
     double ds;
+	double overds;
   struct point {
     double xval;
     double yval;
@@ -98,6 +99,7 @@ public:
 
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
+    double overds = 1./(1.5*29.0*29.0*ds*ds);
  #include "centres.h"
  #include "bezRectangle.h"
   cout << "after creating BezCurve" << endl;
@@ -358,14 +360,44 @@ vector<int> sort_indexes(const vector<T> &v) {
 }    
 
     vector<double> getLaplacian(vector<double> Q, double dx) {
-      double overdxSquare = 1./(1.5*dx*dx);
         vector<double> L(n,0.);
         for(auto h : this->Hgrid->hexen){
          int i = int(h.vi);
-            L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overdxSquare;
+            L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*this->overds;
         }
         return L;
     }
+        
+		vector<double> chemoTaxis(vector<double> Q, vector<double> P, double dx) {
+		vector<double> cT(n,0.);
+
+        for (auto h : Hgrid->hexen) {
+		  unsigned int i = h.vi;
+        // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
+	      double dr0Q = (Q[N[i][0]]+Q[i])/2.;
+	      double dg0Q = (Q[N[i][1]]+Q[i])/2.;
+	      double db0Q = (Q[N[i][2]]+Q[i])/2.;
+	      double dr1Q = (Q[N[i][3]]+Q[i])/2.;
+	      double dg1Q = (Q[N[i][4]]+Q[i])/2.;
+	      double db1Q = (Q[N[i][5]]+Q[i])/2.;
+	  //double ncentre = Q[i];
+
+          double dr0P = P[N[i][0]]-P[i];
+          double dg0P = P[N[i][1]]-P[i];
+          double db0P = P[N[i][2]]-P[i];
+	      double dr1P = P[N[i][3]]-P[i];
+          double dg1P = P[N[i][4]]-P[i];
+          double db1P = P[N[i][5]]-P[i];
+
+
+	  //finite volume for NdelC, h = s/2
+	  cT[i] = (dr0Q*dr0P+dg0Q*dg0P+db0Q*db0P+dr1Q*dr1P+dg1Q*dg1P+db1Q*db1P)*overds;
+
+	  //G[i] = (drN*drC+dgN*dgC+dbN*dbC)/(6.*ds*ds) + NN[i]*lapC[i];
+
+        } //matches for on i
+		return cT;
+	} //end of function chemoTaxis
 
   //function to timestep coupled equations
     void step(double dt, double Dn, double Dchi, double Dc) {
@@ -382,7 +414,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
              if(N[h.vi][j] == i) {
        	       NN[N[h.vi][j]] = NN[h.vi];
-			   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
+			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
 	           CC[N[h.vi][j]] = CC[h.vi];
 	      }
 	     }
@@ -391,41 +423,15 @@ vector<int> sort_indexes(const vector<T> &v) {
 
 
         double beta = 5.;
+        double a = 1., b = 1., mu = 1;
 		//cout << " before calls to Laplacian " << endl;
         vector<double> lapN = getLaplacian(NN,ds);
         vector<double> lapC = getLaplacian(CC,ds);
-        vector<double> G(n,0.);
-        double a = 1., b = 1., mu = 1;
-
-        for (auto h : Hgrid->hexen) {
-		  unsigned int i = h.vi;
-        // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
-	      double dr0N = (NN[N[i][0]]+NN[i])/2.;
-	      double dg0N = (NN[N[i][1]]+NN[i])/2.;
-	      double db0N = (NN[N[i][2]]+NN[i])/2.;
-	      double dr1N = (NN[N[i][3]]+NN[i])/2.;
-	      double dg1N = (NN[N[i][4]]+NN[i])/2.;
-	      double db1N = (NN[N[i][5]]+NN[i])/2.;
-	  //double ncentre = NN[i];
-
-          double dr0C = CC[N[i][0]]-CC[i];
-          double dg0C = CC[N[i][1]]-CC[i];
-          double db0C = CC[N[i][2]]-CC[i];
-	      double dr1C = CC[N[i][3]]-CC[i];
-          double dg1C = CC[N[i][4]]-CC[i];
-          double db1C = CC[N[i][5]]-CC[i];
-
-
-	  //finite volume for NdelC, h = s/2
-	  G[i] = (dr0N*dr0C+dg0N*dg0C+db0N*db0C+dr1N*dr1C+dg1N*dg1C+db1N*db1C)/(1.5*ds*ds);
-
-	  //G[i] = (drN*drC+dgN*dgC+dbN*dbC)/(6.*ds*ds) + NN[i]*lapC[i];
-
-        } //matches for on i
+        vector<double> cTaxis = chemoTaxis(NN,CC,ds);
 
         // step N
         for (auto h : Hgrid->hexen) {
-          NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*G[h.vi]);
+          NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
         }
 
         // step C
@@ -482,7 +488,6 @@ vector<int> sort_indexes(const vector<T> &v) {
     // return the mean of the absolute values of a  vector
         double absmean_vector(vector<double> invector) {
         //ofstream meanzero ("meanzero.txt",ios::app);
-          double result = 0;
 	      double sum = 0;
           int size = invector.size();
         //meanzero << "size " << size << endl;
@@ -490,7 +495,7 @@ vector<int> sort_indexes(const vector<T> &v) {
             sum += fabs(invector[i]);
         }
         sum = sum/(1.0*size);
-        return result;
+        return sum;
     } 
 
 

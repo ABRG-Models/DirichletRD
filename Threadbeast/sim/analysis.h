@@ -120,6 +120,25 @@ public:
         return outvector;
     }
 
+	vector <double> normalise (vector <double> invector) {
+	  vector <double> result;
+	  unsigned int size = invector.size();
+	  result.resize(size, 0);
+	  double maxV = -1e7;
+	  double minV = 1e7;
+	  for (unsigned int i=0;i<size;i++) {
+	    if (invector[i] > maxV) {maxV = invector[i];}
+		if (invector[i] < minV) {minV = invector[i];}
+		}
+	  double scaleV = 1./(maxV - minV);
+	  for (unsigned int i=0;i<size;i++) {
+	    result[i] = fmin(fmax((invector[i] - minV)*scaleV,0.),1.);
+	  }
+	  return result;
+    }
+
+
+
 
   //function find_max to find turning points both values and indices.
     int find_max(vector<double> ray, int window) {
