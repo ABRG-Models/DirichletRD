@@ -656,7 +656,8 @@ vector<int> sort_indexes(const vector<T> &v) {
          // we now walk round the boundary in theta order
          unsigned int idissect = 0; //counts number of boundary hexes processed
          int Vcount = 0; //count of the vertices
-         int Ecount = 0; //count of the edges1
+         int Ecount = 0; //count of the edges
+         int newVertex;
          unsigned int offset = 0; //number of boundary hexes before the first vertex
          vector<int> ihE; //contains the sorted indicies of each edge
          while (offset < irB.size()) {
@@ -665,7 +666,7 @@ vector<int> sort_indexes(const vector<T> &v) {
                if  (Creg[regionBoundary[irB[offset]]] > 1) {
                  Vcount++; //its a vertex
 				// cout << " offset " << offset << " idissect " << idissect<<endl;
-				 regionVertex[i].push_back(irB[offset]);
+				 newVertex = irB[offset];
 				 idissect++;
 				 break;
            } 
@@ -679,17 +680,20 @@ vector<int> sort_indexes(const vector<T> &v) {
                    cout << "in vertex loop" << " idissect " << idissect << endl;
 			       idissect++;
                    Vcount++;
-				   regionVertex[i].push_back(irB[(idissect+offset)%Size]);
+				   newVertex = irB[(idissect+offset)%Size];
               //     break;
 				}
              // cout << "vertexloop" <<endl;
               //walk along the edge until the next vertex
               //cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%Size]]] << " boundary " << regionBoundary[irB[(idissect + offset)%Size]] << endl;
+		      regionVertex[i].push_back(newVertex);
               while ((this->Creg[regionBoundary[irB[(idissect + offset)%Size]]] == 1) && (idissect < Size)) {
                    ihE.push_back(regionBoundary[irB[(idissect + offset)%Size]]);
                    Ecount++;
 				   idissect++;
                  }
+              ihE.insert(ihE.begin(),newVertex);
+              Ecount++;
               cout << "after edge loop Ecount " << Ecount << " Vcount " << Vcount <<endl;
                if (Ecount == 0){
                cout<<"Oops - empty edge=========================================="<<endl;
@@ -713,11 +717,11 @@ vector<int> sort_indexes(const vector<T> &v) {
 				 continue;
 				 }
                cout <<"Vcount "<< Vcount << " Ecount "<< Ecount << endl;
-               int regMiddle = region[ihE[1]][0];
+               int regMiddle = region[ihE.back()][0];
                int edgeOuter = -2;
                for (int ihex = 0; ihex<6; ihex++){ //find the first region not the same as the central, since Creg = 1 there can only be one such region.
-                  if (regMiddle != hexRegionList[ihE[1]][ihex]){
-                     edgeOuter = hexRegionList[ihE[1]][ihex];
+                  if (regMiddle != hexRegionList[ihE.back()][ihex]){
+                     edgeOuter = hexRegionList[ihE.back()][ihex];
                      break;
                   }
                 }
