@@ -63,7 +63,7 @@ public:
     int scale;
     int n;
     double ds;
-	double overds;
+	//double overds;
   struct point {
     double xval;
     double yval;
@@ -99,7 +99,8 @@ public:
 
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
-    double overds = 1./(1.5*29.0*29.0*ds*ds);
+    //double overds = 1./(1.5*29.0*29.0*ds*ds);
+    //cout << " overds " << overds << endl;
  #include "centres.h"
  #include "bezRectangle.h"
   cout << "after creating BezCurve" << endl;
@@ -360,16 +361,18 @@ vector<int> sort_indexes(const vector<T> &v) {
 }    
 
     vector<double> getLaplacian(vector<double> Q, double dx) {
+        double overds = 1./(1.5*29.0*29.0*dx*dx);
         vector<double> L(n,0.);
         for(auto h : this->Hgrid->hexen){
          int i = int(h.vi);
-            L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*this->overds;
+            L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overds;
         }
         return L;
     }
         
 		vector<double> chemoTaxis(vector<double> Q, vector<double> P, double dx) {
 		vector<double> cT(n,0.);
+          double overds = 1./(1.5*29.0*29.0*dx*dx);
 
         for (auto h : Hgrid->hexen) {
 		  unsigned int i = h.vi;

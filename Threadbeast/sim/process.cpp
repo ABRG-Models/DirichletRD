@@ -106,10 +106,10 @@ int main (int argc, char **argv)
 // initialise with random field
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
-	    //cout<< "just after first data read"<< endl;
+	    cout<< "just after first data read"<< endl;
 	    input.read_contained_vals("n",M.NN);
 	    input.read_contained_vals("c",M.CC);
-	    //cout<< "just after input of NN and CC1"<< endl;
+	    cout<< "just after input of NN and CC1"<< endl;
 //	    input.close();
     }
     else {
@@ -169,6 +169,7 @@ int main (int argc, char **argv)
       }
       disp.closeDisplay();
 
+      int numcolour = 0;
       for (int i=0;i<numsteps;i++) {
 	     //cout << " just before time step " << " i " << i << endl;
          M.step(dt, Dn, Dchi, Dc);
@@ -179,7 +180,8 @@ int main (int argc, char **argv)
 		  }
 		  */
 		 if (i % numprint == 0) {
-          morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+//          numcolour++;
+          morph::Gdisplay disp(400, 800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
 		  vector<double> normalNN;
@@ -203,8 +205,8 @@ int main (int argc, char **argv)
            regionNN = L.normalise(tempNN);
 		   for (unsigned int k=0;k<regsize;k++) {
 		     normalNN[regionIdx[k]] = regionNN[k];
-             //afile << M.NN[regionIdx[k]] << "    " << normalNN[regionIdx[k]] << " " << regionIdx[k] <<endl;
-             afile << regionIdx[k] <<endl;
+             afile << M.NN[regionIdx[k]] << "    " << normalNN[regionIdx[k]] << " " << regionIdx[k] <<endl;
+             //afile << regionIdx[k] <<endl;
 			 }
 		   } //end of loop over regions
 		   cout << "total number of hexes counted " << countHex << endl;
@@ -212,6 +214,7 @@ int main (int argc, char **argv)
 		     cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
 		     if (M.Cnbr[h.vi] == 6) {
 			   array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
+			  // array<float,3> colour = morph::Tools::getJetColorF(numcolour*0.1);
 	           disp.drawHex(h.position(),(h.d/2.0f),colour);
 		       cout << "just after drawHex"<<endl;
 			  }
