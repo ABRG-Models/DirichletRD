@@ -81,7 +81,7 @@ public:
   vector<vector<double> > regionDist; //from each hexdistances to each seed point
   vector<double> psi;
   vector<int> Creg; //for each count of regions it touches
-  vector<int> Cnbr; //for each hex count of neighbour hexes
+  //vector<int> Cnbr; //for each hex count of neighbour hexes
   vector<double> NN, CC; //hold the field values for each hex
   pair <float, float> centres[NUMPOINTS]; //seed points for regions
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
@@ -127,12 +127,12 @@ public:
   region.resize(n);  
   N.resize(n);
   cout << "after  filleting fish " << " n = " << n <<endl;
-  this->Cnbr.resize(n,6); //count of neighbouring hexes
+  //this->Cnbr.resize(n,6); //count of neighbouring hexes
   this->Creg.resize(n,0); //count of neighbouring hexes
   cout << "before hexRegionList"<<endl;
   this->psi.resize(n,0.0); // vector of azimuths
   hexRegionList.resize(n); //neighbouring regions for a hex
-  regionList.resize(n); //neighbouring regions for a region
+  regionList.resize(NUMPOINTS); //neighbouring regions for a region
   regionVertex.resize(NUMPOINTS); //vertices for a region
   cout << "before neighbour array" << endl;  
   this->rad.resize(n,0.0); // vector of radii
@@ -180,7 +180,7 @@ cout << "after neighbour array" << endl;
         region[i] = tempint;
 
       }
-    cout << "after regionList allocated " <<endl;
+    cout << "after region[i] allocated " <<endl;
 
      //afile <<"list of all the regions"<<endl;
      for(int i=0;i<n;i++){
@@ -194,13 +194,13 @@ cout << "after neighbour array" << endl;
      cout << "before hex list loop" << endl;
      // this determines the type of hex
       for (auto h : Hgrid->hexen){
-	    Cnbr.at(h.vi) = 6;
+	    //Cnbr.at(h.vi) = 6;
 
     //      if(h.boundaryHex == true) {
 		    //cout << " its a boundary hex i= " << h.vi << endl;
             if (!HAS_NE(h.vi)) {
 				hexRegionList[h.vi].push_back(-1);
-		        Cnbr[h.vi]--;
+		        h.setBoundaryHex();
 				cout << "no ne" << endl;
             } 
             else {
@@ -209,7 +209,7 @@ cout << "after neighbour array" << endl;
                   
             if (!HAS_NNE(h.vi)) {
 				hexRegionList[h.vi].push_back(-1);
-		        Cnbr[h.vi]--;
+		        h.setBoundaryHex();
 				cout << "no nne" << endl;
             } 
             else {
@@ -218,14 +218,14 @@ cout << "after neighbour array" << endl;
             if (!HAS_NNW(h.vi)) {
 				hexRegionList[h.vi].push_back(-1);
 				cout << "no nnw" << endl;
-		        Cnbr[h.vi]--;
+		        h.setBoundaryHex();
             } 
             else {
               hexRegionList[h.vi].push_back(region[N[h.vi][2]][0]); //nbr region
             }
             if (!HAS_NW(h.vi)) {
 				hexRegionList[h.vi].push_back(-1);
-		        Cnbr[h.vi]--;
+		        h.setBoundaryHex();
 				cout << "no nw" << endl;
             } 
             else {
@@ -233,7 +233,7 @@ cout << "after neighbour array" << endl;
             }
             if (!HAS_NSW(h.vi)) {
 				hexRegionList[h.vi].push_back(-1);
-		        Cnbr[h.vi]--;
+		        h.setBoundaryHex();
 				cout << "no nsw" << endl;
             } 
             else {
@@ -241,6 +241,7 @@ cout << "after neighbour array" << endl;
             }
             if (!HAS_NSE(h.vi)) {
 				hexRegionList[h.vi].push_back(-1);
+				h.setBoundaryHex();
 				cout << "no nse" << endl;
             } 
             else {
@@ -266,9 +267,9 @@ cout << "after neighbour array" << endl;
 		     cout << " hexRegionList " << hexRegionList[h.vi][j] << endl;
              if (centralRegion != newRegion){ //its a boundary hex
 			   cout << "centralRegion " << centralRegion << " newRegion " << newRegion << endl;
-               Cnbr[h.vi]--;
+               h.setBoundaryHex();
 			   N[h.vi][j] = h.vi;
-               cout << " Cnbr " << Cnbr[h.vi] << endl;
+               //cout << " Cnbr " << Cnbr[h.vi] << endl;
                if (oldRegion != newRegion){ //logic to test if vertex
                  Creg[h.vi]++;
 				 cout << " Creg " << Creg[h.vi] << " oldRegion " << oldRegion << " newRegion " << newRegion << endl;
@@ -293,7 +294,14 @@ cout << "after neighbour array" << endl;
 
 
       cout << "after creating internal boundaries" << endl;
-
+/*
+	  //now mark all boundary hexes, internal or external as onBoundary
+	  for (auto h : Hgrid->hexen) {
+	    if ((Cnbr[h.vi] < 6) || (Creg[h.vi] == 1)) {
+		  h.setBoundaryHex();
+		  }
+	  }
+*/
 
 
 
@@ -411,7 +419,7 @@ vector<int> sort_indexes(const vector<T> &v) {
       //cout << " in time step before ghost points" << endl;
       for(auto h : Hgrid->hexen){
 	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
-        if(Cnbr[h.vi]<6){
+        if(this->Creg[h.vi] > 0){
           for(int j=0;j<6;j++){
 		     int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
@@ -423,6 +431,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 	     }
 	   }
       }
+
 
 
         double beta = 5.;
@@ -663,6 +672,7 @@ vector<int> sort_indexes(const vector<T> &v) {
          int newVertex;
          unsigned int offset = 0; //number of boundary hexes before the first vertex
          vector<int> ihE; //contains the sorted indicies of each edge
+		 //find the offset to the first vertex
          while (offset < irB.size()) {
             //cout << " offset " << offset << endl;
             //cout << "Creg " << Creg[regionBoundary[irB[offset]]] <<endl;

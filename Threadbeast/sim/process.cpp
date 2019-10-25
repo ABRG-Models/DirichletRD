@@ -136,15 +136,20 @@ int main (int argc, char **argv)
         array<float,3> cl_c = morph::Tools::getJetColorF (0.28);
         array<float,3> cl_b = morph::Tools::getJetColorF (0.58);
         array<float,3> offset = {{0, 0, 0}};
+		int boundaryCount = 0;
         for (auto h : M.Hgrid->hexen) {
             if (M.Creg[h.vi] ==  1 ) {
+           // if (h.boundaryHex() || (M.Creg[h.vi] == 1)) {
+		        cout << "h.boundaryHex " << h.boundaryHex() << " h.vi " << h.vi << endl;
                 disp.drawHex (h.position(), (h.d/2.0f), cl_a);
+				boundaryCount++;
 			} else if (M.Creg[h.vi] > 1) {
                 disp.drawHex (h.position(), (h.d/2.0f), cl_c);
             } else {
                 disp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
             }
         }
+		cout << "boundaryCount "<<boundaryCount<<endl;
 
 
         // Draw small hex at boundary centroid
@@ -163,11 +168,12 @@ int main (int argc, char **argv)
 
       //  usleep (1000000);
         disp.redrawDisplay();
-      unsigned int sleep_seconds = 1;
-      while (sleep_seconds--) {
-         usleep (1000000); // one hundred seconds
-      }
-      disp.closeDisplay();
+        unsigned int sleep_seconds = 10;
+        while (sleep_seconds--) {
+          usleep (1000000); // one hundred seconds
+        }
+        disp.saveImage(logpath + "/Tesselation.png");
+        disp.closeDisplay();
 
       int numcolour = 0;
       for (int i=0;i<numsteps;i++) {
@@ -181,7 +187,7 @@ int main (int argc, char **argv)
 		  */
 		 if (i % numprint == 0) {
 //          numcolour++;
-          morph::Gdisplay disp(400, 800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+          morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
 		  vector<double> normalNN;
@@ -212,9 +218,8 @@ int main (int argc, char **argv)
 		   cout << "total number of hexes counted " << countHex << endl;
 		   for (auto h : M.Hgrid->hexen) {
 		     cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
-		     if (M.Cnbr[h.vi] == 6) {
+		     if (M.Creg[h.vi] == 0) {
 			   array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
-			  // array<float,3> colour = morph::Tools::getJetColorF(numcolour*0.1);
 	           disp.drawHex(h.position(),(h.d/2.0f),colour);
 		       cout << "just after drawHex"<<endl;
 			  }
@@ -222,7 +227,6 @@ int main (int argc, char **argv)
 		    // else {
 			//  disp.drawHex(h.position(),(h.d/2.0f),0.0f);
 			// }
-        //disp.resetDisplay (fix, eye, rot);
 		 cout << "just berore redraw display" << endl;
           disp.redrawDisplay();
           usleep (10000000); // one hundred seconds
@@ -232,6 +236,7 @@ int main (int argc, char **argv)
           disp.closeDisplay();
          } // end of print on numprint
         } //end of numsteps loop 
+    //      disp.closeDisplay();
          //cout << " just after time step i = " << i << endl;
 
     //code run at end of timestepping
