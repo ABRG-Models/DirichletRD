@@ -1,3 +1,13 @@
+/* 
+ * Dregion class
+ * Author: John Brooke
+ *
+ * Date 2019/10
+ *
+ * Creates and manages Dirichlet regions in a 
+ * hexGrid. Uses hexGeometry as a helper class
+ *
+ */
 #include <morph/tools.h>
 #include <morph/HexGrid.h>
 #include <morph/ReadCurves.h>
@@ -19,6 +29,7 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
 #define NUMPOINTS 79 //just the A-E rows.
@@ -86,6 +97,7 @@ public:
   pair <float, float> centres[NUMPOINTS]; //seed points for regions
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   morph::HexGrid* Hgrid;
+  hexGeometry* hGeo;
   int base = 1000;
   //class constructor
   DRegion (int scale, string logpath) {
@@ -101,8 +113,9 @@ public:
 	ds = 1.0/s;
     //double overds = 1./(1.5*29.0*29.0*ds*ds);
     //cout << " overds " << overds << endl;
- #include "centres.h"
- #include "bezRectangle.h"
+// #include "centres.h"
+centres[0].first = 0.0f; centres[0].second = 0.0f;
+ #include "bez5side.h"
   cout << "after creating BezCurve" << endl;
 
 //	for (int j=0;j<NUMPOINTS;j++)
@@ -115,6 +128,7 @@ public:
   cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
   cout << "before filling H " << Hgrid->num() << endl;
   cout << "after creating HexGrid"<<endl;
+  hGeo = new hexGeometry();
 //  morph::ReadCurves r("./barrelAE.svg");
 //  Hgrid->setBoundary (r.getCorticalPath());
   Hgrid->setBoundary (bound);
@@ -302,7 +316,6 @@ cout << "after neighbour array" << endl;
 		  }
 	  }
 */
-
 
 
 
@@ -954,26 +967,40 @@ vector<int> sort_indexes(const vector<T> &v) {
         }
     } //end of function equalize_vector
 
-    void regionFlow (int regNum) {
+// determines whether a line segment intersects a hex
+	 bool lineSegIntersectHex(hexGeometry::lineSegment s, morph::Hex h) {
+	   bool result;
+	   double d = h.getD();
+	   int index = h.vi;
+	   hexGeometry::point hexCentre;
+	   hexCentre.first = this->Hgrid->d_x[index];
+	   hexCentre.second = this->Hgrid->d_y[index];
+	   hexGeometry::segDist sDist = this->hGeo->point2Seg(hexCentre,s);
+	   result = (sDist.inside && (sDist.dist <= d/2));
+	   return result;
+	   }
+
+      morph::BezCurvePath regionBoundary (int regNum) {
+      morph::BezCurvePath bound;
 	  vector<double> polyVertices;
       vector<pair<double,double>> vertexCoords;
 	  int polyDegree = this->regionList[regNum].size();
-      morph::BezCurvePath bound;
 	  //iterate over polygon vertices
 	  for  (int i = 0; i < polyDegree;i++){
-	  //make pairs for polygon vertices and their midpoint
-	  std::pair va,vb,mp;
-	  int vaIndex,vbIndex;
-      vaIndex = this->regionList[regNum][i];
-	  vbIndex = this->regionList[regNum][(i+1)%polyDegree];
-	  va.first = this->Hgrid->d_x[vaIndex]; va.second = this->Hgrid->d_y[vaIndex];
-	  vb.first = this->Hgrid->d_x[vbIndex]; vb.second = this->Hgrid->d_y[vbIndex];
-	  mb.first = (va.first + vb.first)/2.0;
-	  mb.second = (va.second + vb.second)/2.0;
-	  morph::BezCurve bc(va,vb,mp);
-	  bound.addCurve(bc);
+	    //make pairs for polygon vertices and their midpoint
+	    std::pair<double, double> va,vb,mp;
+	    int vaIndex,vbIndex;
+        vaIndex = this->regionList[regNum][i];
+	    vbIndex = this->regionList[regNum][(i+1)%polyDegree];
+	    va.first = this->Hgrid->d_x[vaIndex]; va.second = this->Hgrid->d_y[vaIndex];
+	    vb.first = this->Hgrid->d_x[vbIndex]; vb.second = this->Hgrid->d_y[vbIndex];
+	    mp.first = (va.first + vb.first)/2.0;
+	    mp.second = (va.second + vb.second)/2.0;
+	    morph::BezCurve bc(va,vb,mp);
+	    bound.addCurve(bc);
 	  } //end of loop round region
-	}//end of regionFlow
+	  return bound;
+	}//end of regionBoundary method
 	  
 	  double min_radius(int regNum) {
         point  barycentre;
