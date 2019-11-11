@@ -98,7 +98,7 @@ int main (int argc, char **argv)
     //bfile << "just after displays" << endl;
 
 // initialise DRegion class setting scale
-    DRegion M(7,logpath);
+    DRegion M(8,logpath);
 // include the analysis methods
     Analysis L;
 
@@ -129,7 +129,7 @@ int main (int argc, char **argv)
         vector<double> eye(3, 0.0);
         vector<double> rot(3, 0.0);
         double rhoInit = 1.7;
-        morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+        morph::Gdisplay disp(600, 900, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
         disp.resetDisplay (fix, eye, rot);
 
         // plot stuff here.
@@ -179,15 +179,8 @@ int main (int argc, char **argv)
       for (int i=0;i<numsteps;i++) {
 	     //cout << " just before time step " << " i " << i << endl;
          M.step(dt, Dn, Dchi, Dc);
-		 /*
-		 if (i % numprint == numprint/2) {
-          disp.closeDisplay();
-	      usleep(1000000); 
-		  }
-		  */
-		 if (i % numprint == 0) {
-//          numcolour++;
-          morph::Gdisplay disp(1200, 1800, 0, 0, "first run", rhoInit, 0.0, 0.0);
+		 if ((i-numprint) == 1) {
+          morph::Gdisplay disp(600, 900, 0, 0, "first run", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
 		  vector<double> normalNN;
@@ -227,13 +220,11 @@ int main (int argc, char **argv)
 		    // else {
 			//  disp.drawHex(h.position(),(h.d/2.0f),0.0f);
 			// }
-		  cout << "just berore redraw display" << endl;
+		  cout << "just before redraw display" << endl;
           disp.redrawDisplay();
           usleep (10000000); // one hundred seconds
-		  if (i == (numsteps - numprint)) {
-		    disp.saveImage(logpath + "/nnField.png");
-		  }
-           disp.closeDisplay();
+		  disp.saveImage(logpath + "/nnField.png");
+          disp.closeDisplay();
          } // end of print on numprint
         } //end of numsteps loop 
          //cout << " just after time step i = " << i << endl;
@@ -420,12 +411,12 @@ for (int j=0;j<NUMPOINTS-1;j++) {
          cout << "just after setting curved boundaries " << M.curvedBoundary.size()<<endl;
 		for (int j = 0;j<NUMPOINTS;j++)
 		{
-		  S.push_back(ksSolver(7,logpath,M.curvedBoundary[j]));
+		  S.push_back(ksSolver(8,logpath,M.curvedBoundary[j]));
 		  cout << "in the loop populating the ksVector"<< j <<endl;
 		}	
 		cout << "just after populating the ksVector"<<endl;
 // now draw the intial tesselation        
-        morph::Gdisplay ndisp(1200, 1800, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        morph::Gdisplay ndisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         ndisp.resetDisplay (fix, eye, rot);
 		for (int j=0;j<NUMPOINTS;j++)
 		{
@@ -445,7 +436,7 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 			{
 		      //cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
 		      //cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
-                //disp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
+                ndisp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
 				internalCount++;
             }
         }
@@ -463,31 +454,43 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 
       }//end of loop on NUMPOINTS to plot boundaries  
       // red hex at zero
-      ndisp.drawHex (pos, 0.05, cl_aa);
+      ndisp.drawHex (pos, 0.005, cl_aa);
 
       usleep (1000000);
-	  cout << "before redrawDisplay " << endl;
+	  cout << "before redrawDisplay 2 " << endl;
       ndisp.redrawDisplay();
-	  cout << "after redrawDisplay " << endl;
+	  cout << "after redrawDisplay 2" << endl;
       sleep_seconds = 10;
       while (sleep_seconds--) 
 	  {
        usleep (1000000); // one hundred seconds
       }
       ndisp.saveImage(logpath + "/Tesselation2.png");
-     // ndisp.closeDisplay();
-
-
-// now timestep the equations
-      for (int i=0;i<numsteps;i++)
+      ndisp.closeDisplay();
+// initialise the fields
+      for (int j=0;j<NUMPOINTS;j++) 
       {
-		for (int j = 0;j<NUMPOINTS;j++)
-	    {
+        for (int i=0;i<S[j].n;i++) {
+		    double choice = morph::Tools::randDouble();
+		    if (choice > 0.5)
+			  S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
+		    else
+			  S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
+		    S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+         }
+       }
+       
+        //set up dispaly
+        morph::Gdisplay mdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        mdisp.resetDisplay (fix, eye, rot);
+        // begin second time stepping loop
+        for (i=0;i<numsteps;i++)
+        {
+		  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
+	      {
 		  S[j].step(dt, Dn, Dchi, Dc);
-	      if (i % numprint == 0)
+	      if (i - numprint == 1)
 		  {
-       //     morph::Gdisplay ndisp(1200, 1800, 0, 0, "Second go", rhoInit, 0.0, 0.0);
-         //   ndisp.resetDisplay (fix, eye, rot);
 		    cout << "in print routine"<<endl;
 		    vector<double> normalNN;
 		    normalNN.resize(S[j].n);
@@ -512,25 +515,25 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 		    cout << "total number of hexes counted " << countHex << endl;
 		    for (auto h : S[j].Hgrid->hexen) 
 			{
-		      cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
+		      cout << "just before drawHex 2 "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
 		      if (!h.boundaryHex()) 
 			  {
 			    array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
-	            ndisp.drawHex(h.position(),(h.d/2.0f),colour);
-		        cout << "just after drawHex"<<endl;
+	            mdisp.drawHex(h.position(),(h.d/2.0f),colour);
+		        cout << "just after drawHex 2"<<endl;
 			   }
 			  }
-		   }//end of loop on numprint drawing fields
-		 }//end of loop over region HexGrids
-		 cout << "just berore redraw display" << endl;
-         ndisp.redrawDisplay();
-         usleep (10000000); // one hundred seconds
-		 if (i == (numsteps - numprint)) 
-		 {
-		   ndisp.saveImage(logpath + "/nnField2.png");
-		 }
-         ndisp.closeDisplay();
-         } // end of second time stepping
+		   }//end of graphics input block
+         }//end of loop over regions
+         if (i - numprint == 1) 
+         { 
+		   cout << "just berore redraw display 2" << endl;
+           mdisp.redrawDisplay();
+           usleep (100000); // one hundred seconds
+		   mdisp.saveImage(logpath + "/nnField2.png");
+		 }//end of loop on numprint drawing fields
+       } // end of second time stepping
 
+             mdisp.closeDisplay();
     return 0;
 };
