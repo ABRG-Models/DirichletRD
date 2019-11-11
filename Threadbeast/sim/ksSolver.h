@@ -4,8 +4,8 @@
  *
  * Date 2019/10
  *
- * Creates and manages Dirichlet regions in a 
- * hexGrid. Uses hexGeometry as a helper class
+ * creates a hexGrid given a boundary curve and solves 
+ * the KS equations
  *
  */
 #include <morph/tools.h>
@@ -29,10 +29,9 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "hexGeometry.h"
+//#include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-#define NUMPOINTS 79 //just the A-E rows.
 using std::vector;
 using std::array;
 using std::string;
@@ -75,7 +74,7 @@ public:
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "before filling H " << Hgrid->num() << endl;
     afile << "after creating HexGrid"<<endl;
-    Hgrid->setBoundary (bound);
+    Hgrid->setBoundaryDRegion (bound);
     afile << "after setting boundary on  H " << Hgrid->num() << endl;
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 

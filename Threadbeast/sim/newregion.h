@@ -4,8 +4,9 @@
  *
  * Date 2019/10
  *
- * Creates and manages Dirichlet regions in a 
- * hexGrid. Uses hexGeometry as a helper class
+ * Creates a hexgrid, divides it into Dirichlet domains
+ * then solves KS equations and can morph to curved 
+ * boundaries
  *
  */
 #include <morph/tools.h>
@@ -32,7 +33,7 @@
 #include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-#define NUMPOINTS 79 //just the A-E rows.
+#define NUMPOINTS 5 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -97,6 +98,7 @@ public:
   pair <float, float> centres[NUMPOINTS]; //seed points for regions
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   morph::HexGrid* Hgrid;
+  vector<morph::BezCurvePath> curvedBoundary;
   hexGeometry* hGeo;
   int base = 1000;
   //class constructor
@@ -107,14 +109,16 @@ public:
   cout << "before creating BezCurve" <<endl;;
   srand(time(NULL));
     this->scale = scale;
-
-
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
     //double overds = 1./(1.5*29.0*29.0*ds*ds);
     //cout << " overds " << overds << endl;
 // #include "centres.h"
 centres[0].first = 0.0f; centres[0].second = 0.0f;
+centres[1].first = 0.1f; centres[1].second = 0.1f;
+centres[2].first = 0.1f; centres[2].second = -0.1f;
+centres[3].first = -0.1f; centres[3].second = -0.1f;
+centres[4].first = -0.1f; centres[4].second = 0.1f;
  #include "bez5side.h"
   cout << "after creating BezCurve" << endl;
 
@@ -140,6 +144,7 @@ centres[0].first = 0.0f; centres[0].second = 0.0f;
   regionDist.resize(n);
   region.resize(n);  
   N.resize(n);
+  curvedBoundary.resize(NUMPOINTS);
   cout << "after  filleting fish " << " n = " << n <<endl;
   //this->Cnbr.resize(n,6); //count of neighbouring hexes
   this->Creg.resize(n,0); //count of neighbouring hexes
@@ -675,8 +680,6 @@ vector<int> sort_indexes(const vector<T> &v) {
                  continue;
               }
 
-         // double angleOffset = -rB[irB[0]];
-         // this->shift_polars(rB, angleOffset);
          // hfile<<"after shift_polars call"<<endl;
          // we now walk round the boundary in theta order
          unsigned int idissect = 0; //counts number of boundary hexes processed
@@ -692,26 +695,26 @@ vector<int> sort_indexes(const vector<T> &v) {
                if  (Creg[regionBoundary[irB[offset]]] > 1) {
                  Vcount++; //its a vertex
 				// cout << " offset " << offset << " idissect " << idissect<<endl;
-				 newVertex = irB[offset];
+				 newVertex = regionBoundary[irB[offset]];
 				 idissect++;
 				 break;
-           } 
-		   offset++;
+           } offset++;
 		 }
          cout<<"after offset loop" << " offset " << offset  << " idissect " << idissect << endl;
          while ((idissect < Size)) {
               Ecount = 0;
               ihE.resize(0);
               while (Creg[regionBoundary[irB[(idissect + offset) % Size]]] > 1) {
-                   cout << "in vertex loop" << " idissect " << idissect << endl;
+				newVertex = regionBoundary[irB[(idissect+offset)%Size]];
+                cout << "in vertex loop" << " idissect " << idissect << " Creg "
+              << Creg[regionBoundary[irB[(idissect + offset) % Size]]] << endl;
 			       idissect++;
                    Vcount++;
-				   newVertex = irB[(idissect+offset)%Size];
               //     break;
 				}
              // cout << "vertexloop" <<endl;
               //walk along the edge until the next vertex
-              //cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%Size]]] << " boundary " << regionBoundary[irB[(idissect + offset)%Size]] << endl;
+              cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%Size]]] << " boundary " << regionBoundary[irB[(idissect + offset)%Size]] << " newVertex Creg " << Creg[newVertex] << endl;
 		      regionVertex[i].push_back(newVertex);
               while ((this->Creg[regionBoundary[irB[(idissect + offset)%Size]]] == 1) && (idissect < Size)) {
                    ihE.push_back(regionBoundary[irB[(idissect + offset)%Size]]);
@@ -732,7 +735,7 @@ vector<int> sort_indexes(const vector<T> &v) {
 				   int central = region[ihE[ii]][0];
                    for (int ihex = 0; ihex<6; ihex++){ 
 				 //  if (hexRegionList[ihE[ii]][ihex] != central) {
-                     hfile<<" central " <<region[ihE[ii]][0]<< " nbr region " << hexRegionList[ihE[ii]][ihex]<< " hex " << ihE[ii] <<endl;
+                     hfile<<" central " <<region[ihE[ii]][0]<< " nbr region " << hexRegionList[ihE[ii]][ihex]<< " hex " << ihE[ii] << " Creg " << Creg[ihE[ii]] << endl;
 					 //central = hexRegionList[ihE[ii]][ihex]; //}
 				   }
 				   hfile << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$4" << endl;
@@ -786,7 +789,7 @@ vector<int> sort_indexes(const vector<T> &v) {
              //write to vertexlist file
 			 lfile << "number of vertices for region " << i << " is " << regionVertex[i].size() << endl;
              for (unsigned int iregion = 0; iregion < regionVertex[i].size(); iregion++){
-                lfile << " r " << i << " vertex " << regionVertex[i][iregion];
+                lfile << " r " << i << " vertex " << regionVertex[i][iregion] << " x " << Hgrid->d_x[regionVertex[i][iregion]] << " y " << Hgrid->d_y[regionVertex[i][iregion]] << endl;
                 cout << " r " << i << " vertex " << regionVertex[i][iregion];
                 lfile << endl;
                 lfile << "---------------------------------------"<< endl;
@@ -980,25 +983,50 @@ vector<int> sort_indexes(const vector<T> &v) {
 	   return result;
 	   }
 
+      // method to populate vector of boundary curves
+	  void populateBoundVector() {
+        for (int i=0;i<NUMPOINTS;i++) 
+		{
+		  this->curvedBoundary[i] = this->regionBoundary(i);
+		}
+	  }
+
+
+// method to round the corners of a region
       morph::BezCurvePath regionBoundary (int regNum) {
       morph::BezCurvePath bound;
-	  vector<double> polyVertices;
-      vector<pair<double,double>> vertexCoords;
-	  int polyDegree = this->regionList[regNum].size();
+      vector<pair<double,double>> vCoords;
+      vector<pair<double,double>> mCoords;
+	  int size = this->regionVertex[regNum].size();
+	  vCoords.resize(size);
+	  mCoords.resize(size);
 	  //iterate over polygon vertices
-	  for  (int i = 0; i < polyDegree;i++){
+	  cout << " Vcoords region " << regNum << endl;
+	  for  (int i = 0; i < size;i++)
+	  {
 	    //make pairs for polygon vertices and their midpoint
-	    std::pair<double, double> va,vb,mp;
 	    int vaIndex,vbIndex;
-        vaIndex = this->regionList[regNum][i];
-	    vbIndex = this->regionList[regNum][(i+1)%polyDegree];
-	    va.first = this->Hgrid->d_x[vaIndex]; va.second = this->Hgrid->d_y[vaIndex];
-	    vb.first = this->Hgrid->d_x[vbIndex]; vb.second = this->Hgrid->d_y[vbIndex];
-	    mp.first = (va.first + vb.first)/2.0;
-	    mp.second = (va.second + vb.second)/2.0;
-	    morph::BezCurve bc(va,vb,mp);
-	    bound.addCurve(bc);
+        vaIndex = this->regionVertex[regNum][i];
+	    vbIndex = this->regionVertex[regNum][(i+1)%size];
+	    vCoords[i].first = this->Hgrid->d_x[vaIndex]; 
+		vCoords[i].second = this->Hgrid->d_y[vaIndex];
+	    vCoords[(i+1)%size].first = this->Hgrid->d_x[vbIndex]; 
+	    vCoords[(i+1)%size].second = this->Hgrid->d_y[vbIndex]; 
+		mCoords[i].first = (vCoords[i].first + vCoords[(i+1)%size].first)/2.0;
+		mCoords[i].second = (vCoords[i].second + vCoords[(i+1)%size].second)/2.0;
+	    cout <<" v.x " << vCoords[i].first << " v.y " << vCoords[i].second << " m.x " << mCoords[i].first << "   m.y " << mCoords[i].second << endl;
 	  } //end of loop round region
+	   cout<< endl;
+	  //now create the BezCurvePaths
+	  for  (int i = 0; i < size;i++)
+	  {
+	    std::pair<double, double> ma, mb, va;
+		ma = mCoords[((i-1)+size)%size];
+		mb = mCoords[i];
+		va = vCoords[i];
+	    morph::BezCurve bc(ma,mb,va);
+	    bound.addCurve(bc);
+	  }
 	  return bound;
 	}//end of regionBoundary method
 	  

@@ -18,7 +18,8 @@
 #include <sys/types.h>
 */
 #include "analysis.h"
-#include "region.h"
+#include "newregion.h"
+#include "ksSolver.h"
 #include <morph/display.h>
 using std::array;
 using std::string;
@@ -28,7 +29,7 @@ using std::endl;
 using std::runtime_error;
 /*
 using morph::HexGrid;
-using morph::HdfData;
+using morph::HdfData;:
 using morph::Tools;
 using morph::Display
 */
@@ -97,7 +98,7 @@ int main (int argc, char **argv)
     //bfile << "just after displays" << endl;
 
 // initialise DRegion class setting scale
-    DRegion M(9,logpath);
+    DRegion M(7,logpath);
 // include the analysis methods
     Analysis L;
 
@@ -175,7 +176,6 @@ int main (int argc, char **argv)
         disp.saveImage(logpath + "/Tesselation.png");
         disp.closeDisplay();
 
-      int numcolour = 0;
       for (int i=0;i<numsteps;i++) {
 	     //cout << " just before time step " << " i " << i << endl;
          M.step(dt, Dn, Dchi, Dc);
@@ -187,13 +187,13 @@ int main (int argc, char **argv)
 		  */
 		 if (i % numprint == 0) {
 //          numcolour++;
-          morph::Gdisplay disp(1200, 1800, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
+          morph::Gdisplay disp(1200, 1800, 0, 0, "first run", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
 		  vector<double> normalNN;
 		  normalNN.resize(M.n);
-          ofstream afile (logpath + "/NNcompare.txt");
-          afile << " NN " << "                normalNN" << endl;
+          //ofstream afile (logpath + "/NNcompare.txt");
+          //afile << " NN " << "                normalNN" << endl;
 		  int countHex = 0;
 		  for (int j=0;j<NUMPOINTS;j++) {
             unsigned int regsize = M.regionIndex[j].size();
@@ -211,7 +211,7 @@ int main (int argc, char **argv)
            regionNN = L.normalise(tempNN);
 		   for (unsigned int k=0;k<regsize;k++) {
 		     normalNN[regionIdx[k]] = regionNN[k];
-             afile << M.NN[regionIdx[k]] << "    " << normalNN[regionIdx[k]] << " " << regionIdx[k] <<endl;
+             //afile << M.NN[regionIdx[k]] << "    " << normalNN[regionIdx[k]] << " " << regionIdx[k] <<endl;
              //afile << regionIdx[k] <<endl;
 			 }
 		   } //end of loop over regions
@@ -227,16 +227,15 @@ int main (int argc, char **argv)
 		    // else {
 			//  disp.drawHex(h.position(),(h.d/2.0f),0.0f);
 			// }
-		 cout << "just berore redraw display" << endl;
+		  cout << "just berore redraw display" << endl;
           disp.redrawDisplay();
           usleep (10000000); // one hundred seconds
 		  if (i == (numsteps - numprint)) {
 		    disp.saveImage(logpath + "/nnField.png");
-			}
-          disp.closeDisplay();
+		  }
+           disp.closeDisplay();
          } // end of print on numprint
         } //end of numsteps loop 
-    //      disp.closeDisplay();
          //cout << " just after time step i = " << i << endl;
 
     //code run at end of timestepping
@@ -412,7 +411,126 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 	      totalDegree = avDegreeAngle + 4.0*avDegreeRadius;
 	     // jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
 	      jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
+         cout << "just before setting curved boundaries" <<endl;
+// section for solving on the curved boundaries
+        vector<ksSolver> S;
+		//S.resize(NUMPOINTS);
+// first create the vector of ksSolver classes
+		M.populateBoundVector();
+         cout << "just after setting curved boundaries " << M.curvedBoundary.size()<<endl;
+		for (int j = 0;j<NUMPOINTS;j++)
+		{
+		  S.push_back(ksSolver(7,logpath,M.curvedBoundary[j]));
+		  cout << "in the loop populating the ksVector"<< j <<endl;
+		}	
+		cout << "just after populating the ksVector"<<endl;
+// now draw the intial tesselation        
+        morph::Gdisplay ndisp(1200, 1800, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        ndisp.resetDisplay (fix, eye, rot);
+		for (int j=0;j<NUMPOINTS;j++)
+		{
+          // plot stuff here.
+		  int boundaryCount = 0;
+		  int internalCount = 0;
+		  cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
+          for (auto h : S[j].Hgrid->hexen) {
+            if (h.boundaryHex()) 
+			{
+		      cout << "h.boundaryHex in region " << j <<  " h.vi " << h.vi << endl;
+		      cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
+              ndisp.drawHex (h.position(), (h.d/2.0f), cl_a);
+			  boundaryCount++;
+			} 
+            else 
+			{
+		      //cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
+		      //cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
+                //disp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
+				internalCount++;
+            }
+        }
+		cout << "boundaryCount 2 "<<boundaryCount<< " internalCount 2 "<< internalCount <<endl;
 
+
+        // Draw small hex at boundary centroid
+        array<float,3> c;
+        c[2] = 0;
+        c[0] = S[j].Hgrid->boundaryCentroid.first;
+        c[1] = S[j].Hgrid->boundaryCentroid.second;
+        cout << "d/2: " << S[j].Hgrid->hexen.begin()->d/4.0f << endl;
+        ndisp.drawHex (c, offset, (S[j].Hgrid->hexen.begin()->d/2.0f), cl_a);
+        cout << "boundaryCentroid x,y: " << c[0] << "," << c[1] << endl;
+
+      }//end of loop on NUMPOINTS to plot boundaries  
+      // red hex at zero
+      ndisp.drawHex (pos, 0.05, cl_aa);
+
+      usleep (1000000);
+	  cout << "before redrawDisplay " << endl;
+      ndisp.redrawDisplay();
+	  cout << "after redrawDisplay " << endl;
+      sleep_seconds = 10;
+      while (sleep_seconds--) 
+	  {
+       usleep (1000000); // one hundred seconds
+      }
+      ndisp.saveImage(logpath + "/Tesselation2.png");
+     // ndisp.closeDisplay();
+
+
+// now timestep the equations
+      for (int i=0;i<numsteps;i++)
+      {
+		for (int j = 0;j<NUMPOINTS;j++)
+	    {
+		  S[j].step(dt, Dn, Dchi, Dc);
+	      if (i % numprint == 0)
+		  {
+       //     morph::Gdisplay ndisp(1200, 1800, 0, 0, "Second go", rhoInit, 0.0, 0.0);
+         //   ndisp.resetDisplay (fix, eye, rot);
+		    cout << "in print routine"<<endl;
+		    vector<double> normalNN;
+		    normalNN.resize(S[j].n);
+      //    afile << " NN " << "                normalNN" << endl;
+		    int countHex = 0;
+            unsigned int regsize = S[j].Hgrid->num();
+		    cout << "in loop over regions " << " size is " << regsize << endl;
+			countHex += regsize;
+		    vector<double> regionNN(regsize);
+			vector<double> tempNN(regsize);
+		    for (unsigned int k=0;k<regsize;k++)
+			{
+			  tempNN[k] = S[j].NN[k];
+			}
+//normalise over the region then write normalised values to normalised NN over hexGrid
+            regionNN = L.normalise(tempNN);
+		    for (unsigned int k=0;k<regsize;k++) 
+			{
+		      normalNN[k] = regionNN[k];
+              //afile << S[j].NN[k] << "    " << normalNN[k] << " " << k <<endl;
+			}
+		    cout << "total number of hexes counted " << countHex << endl;
+		    for (auto h : S[j].Hgrid->hexen) 
+			{
+		      cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
+		      if (!h.boundaryHex()) 
+			  {
+			    array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
+	            ndisp.drawHex(h.position(),(h.d/2.0f),colour);
+		        cout << "just after drawHex"<<endl;
+			   }
+			  }
+		   }//end of loop on numprint drawing fields
+		 }//end of loop over region HexGrids
+		 cout << "just berore redraw display" << endl;
+         ndisp.redrawDisplay();
+         usleep (10000000); // one hundred seconds
+		 if (i == (numsteps - numprint)) 
+		 {
+		   ndisp.saveImage(logpath + "/nnField2.png");
+		 }
+         ndisp.closeDisplay();
+         } // end of second time stepping
 
     return 0;
 };
