@@ -33,7 +33,8 @@
 #include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-#define NUMPOINTS 79 //just the A-E rows.
+//#define NUMPOINTS 79 //just the A-E rows.
+#define NUMPOINTS 5 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -89,6 +90,7 @@ public:
   vector<vector<int>> hexRegionList; //for each hex neighbour regions
   vector<vector<int>> regionList; //for each region, regions that are its neighbours
   vector<vector<int>> regionVertex; //for each region, vertices that bound it
+  vector<vector<int>> regionBound; //for each region, index of boundary vertices
   std::map<int,vector<int>> edges; //map of (i,j) edges, uses pair<->int converters
   vector<vector<double> > regionDist; //from each hexdistances to each seed point
   vector<double> psi;
@@ -100,6 +102,8 @@ public:
   morph::HexGrid* Hgrid;
   vector<morph::BezCurvePath> curvedBoundary;
   hexGeometry* hGeo;
+  vector<vector<hexGeometry::lineSegment>> radialSegments; //radial segements from original vertices
+
   int base = 1000;
   //class constructor
   DRegion (int scale, string logpath) {
@@ -113,16 +117,15 @@ public:
 	ds = 1.0/s;
     //double overds = 1./(1.5*29.0*29.0*ds*ds);
     //cout << " overds " << overds << endl;
-#include "centres.h"
-/*
+//#include "centres.h"
+
 centres[0].first = 0.0f; centres[0].second = 0.0f;
 centres[1].first = 0.1f; centres[1].second = 0.1f;
 centres[2].first = 0.1f; centres[2].second = -0.1f;
 centres[3].first = -0.1f; centres[3].second = -0.1f;
 centres[4].first = -0.1f; centres[4].second = 0.1f;
-*/
- #include "bezRectangle.h"
-  cout << "after creating BezCurve" << endl;
+#include "bez5side.h"
+cout << "after creating BezCurve" << endl;
 
 //	for (int j=0;j<NUMPOINTS;j++)
 //          afile << "j = " << j <<" x = " << centres[j] .xval  << "  y = " << centres[j].yval <<endl;
@@ -155,6 +158,8 @@ centres[4].first = -0.1f; centres[4].second = 0.1f;
   hexRegionList.resize(n); //neighbouring regions for a hex
   regionList.resize(NUMPOINTS); //neighbouring regions for a region
   regionVertex.resize(NUMPOINTS); //vertices for a region
+  radialSegments.resize(NUMPOINTS);
+  regionBound.resize(NUMPOINTS);
   cout << "before neighbour array" << endl;  
   this->rad.resize(n,0.0); // vector of radii
 // making a neighbour array for convenience
@@ -336,7 +341,8 @@ cout << "after neighbour array" << endl;
           diff[j] = this->set_polars(j);
           afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
 		  }
-	      cout << "after set_polars" << endl;
+	      cout << "after set_polars" << endl
+	;
    cout<<"at end of constructor" << " hexes counted " << totalHex << " n " << n << endl;
   } //end of constructor
 
@@ -386,7 +392,26 @@ vector<int> sort_indexes(const vector<T> &v) {
 	for (auto h : Hgrid->hexen) {
 	 cout << "h.vi " << h.vi << endl;
    }
-}    
+}   
+
+// set the radialSegments for all regions   
+  void setRadialSegments()
+  {
+    hexGeometry::point a,b;
+    for (unsigned int j=0;j<NUMPOINTS;j++) 
+	{
+      for (unsigned int i=0;i<regionVertex[j].size();i++)
+	  {
+	    hexGeometry::lineSegment temp;
+	    a.first = this->Hgrid->d_x[regionVertex[j][i]];
+	    a.second = this->Hgrid->d_y[regionVertex[j][i]];
+	    b.first = this->centres[j].first;
+	    b.second = this->centres[j].second;
+	    temp = hGeo->createLineSegment(a,b);
+	    radialSegments[j].push_back(temp);
+	  }
+	}  
+  }//end of method setRadialSegments
 
     vector<double> getLaplacian(vector<double> Q, double dx) {
         double overds = 1./(1.5*29.0*29.0*dx*dx);
@@ -591,7 +616,7 @@ vector<int> sort_indexes(const vector<T> &v) {
         double xav=0;
         double yav = 0;
         int hexcount = 0;
-        cout << "in set polars region " << regNum << " size " << this->regionIndex[regNum].size() << endl;
+        //cout << "in set polars region " << regNum << " size " << this->regionIndex[regNum].size() << endl;
 		/*
   cout << "in listHex" << endl;
 	for (auto h : Hgrid->hexen) {
@@ -600,23 +625,23 @@ vector<int> sort_indexes(const vector<T> &v) {
    */
         for (unsigned int i=0;i< this->regionIndex[regNum].size();i++) {
             hexcount++;
-			cout << " in set centres hex " << this->regionIndex[regNum][i]<< " i " << i << endl;
+		//	cout << " in set centres hex " << this->regionIndex[regNum][i]<< " i " << i << endl;
             xav += this->Hgrid->d_x[this->regionIndex[regNum][i]];
             yav += this->Hgrid->d_y[this->regionIndex[regNum][i]];
         }
-		cout << "after set centres " << endl;
+		//cout << "after set centres " << endl;
 		if (hexcount != 0) {
         xav = xav / hexcount;
         yav = yav / hexcount;
 		}
 		else {
-		  cout << " in set_polars no hexes in region "<<endl;
+		  //cout << " in set_polars no hexes in region "<<endl;
 		  }
 //go over the region and put the hexes into bins then average
         for (int i=0;i< (int) this->regionIndex[regNum].size();i++) {
             int index = this->regionIndex[regNum][i];
-			cout <<"in set polars index " << index << " i " << i <<endl;
-			cout << "d_x " << this->Hgrid->d_x[index] << endl;
+			//cout <<"in set polars index " << index << " i " << i <<endl;
+			//cout << "d_x " << this->Hgrid->d_x[index] << endl;
             this->rad[index] = sqrt((this->Hgrid->d_x[index]-xav)*(this->Hgrid->d_x[index]-xav) 
 			+ (this->Hgrid->d_y[index]-yav)*(this->Hgrid->d_y[index]-yav));
             if ((this->Hgrid->d_y[index] -yav) >= 0)
@@ -976,6 +1001,10 @@ vector<int> sort_indexes(const vector<T> &v) {
 	 bool lineSegIntersectHex(hexGeometry::lineSegment s, morph::Hex h) {
 	   bool result;
 	   double d = h.getD();
+	   if (d != this->ds)
+	   {
+	     cout << "oops d " << d << "this->ds " <<this->ds<<endl;
+	   }	 
 	   int index = h.vi;
 	   hexGeometry::point hexCentre;
 	   hexCentre.first = this->Hgrid->d_x[index];
@@ -985,6 +1014,17 @@ vector<int> sort_indexes(const vector<T> &v) {
 	   return result;
 	   }
 
+// determines whether a line segment intersects a hex referred as its index
+	 bool lineSegIntersectHex(hexGeometry::lineSegment seg, int index) {
+	   bool result;
+	   double d = this->ds;
+	   hexGeometry::point hexCentre;
+	   hexCentre.first = this->Hgrid->d_x[index];
+	   hexCentre.second = this->Hgrid->d_y[index];
+	   hexGeometry::segDist sDist = this->hGeo->point2Seg(hexCentre,seg);
+	   result = (sDist.inside && (sDist.dist <= d/2));
+	   return result;
+	   }
       // method to populate vector of boundary curves
 	  void populateBoundVector() {
         for (int i=0;i<NUMPOINTS;i++) 
@@ -1320,4 +1360,77 @@ vector<int> sort_indexes(const vector<T> &v) {
      return angleNN;
 
   } //end of function sectorize_region
+  bool hexcompare(morph::Hex h1, morph::Hex h2)
+  {
+    bool result;
+	result = (psi[h1.vi] >= psi[h2.vi]);
+	return result;
+  }
+
+
+  //method to renew a region after rounding
+  pair<double,double> renewRegion(int regNum, list<Hex> hexen)
+  {
+    pair<double,double> diff;
+    regionIndex[regNum].resize(0);
+	for (auto h : hexen) //repopulate regionIndex
+	{
+	  this->regionIndex[regNum].push_back(h.vi);
+    }
+	diff = this->set_polars(regNum); //set polar coordinates for the region
+	for (auto h : hexen) 
+	{
+      if (h.boundaryHex())
+	  {
+	    regionBound[regNum].push_back(h.vi);
+	  }	
+    }
+	cout << " region " << regNum << " bound size " <<regionBound[regNum].size() << endl;
+    return diff;
+  }
+   
+// now sort the boundary by angle
+  void renewDissect(int regNum)
+  {   
+    vector<double> rB; //contains the boundary thetas
+    vector<int> irB; //holds the sorted boundary indicies
+//	hexGeometry::point a,b;
+	int bsize = regionBound[regNum].size();
+	int vsize = regionVertex[regNum].size();
+    for (unsigned int i=0;i<bsize;i++)
+	  {
+        rB.push_back(psi[regionBound[regNum][i]]);
+		//cout << " theta value on boundary " << psi[regionBoundary[j]] << endl;
+      }
+      irB = sort_indexes(rB); //indices after sort on theta
+        cout << " irB size " << irB.size() << " rB size " << rB.size() << endl;
+	  //print out the line segments
+	  for (unsigned int i=0;i<vsize;i++){
+		cout << " start.x " <<radialSegments[regNum][i].start.first  << " start.y " << radialSegments[regNum][i].start.second << " end.x "<< radialSegments[regNum][i].end.first << " end.y " <<radialSegments[regNum][i].end.second<<endl;
+      }  
+	  vector<bool> lvertex;
+	  lvertex.resize(vsize,0);
+	  cout << " renew region " << regNum << endl;
+	  int vCount = 0;
+	  for (unsigned int hi=0;hi<bsize;hi++) 
+	  {
+	    cout << " oops " << regionBound[regNum][irB[hi]] << " theta " << rB[irB[hi]] <<endl;
+	    unsigned int hindex = regionBound[regNum][irB[hi]];
+        for (unsigned int i=0;i<vsize;i++)
+		{
+          if (lineSegIntersectHex(radialSegments[regNum][i],hindex) && (vCount<bsize))
+		  {
+		   vCount++;
+		  cout << "after lineSegIntersectHex " << vCount<<endl;
+	      cout << " hex " << hindex << " theta " << psi[hindex] << "|" << endl;;
+	      regionVertex[regNum][i] = hindex;
+		  break;
+		  }
+        }
+	  }
+	  cout << endl <<"after renew vertex " << regNum <<endl; 
+   } //end of method renewRegion
+   
+	
+
 }; // DRegion

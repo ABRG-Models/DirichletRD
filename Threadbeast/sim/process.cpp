@@ -17,8 +17,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 */
-#include "analysis.h"
 #include "newregion.h"
+#include "analysis.h"
 #include "ksSolver.h"
 #include <morph/display.h>
 using std::array;
@@ -99,6 +99,10 @@ int main (int argc, char **argv)
 
 // initialise DRegion class setting scale
     DRegion M(8,logpath);
+    cout << "before dissect_boundary " << endl;
+    vector<std::pair<double,double>> centroids;
+    centroids = M.dissectBoundary(logpath); //dissect region boundary
+	M.setRadialSegments(); //set the radial segments for regions
 // include the analysis methods
     Analysis L;
 
@@ -210,11 +214,11 @@ int main (int argc, char **argv)
 		   } //end of loop over regions
 		   cout << "total number of hexes counted " << countHex << endl;
 		   for (auto h : M.Hgrid->hexen) {
-		     cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
+		     //cout << "just before drawHex  "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
 		     if (M.Creg[h.vi] == 0) {
 			   array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
 	           disp.drawHex(h.position(),(h.d/2.0f),colour);
-		       cout << "just after drawHex"<<endl;
+		     //  cout << "just after drawHex"<<endl;
 			  }
 			}
 		    // else {
@@ -243,12 +247,8 @@ int main (int argc, char **argv)
      cout << " just after writing data "  << endl;
      //post run analysis
 
-
-            vector<std::pair<double,double>> centroids;
-            cout << "before dissect_boundary " << endl;
-            centroids = M.dissectBoundary(logpath);
             cout << "before correlate_edges" << endl;
-	    double avAbsCorrelation;
+	        double avAbsCorrelation;
             avAbsCorrelation = M.correlate_edges(logpath);
             cout << "after correlate_edges" << endl;
           //  cout<<"after correlate_edges" << endl;
@@ -515,12 +515,12 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 		    cout << "total number of hexes counted " << countHex << endl;
 		    for (auto h : S[j].Hgrid->hexen) 
 			{
-		      cout << "just before drawHex 2 "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
+		      //cout << "just before drawHex 2 "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
 		      if (!h.boundaryHex()) 
 			  {
 			    array<float,3> colour = morph::Tools::getJetColorF(normalNN[h.vi]);
 	            mdisp.drawHex(h.position(),(h.d/2.0f),colour);
-		        cout << "just after drawHex 2"<<endl;
+		        //cout << "just after drawHex 2"<<endl;
 			   }
 			  }
 		   }//end of graphics input block
@@ -534,6 +534,19 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 		 }//end of loop on numprint drawing fields
        } // end of second time stepping
 
-             mdisp.closeDisplay();
+      mdisp.closeDisplay();
+	  M.setRadialSegments();
+	  // repopulate the regions
+	  vector<pair<double,double>> diffCentres;		 
+	  for (int j=0;j<NUMPOINTS;j++)
+	  {
+	    diffCentres.push_back(M.renewRegion(j,S[j].Hgrid->hexen));
+	  }	
+	  // redissect the boundaries
+	  for (int j=0;j<NUMPOINTS;j++)
+	  {
+	    M.renewDissect(j);
+      }
+
     return 0;
 };
