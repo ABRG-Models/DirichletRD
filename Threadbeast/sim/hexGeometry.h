@@ -31,7 +31,9 @@ using namespace std;
  
 class hexGeometry 
 {
-public: 
+public:
+  double tol = 0.00001;
+
   struct point {
     double first;
 	double second;
@@ -49,14 +51,24 @@ public:
 	double intercept;
   };
 
+  struct horzLine {
+    double slope = 0;
+	double intercept;
+	};
+
+  struct vertLine {
+    double slope = 999.999;
+	double xintercept;
+	};
+
   struct cIntersect {
   bool intersect;
   point p;
   };
 
   struct segDist {
-    bool inside;
-	double dist;
+    bool inside = false;
+	double dist = 999.999;
 	};
 
   int value;
@@ -68,36 +80,135 @@ public:
    start.second = 0.0;
    }
   
-  
   //returns line from lineSegment
-  line  segment2line(lineSegment s) {
-    line result;
-	result.slope = ((s.start).second - (s.end).second)/((s.start).first - (s.end).first);
-	result.intercept = (s.start).second - result.slope*(s.start).first;
-	return result;
+  unsigned int  segmentLineType(lineSegment s) {
+    unsigned int  result;
+	double denominator = s.end.first - s.start.first;
+	double numerator = s.end.first - s.start.first;
+	if (denominator == 0)
+	{
+	  return result == 0;
 	}
+	else if ( numerator == 0)  
+	{
+	  return result = 1;
+	}
+	else 
+	{
+	  return result = 2;
+	}
+
+  }	
+
+  // returns line from lineSegment, assumes have tested for verticality
+    line segment2line(lineSegment s)
+	{
+      line result;
+	  double denominator = s.end.first - s.start.first;
+	  double numerator = s.end.first - s.start.first;
+	  result.slope = numerator / denominator;
+	  result.intercept = (s.end.first * s.start.second - s.end.second * s.start.first)/denominator;
+	  return result;
+	}
+
+// returns a vertLine from a line segment
+ vertLine segment2vert(lineSegment s) 
+ {
+   vertLine result;
+   result.xintercept = s.end.first;
+   return result;
+ }
+
+ horzLine segment2horz(lineSegment s) {
+   horzLine result;
+   result.intercept = s.end.second;
+   return result;
+ }
+
+	//returns lineSegment from two points
+	lineSegment createLineSegment(point a, point b)
+	{ 
+	  lineSegment result;
+	  result.start = a;
+	  result.end = b;
+	  return result;
+	}
+
+	bool pointOnLine(point p, line l) {
+	  bool result;
+	  double residual = p.second - p.first * l.slope - l.intercept;
+	  if (residual < tol)
+	  {
+	    result = 1;
+	  }
+	  else 
+	  {
+	    result = 0;
+	  }
+	  return result;
+	}
+
+	bool pointOnhorzLine(point p, horzLine h) 
+	{
+	  bool result;
+	  if ( (p.second - h.intercept) < tol)
+	  {
+	    result = 1;
+	  }
+	  else 
+	  {
+	    result = 0;
+	  }
+	  return result;
+	}  
+	
+	bool pointOnvertLine(point p, vertLine h) 
+	{
+	  bool result;
+	  if ( (p.first - h.xintercept) < tol)
+	  {
+	    result = 1;
+	  }
+	  else 
+	  {
+	    result = 0;
+	  }
+	  return result;
+	}  
+
+
 
 //returns line through point p perpendicular to line l
    line perpPoint2Line (point p, line l) {
      line result;
-     if (l.slope == 0) {
-	   result.slope = 1;
-	   result.intercept = p.second;
-	   }
-	 else {
 	   result.slope = - 1.0 / l.slope;
 	   result.intercept = p.second - result.slope * p.first;
-	  }
 	  return result;
 	}
+
+// returns horizontal line through point perpendicular to vertLine
+  horzLine perpPoint2vertLine( point p, vertLine h) {
+    horzLine result;
+	result.intercept = p.second;
+	return result;
+  }
+
+// returns a vertLine through a point perpendicular to horzLine
+  vertLine perpPoint2horzLine(point p, horzLine h) 
+  {
+    vertLine result;
+	result.xintercept = p.first;
+	return result;
+  }
+
 
 //returns a structure giving the result of the intersection of two lines.
 	cIntersect lineIntersect (line l1, line l2) {
 	  cIntersect result;
 	  if (l1.slope == l2.slope) {
 	    result.intersect = 0;
-		result.p.first = -100000.0;
-		result.p.second = -100000.0;
+		result.p.first = -999.999;
+		result.p.second = -999.999;
 		}
 	   else {
 	     result.intersect = 1;
@@ -106,6 +217,24 @@ public:
         }
 		return result;
      }
+
+// returns a structure giving the result of the intersection of a line and a horzLine
+  cIntersect horzIntersect (horzLine h, line l) {
+    cIntersect result;
+	result.intersect = 1;
+	result.p.first = (h.intercept - l.intercept) / l.slope;
+	result.p.second = h.intercept;
+	return result;
+ }
+
+// returns a structure giving the result of the intersection of a line and a vertLine
+  cIntersect vertIntersect (vertLine h, line l) {
+    cIntersect result;
+	result.intersect = 1;
+	result.p.first = h.xintercept;
+	result.p.second = h.xintercept * l.slope + l.intercept;
+	return result;
+  }
 
 //gives the distance of a point from a line. 
 	 double pointLineDist (point p1, line l1) {
@@ -117,22 +246,58 @@ public:
 	   return result;
 	   }
 
+//gives the distance of a point from a vertLine
+  double pointVertDist(point p1, vertLine h1) {
+    double result;
+	result = fabs(p1.first - h1.xintercept);
+	return result;
+  }
+
+ //gives the distance of a point from a horizontal line
+   double pointHorzDist(point p1, horzLine h1) {
+     double result;
+	 result = fabs(p1.second - h1.intercept);
+	 return result;
+   }
+
 // returns a structure that determines distance of the point from the line derived from a 
 // segment and if the point is within the rectangle defined by the segment
 	 segDist point2Seg (point p, lineSegment s) {
 	   segDist result;
-	   line l1 = segment2line(s);
 	   double segX = fabs(s.start.first - s.end.first);
 	   double segY = fabs(s.start.second - s.end.second);
-	   double pX = fabs(p.first - s.end.first);
-	   double pY = fabs(p.second - s.end.second);
-	   if ((pX <= segX) && (pY <= segY)) {
+	   //double pX = fmax(fabs(p.first - s.end.first),fabs(p.first - s.start.first));
+	   //double pY = fmax(fabs(p.second - s.end.second),fabs(p.second - s.start.second));
+	   double pX = (p.first - s.end.first)*(p.first - s.start.first);
+	   double pY = (p.second - s.end.second)*(p.second - s.start.second);
+	     
+	   line l1 = segment2line(s);
+	   //if ((pX <= segX) || (pY <= segY)) {
+	   if (segX < this->tol) {
+		 if (pY < 0.0) 
+		   result.inside = 1;
+		 else 
+		   result.inside = 0;
+	     vertLine h1 = segment2vert(s);
+		 result.dist = pointVertDist(p,h1);
+	   }
+	   else if (segY < this->tol) {
+		 if (pX < 0.0) 
+		   result.inside = 1;
+		 else 
+		   result.inside = 0;
+	     horzLine h1 = segment2horz(s);
+		 result.dist = pointHorzDist(p,h1);
+	   }
+	   else {
+	   if ((pX <= 0.0 ) || (pY <= 0.0)) {
 	     result.inside = 1;
 		 }
 	   else {
 	     result.inside = 0;
 		 }
 	   result.dist = pointLineDist(p,l1);
+	   }
 	   return result;
 	  }
 /* now moved to DRegion
@@ -147,7 +312,7 @@ public:
 	   }
 */
 
-private:
+//private:
  
 //distance between two points
 double  getdist(point p1, point p2) {
