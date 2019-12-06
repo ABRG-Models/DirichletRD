@@ -1,7 +1,7 @@
-pair<float,float> v1 = make_pair (-0.40f, -0.65f); 
-pair<float,float> v2 = make_pair (0.40f, -0.65f);
-pair<float,float> v3 = make_pair (0.40f, 0.75f); 
-pair<float,float> v4 = make_pair (-0.40f, 0.75f); 
+pair<float,float> v1 = make_pair (-0.45f, -0.65f); 
+pair<float,float> v2 = make_pair (0.45f, -0.65f);
+pair<float,float> v3 = make_pair (0.45f, 0.75f); 
+pair<float,float> v4 = make_pair (-0.45f, 0.75f); 
 cout << "ater making pairs" << endl;;
 morph::BezCurve c1(v1,v2);
 morph::BezCurve c2(v2,v3);

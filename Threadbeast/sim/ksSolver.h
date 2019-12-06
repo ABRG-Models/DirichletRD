@@ -57,19 +57,22 @@ public:
 	//double overds;
 
   // list of objects visible to member functions
+  pair<double,double> seedPoint;
   vector<double> rad;
   vector<vector<int> > N; // hex neighbourhood 
   vector<double> psi;
   vector<double> NN, CC; //hold the field values for each he
   morph::HexGrid* Hgrid;
   // Class constructor
-    ksSolver (int scale, string logpath, BezCurvePath bound) {
+    ksSolver (int scale, string logpath, BezCurvePath bound, pair<double,double> seedPoint) {
     ofstream afile (logpath + "/ksdebug.out" );
     this->scale = scale;
+	this->seedPoint = seedPoint;
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
     n = 0;
     Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
+    cout << " before y reversing loop " << endl;
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "before filling H " << Hgrid->num() << endl;
@@ -83,6 +86,7 @@ public:
     this->psi.resize(n,0.0); // vector of azimuths
     this->rad.resize(n,0.0); // vector of radii
 // making a neighbour array for convenience
+/*
    for (int idx = 0; idx < n; idx++) {
      N[idx].resize(6);
      N[idx][0] = Hgrid->d_ne[idx];
@@ -91,10 +95,65 @@ public:
      N[idx][3] = Hgrid->d_nw[idx];
      N[idx][4] = Hgrid->d_nsw[idx];
      N[idx][5] = Hgrid->d_nse[idx];
-  }
+  } 
+ */
+  // this determines the type of hex
+      for (auto h : Hgrid->hexen){
+        N[h.vi].resize(6);
+        if (!HAS_NE(h.vi)) {
+		  h.setBoundaryHex();
+		  N[h.vi][0] = h.vi;
+        } 
+        else {
+          N[h.vi][0] = Hgrid->d_ne[h.vi];
+        }
+                  
+        if (!HAS_NNE(h.vi)) {
+		  h.setBoundaryHex();
+		  N[h.vi][1] = h.vi;
+        } 
+        else {
+           N[h.vi][1] = Hgrid->d_nne[h.vi];
+        }
+
+        if (!HAS_NNW(h.vi)) {
+		  h.setBoundaryHex();
+		  N[h.vi][2] = h.vi;
+        } 
+        else {
+          N[h.vi][2] = Hgrid->d_nnw[h.vi];
+        }
+
+        if (!HAS_NW(h.vi)) {
+		  h.setBoundaryHex();
+	      N[h.vi][3] = h.vi;
+         } 
+         else {
+           N[h.vi][3] = Hgrid->d_nw[h.vi];
+         }
+
+         if (!HAS_NSW(h.vi)) {
+		   h.setBoundaryHex();
+		   N[h.vi][4] = h.vi;
+         } 
+         else {
+           N[h.vi][4] = Hgrid->d_nsw[h.vi];
+         }
+
+         if (!HAS_NSE(h.vi)) {
+		   h.setBoundaryHex();
+		   N[h.vi][5] = h.vi;
+          } 
+          else {
+            N[h.vi][5] = Hgrid->d_nse[h.vi];
+          }
+		}
+	
     NN.resize(n);
     CC.resize(n);
 	afile << "after alloc NN and CC" <<endl;
+	pair<double, double> centroid = set_polars(this->seedPoint);
+	cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
  } // end of ksSolver constructor 
 
 
@@ -149,7 +208,7 @@ public:
       //cout << " in time step before ghost points" << endl;
       for(auto h : Hgrid->hexen){
 	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
-        if(!h.onBoundary()){
+        if(h.boundaryHex()){
           for(int j=0;j<6;j++){
 		     int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
@@ -184,5 +243,82 @@ public:
             CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
         }
     }//end step
+ 
+    void reverse_y ()
+	{
+	    for (auto& h : this->Hgrid->hexen)
+	    {
+	      int index = h.vi;
+	      cout << " in y reversing loop " << h.vi << endl;
+	      double temp = double(this->Hgrid->d_y[index]);
+		  if (temp != 0.0)
+		  {
+	      cout << " in y reversing loop " << endl;
+	      this->Hgrid->d_y[h.vi] = -temp;
+		  }
+		}
+	}
+
+// function to give r and theta relative to region centre
+    pair <double,double> set_polars(pair<double,double> centre){
+        pair <double, double> result;
+		result.first = 0.0;
+		result.second = 0.0;
+        double xav=0;
+        double yav = 0;
+        int hexcount = 0;
+		double temp = 0;
+		/*
+	    for (auto& h : this->Hgrid->hexen)
+	    {
+	      int index = h.vi;
+	      cout << " in y reversing loop " << h.vi << endl;
+	      temp = double(this->Hgrid->d_y[index]);
+	      cout << " in y reversing loop " << endl;
+	      this->Hgrid->d_y[h.vi] = -temp;
+		}
+		*/
+	    this->reverse_y();
+        for (auto h : this->Hgrid->hexen) {
+            hexcount++;
+            xav += this->Hgrid->d_x[h.vi];
+            yav += this->Hgrid->d_y[h.vi];
+        }
+		//cout << "after set centres " << endl;
+		if (hexcount != 0) {
+        xav = xav / (hexcount*1.0);
+        yav = yav / (hexcount*1.0);
+		}
+		else {
+		  //cout << " in set_polars no hexes in region "<<endl;
+		  }
+//go over the region and put the hexes into bins then average
+        for (auto&  h : this->Hgrid->hexen) {
+            int index = h.vi;
+			double angle;
+			cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
+			cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
+            h.r = sqrt((this->Hgrid->d_x[index]-centre.first)*(this->Hgrid->d_x[index]-centre.first) 
+			+ (this->Hgrid->d_y[index]-centre.second)*(this->Hgrid->d_y[index]-centre.second));
+            if (this->Hgrid->d_y[index] >= centre.second) {
+              angle =  + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
+			  h.setPhi(angle);
+			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
+			  }
+            else {
+              angle =  2*PI + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
+              h.setPhi(angle);
+			  cout<< " setPhi test ksSolver " << h.phi<<  " index " << h.vi << endl;
+			  }
+        }
+/*
+        result.first = centre.first - xcentre; //diff between seed point and barycentre
+        result.second = centre.second - ycentre;
+*/
+        result.first = xav - centre.first ; // barycentre
+        result.second = yav - centre.second ;
+		cout << "centre x "<< centre.first << " centre y " << centre.second << " result.first " << result.first << " result.second " << result.second <<endl;
+        return result;
+    } //end of function set_polars
 
 }; //end of class KSsolver

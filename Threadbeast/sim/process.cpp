@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 */
-#include "newregion.h"
+#include "region.h"
 #include "analysis.h"
 #include "ksSolver.h"
 #include <morph/display.h>
@@ -80,8 +80,8 @@ int main (int argc, char **argv)
             return 1;
         }
     }
-    ofstream gfile ( logpath + "/edges.out");
-    ofstream jfile ( logpath + "/results.txt");
+    ofstream gfile ( logpath + "/edges.out",ios::app);
+    ofstream jfile ( logpath + "/results.txt",ios::app);
 
 
     // DISPLAYS
@@ -145,7 +145,7 @@ int main (int argc, char **argv)
         for (auto h : M.Hgrid->hexen) {
             if (M.Creg[h.vi] ==  1 ) {
            // if (h.boundaryHex() || (M.Creg[h.vi] == 1)) {
-		        cout << "h.boundaryHex " << h.boundaryHex() << " h.vi " << h.vi << endl;
+		       // cout << "h.boundaryHex " << h.boundaryHex() << " h.vi " << h.vi << endl;
                 disp.drawHex (h.position(), (h.d/2.0f), cl_a);
 				boundaryCount++;
 			} else if (M.Creg[h.vi] > 1) {
@@ -199,16 +199,18 @@ int main (int argc, char **argv)
 		    vector<double> regionNN(regsize);
 			vector<double> tempNN(regsize);
 			vector<int> regionIdx(regsize);
-		    for (unsigned int k=0;k<regsize;k++){
-			  int index = M.regionIndex[j][k];
+			int k = 0;
+		    for (auto h : M.regionIndex[j]){
+			  int index = h.vi;
 			  tempNN[k] = M.NN[index];
 			  regionIdx[k] = index;
+			  k++;
 			  }
-		   //normalise over the region then write normalised values to normalised NN over hexGrid
+		   cout << "normalise over the region then write  to normalised NN over hexGrid" << endl;
            regionNN = L.normalise(tempNN);
 		   for (unsigned int k=0;k<regsize;k++) {
 		     normalNN[regionIdx[k]] = regionNN[k];
-             //afile << M.NN[regionIdx[k]] << "    " << normalNN[regionIdx[k]] << " " << regionIdx[k] <<endl;
+             cout << M.NN[regionIdx[k]] << "    " << normalNN[regionIdx[k]] << " " << regionIdx[k] <<endl;
              //afile << regionIdx[k] <<endl;
 			 }
 		   } //end of loop over regions
@@ -253,7 +255,7 @@ int main (int argc, char **argv)
             cout << "after correlate_edges" << endl;
           //  cout<<"after correlate_edges" << endl;
             int regionCount = 0;
-            int numSectors = 12;
+            int numSectors = 6;
 	    vector <int> angleDVector;
             vector <int> radiusDVector;
 	    vector <double> angleVector;
@@ -263,7 +265,7 @@ int main (int argc, char **argv)
 	    double tempArea;
 	    double tempPerimeter;
 
-for (int j=0;j<NUMPOINTS-1;j++) {
+for (int j=0;j<NUMPOINTS;j++) {
               if (M.regArea(j) != 0){
                   cout<<"in the degree loop" << endl;
                   gfile<<"in the degree loop" << endl;
@@ -288,7 +290,7 @@ for (int j=0;j<NUMPOINTS-1;j++) {
                   degreeRadius = -100;
                   int newdegreeRadius = 0;
                   for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=3){
-                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 3);
+                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 2);
                   //gfile <<"after sectorize_reg_radius"<<endl;
                   // radiusVector = M.meanzero_vector(radiusVector);
 
@@ -303,7 +305,7 @@ for (int j=0;j<NUMPOINTS-1;j++) {
                   degreeRadius = -100;
                   newdegreeRadius = 0;
                   for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3){
-			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 2);
 			  newdegreeRadius = L.find_zeroRadius(radiusVector,3);
 			  if (newdegreeRadius > degreeRadius)
 				  degreeRadius = newdegreeRadius;
@@ -366,7 +368,7 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 	      double occupancy = 0;
 	      double totalDegree = 0;
 	      int countRegions = 0;
-              for (int j=0;j<NUMPOINTS-1;j++) {
+              for (int j=0;j<NUMPOINTS;j++) {
 	      if (M.regArea(j) != 0){
 	          countRegions++;
 	          gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
@@ -401,17 +403,19 @@ for (int j=0;j<NUMPOINTS-1;j++) {
 	      occupancy = occupancy / (1.0 * countRegions);
 	      totalDegree = avDegreeAngle + 4.0*avDegreeRadius;
 	     // jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
-	      jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
+	      jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl; 
+
          cout << "just before setting curved boundaries" <<endl;
 // section for solving on the curved boundaries
+// first create the vector of ksSolver classes
         vector<ksSolver> S;
 		//S.resize(NUMPOINTS);
-// first create the vector of ksSolver classes
+// now set the boundaries for the regions, stored in curvedBoundary
 		M.populateBoundVector();
          cout << "just after setting curved boundaries " << M.curvedBoundary.size()<<endl;
 		for (int j = 0;j<NUMPOINTS;j++)
 		{
-		  S.push_back(ksSolver(8,logpath,M.curvedBoundary[j]));
+		  S.push_back(ksSolver(8,logpath,M.curvedBoundary[j],M.centres[j]));
 		  cout << "in the loop populating the ksVector"<< j <<endl;
 		}	
 		cout << "just after populating the ksVector"<<endl;
@@ -427,8 +431,8 @@ for (int j=0;j<NUMPOINTS-1;j++) {
           for (auto h : S[j].Hgrid->hexen) {
             if (h.boundaryHex()) 
 			{
-		      cout << "h.boundaryHex in region " << j <<  " h.vi " << h.vi << endl;
-		      cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
+		      //cout << "h.boundaryHex in region " << j <<  " h.vi " << h.vi << endl;
+		     // cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
               ndisp.drawHex (h.position(), (h.d/2.0f), cl_a);
 			  boundaryCount++;
 			} 
@@ -537,16 +541,176 @@ for (int j=0;j<NUMPOINTS-1;j++) {
       mdisp.closeDisplay();
 	  M.setRadialSegments();
 	  // repopulate the regions
+	  for (int j=0;j<NUMPOINTS;j++)
+	  {
+	    M.renewRegion(j,S[j].Hgrid->hexen);
+	  }	
 	  vector<pair<double,double>> diffCentres;		 
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {
-	    diffCentres.push_back(M.renewRegion(j,S[j].Hgrid->hexen));
+	    diffCentres.push_back(M.renewBoundary(j,S[j].Hgrid->hexen));
 	  }	
 	  // redissect the boundaries
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {
 	    M.renewDissect(j);
+		double x = diffCentres[j].first;
+		double y = diffCentres[j].second;
+		cout << " centres " << x << " , " << y << endl;
       }
+	  for (int j=0;j<NUMPOINTS;j++)
+	  {
+	    double correlation = M.renewcorrelate_edges(j,logpath);
+		cout << " correlation region " << j << " = " << correlation;
+	  }
+
+      gfile << endl << "analysis on first morphing iteration " << endl;
+      for (int j=0;j<NUMPOINTS;j++) {
+              if (M.regArea(j) != 0){
+                  cout<<"in the degree loop" << endl;
+                  gfile<<"in the degree loop" << endl;
+                  //angle degree
+                  tempArea = M.regArea(j)*(5.0/Dn);
+                  tempPerimeter = M.renewRegPerimeter(j)*sqrt(5.0/Dn);
+
+                  // digital version
+                  int radiusOffset = 0;
+                  angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
+                  degreeAngle = L.find_zeroDAngle(angleDVector);
+                  gfile << "region "<< j << " degreeDAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+
+                  // analogue version
+                  radiusOffset = 0;
+                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
+                  angleVector = L.meanzero_vector(angleVector);
+                  //degreeAngle = M.find_max(angleVector,3);
+                  degreeAngle = L.find_zeroAngle(angleVector,3);
+                  gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                  //radial degree
+                  degreeRadius = -100;
+                  int newdegreeRadius = 0;
+                  for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=3){
+                  radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 3);
+                  //gfile <<"after sectorize_reg_radius"<<endl;
+                  // radiusVector = M.meanzero_vector(radiusVector);
+
+                  newdegreeRadius = L.find_zeroDRadius(radiusDVector);
+                  // gfile << " ndR " << newdegreeRadius;
+                  if (newdegreeRadius > degreeRadius)
+                          degreeRadius = newdegreeRadius;
+                  }
+                  gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl ;
+		  
+                  ///radial degree
+                  degreeRadius = -100;
+                  newdegreeRadius = 0;
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3){
+			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+			  newdegreeRadius = L.find_zeroRadius(radiusVector,3);
+			  if (newdegreeRadius > degreeRadius)
+				  degreeRadius = newdegreeRadius;
+		  }
+
+
+                  gfile <<  " region "<< j << " degreeRadius  "<< degreeRadius << "  " <<endl << endl;
+
+//                  W.logfile <<" degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
+
+                  regionCount++;
+                  
+	      } //end of if on non-zero regions
+} //end of loop on NUMPOINT
+
+//writing out of the image files after morphing
+    imin = 1000000;
+    imax = -1000000;
+    jmin =  1000000;
+    jmax = -1000000;
+	i = 0; j=0;
+    for (auto h : M.Hgrid->hexen) {
+       i = h.ri -h.bi;
+       j = h.ri + h.bi;
+       if (i<imin) imin = i;
+       if (i>imax) imax = i;
+       if (j<jmin) jmin = j;
+       if (j>jmax) jmax = j;
+    }
+    iextent = imax - imin + 1;
+    jextent = jmax - jmin + 1;
+    //cout << " imax " << imax << " imin " << imin << " jmax " << jmax << " jmin " << jmin << endl;
+    //cout << " iextent " << iextent << " jextent " << jextent << " gridsize " << M.n << endl;
+    for (int i=0;i<iextent;i++){
+	    for (int j=0;j<jextent;j++){
+		    NNfield[i][j] = 0;
+	    }
+    }
+    //cout << " after filling NNfield " << endl;
+    for (auto h : M.Hgrid->hexen) {
+       i = h.ri - h.bi - imin;
+       j = h.ri + h.bi - jmin;
+       //cout << " i " << i << " j " << j << endl;
+       NNfield[i][j] = M.NN[h.vi];
+    }
+    ofstream ifile (logpath + "/NNfieldMorph.txt");
+    //cout << " after creating NNfield.txt " << endl;
+
+    for (int i=0;i<iextent;i++){
+	    for (int j=0;j<jextent;j++){
+		    hfile << setprecision(10) << setw(15) << NNfield[i][j];
+	    }
+    }
+
+
+    gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
+
+	      avDegreeAngle = 0;
+	      avDegreeRadius = 0;
+	      occupancy = 0;
+	      totalDegree = 0;
+	      countRegions = 0;
+          for (int j=0;j<NUMPOINTS;j++) {
+	        if (M.regArea(j) != 0)
+			{
+	          countRegions++;
+	          gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
+		  occupancy += M.regNNfrac(j);
+              tempArea = M.regArea(j)*(5.0/Dn);
+              tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
+
+              int radiusOffset = 0;
+			  unsigned int boundSize = M.sortedBoundary[j].size();
+			  for (unsigned int i=0;i<boundSize;i++) 
+			  {
+			  angleVector.push_back(M.NN[M.sortedBoundary[j][i]]);
+			  }
+              angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
+              degreeAngle = L.find_zeroDAngle(angleDVector);
+		      avDegreeAngle += degreeAngle;
+              //radial degree
+              int holdRadius = 0;
+		      degreeRadius = 0;
+		      int numiters = 0;
+              for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3)
+			  {
+                radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 2);
+                holdRadius = L.find_zeroDRadius(radiusDVector);
+		        //degreeRadius += holdRadius;
+		        //numiters++;
+		        if (holdRadius > degreeRadius)
+			       degreeRadius = holdRadius;
+              }
+                  avDegreeRadius += degreeRadius;
+
+                  gfile << " degreeRadius "<< degreeRadius<<" degreeAngle "<< degreeAngle << " " << tempArea<<"  "<<tempPerimeter<<endl<<flush;
+                  regionCount++;
+	      } //end of if on non-zero regions
+	    } //end of loop on NUMPOINTs
+        avDegreeAngle = avDegreeAngle / (1.0 * countRegions);
+        avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
+	    occupancy = occupancy / (1.0 * countRegions);
+	    totalDegree = avDegreeAngle + 4.0*avDegreeRadius;
+	    // jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
+	    jfile <<Dn<<" after morphing "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
 
     return 0;
 };
