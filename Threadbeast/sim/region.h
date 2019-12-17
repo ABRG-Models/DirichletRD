@@ -94,6 +94,8 @@ public:
   vector<list<Hex>> regionBound; //for each region, index of boundary vertices
   std::map<int,vector<int>> edges; //map of (i,j) edges, uses pair<->int converters
   vector<vector<double> > regionDist; //from each hexdistances to each seed point
+  vector<vector<pair<double,double>>> vCoords;
+  vector<vector<pair<double,double>>> mCoords;
   //vector<double> psi;
   vector<int> Creg; //for each count of regions it touches
   //vector<int> Cnbr; //for each hex count of neighbour hexes
@@ -127,6 +129,7 @@ centres[3].first = -0.1f; centres[3].second = -0.1f;
 centres[4].first = -0.1f; centres[4].second = 0.1f;
 */
 #include "bezRectangle.h"
+//#include "bez5side.h"
 cout << "after creating BezCurve" << endl;
 
 //	for (int j=0;j<NUMPOINTS;j++)
@@ -161,6 +164,8 @@ cout << "after creating BezCurve" << endl;
   radialSegments.resize(NUMPOINTS);
   regionBound.resize(NUMPOINTS);
   sortedBoundary.resize(NUMPOINTS);
+  vCoords.resize(NUMPOINTS);
+  mCoords.resize(NUMPOINTS);
   cout << "before neighbour array" << endl;  
 // making a neighbour array for convenience
   for (int idx = 0; idx < n; idx++) {
@@ -653,7 +658,6 @@ double renewRegPerimeter (int regNum) {
 //go over the region and put the hexes into bins then average
         for (auto&  h : this->regionIndex[regNum]) {
             int index = h.vi;
-			double phi;
 			double angle;
 			cout <<"in set polars index " << index << " i " << h.vi <<endl;
 			cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
@@ -733,8 +737,8 @@ double renewRegPerimeter (int regNum) {
 
          // we now walk round the boundary in theta order
          unsigned int idissect = 0; //counts number of boundary hexes processed
-         int Vcount = 0; //count of the vertices
-         int Ecount = 0; //count of the edges
+         unsigned int Vcount = 0; //count of the vertices
+         unsigned int Ecount = 0; //count of the edges
          int newVertex;
          unsigned int offset = 0; //number of boundary hexes before the first vertex
          vector<int> ihE; //contains the sorted indicies of each edge
@@ -1035,7 +1039,6 @@ double renewRegPerimeter (int regNum) {
 	   {
 	     cout << "oops d " << d << "this->ds " <<this->ds<<endl;
 	   }	 
-	   int index = h.vi;
 	   hexGeometry::point hexCentre;
 	   hexCentre.first = h.x;
 	   hexCentre.second = h.y;
@@ -1066,50 +1069,68 @@ double renewRegPerimeter (int regNum) {
 	   return result;
 	   }
       // method to populate vector of boundary curves
-	  void populateBoundVector() {
+	  void populateBoundVector(bool first) {
         for (int i=0;i<NUMPOINTS;i++) 
 		{
-		  this->curvedBoundary[i] = this->roundBoundary(i);
+		  this->curvedBoundary[i] = this->roundBoundary(i,first);
 		}
 	  }
 
 
 // method to round the corners of a region
-      morph::BezCurvePath roundBoundary (int regNum) {
+      morph::BezCurvePath roundBoundary (int regNum, bool first) 
+	  {
       morph::BezCurvePath bound;
-      vector<pair<double,double>> vCoords;
-      vector<pair<double,double>> mCoords;
+     // vector<pair<double,double>> vCoords;
+     // vector<pair<double,double>> mCoords;
 	  int size = this->regionVertex[regNum].size();
 	  this->edges.clear();
-	  vCoords.resize(size);
-	  mCoords.resize(size);
+	  this->vCoords[regNum].resize(size);
+	  this->mCoords[regNum].resize(size);
 	  //iterate over polygon vertices
 	  cout << " Vcoords region " << regNum << endl;
-	  for  (int i = 0; i < size;i++)
+	  if (first) 
 	  {
+	    for  (int i = 0; i < size;i++)
+	    {
 	    //make pairs for polygon vertices and their midpoint
-	    int vaIndex,vbIndex;
-        vaIndex = this->regionVertex[regNum][i];
-	    vbIndex = this->regionVertex[regNum][(i+1)%size];
-	    vCoords[i].first = this->Hgrid->d_x[vaIndex]; 
-		vCoords[i].second = this->Hgrid->d_y[vaIndex];
-	    vCoords[(i+1)%size].first = this->Hgrid->d_x[vbIndex]; 
-	    vCoords[(i+1)%size].second = this->Hgrid->d_y[vbIndex]; 
-		mCoords[i].first = (vCoords[i].first + vCoords[(i+1)%size].first)/2.0;
-		mCoords[i].second = (vCoords[i].second + vCoords[(i+1)%size].second)/2.0;
-	    cout <<" v.x " << vCoords[i].first << " v.y " << vCoords[i].second << " m.x " << mCoords[i].first << "   m.y " << mCoords[i].second << endl;
-	  } //end of loop round region
-	   cout<< endl;
+	      int vaIndex;
+          vaIndex = this->regionVertex[regNum][i];
+	    //  vbIndex = this->regionVertex[regNum][(i+1)%size];
+		  double firstx = this->Hgrid->d_x[vaIndex];
+		  double firsty = this->Hgrid->d_y[vaIndex];
+		//  double secondx = this->Hgrid->Hgrid->d_x[vbIndex];
+		//  double secondy = this->Hgrid->Hgrid->d_y[vbIndex];
+		  pair<double, double> holdPair(firstx,firsty);
+	    //  pair2<double, double> holdPair(secondx,secondy);
+	      this->vCoords[regNum][i] = holdPair; 
+		  //vCoords[i].second = this->Hgrid->d_y[vaIndex];
+	     // vCoords[(i+1)%size].first = this->Hgrid->d_x[vbIndex]; 
+	     // vCoords[(i+1)%size].second = this->Hgrid->d_y[vbIndex];
+		} //end of filling Vcoords
+	  } //end region used on first invocation
+	  // code for all iterations to round corners
+	  for (int i=0;i<size;i++)
+	  {  
+		this->mCoords[regNum][i].first = (this->vCoords[regNum][i].first + this->vCoords[regNum][(i+1)%size].first)/2.0;
+		this->mCoords[regNum][i].second = (this->vCoords[regNum][i].second + this->vCoords[regNum][(i+1)%size].second)/2.0;
+	    cout <<" v.x " << this->vCoords[regNum][i].first << " v.y " << this->vCoords[regNum][i].second << " m.x " << this->mCoords[regNum][i].first << "   m.y " << this->mCoords[regNum][i].second << endl;
+	  }
+	  cout<< endl;
 	  //now create the BezCurvePaths
 	  for  (int i = 0; i < size;i++)
 	  {
 	    std::pair<double, double> ma, mb, va;
-		ma = mCoords[((i-1)+size)%size];
-		mb = mCoords[i];
-		va = vCoords[i];
+		ma = this->mCoords[regNum][((i-1)+size)%size];
+		mb = this->mCoords[regNum][i];
+		va = this->vCoords[regNum][i];
 	    morph::BezCurve bc(ma,mb,va);
 	    bound.addCurve(bc);
 	  }
+	  //now update vCoords with mCoords 
+	  this->vCoords[regNum] = this->mCoords[regNum];
+
+
 	  return bound;
 	}//end of roundBoundary method
 	  
@@ -1136,7 +1157,7 @@ double renewRegPerimeter (int regNum) {
      double max_radius(int regNum) {
         point  barycentre;
         point boundHex;
-		//morphing needs to work with centres, not barycentres
+		//morphing needs to work with centres, not barycentre
         barycentre.xval = this->centres[regNum].first;
         barycentre.yval = this->centres[regNum].second;
         double maxradius = -100000.0;
@@ -1359,7 +1380,7 @@ double renewRegPerimeter (int regNum) {
     angleCount.resize(numSectors);
     double startAngle, endAngle, angleInc; //sector angles
     double startradius, finishradius,radiusInc;
-    double maxradius = max_radius(regNum);
+    //double maxradius = max_radius(regNum);
     double minradius = min_radius(regNum);
     radiusInc = minradius/ (1.0*numSectors);
     startradius = beginradius*radiusInc;
@@ -1372,6 +1393,7 @@ double renewRegPerimeter (int regNum) {
       }
       normalNN = meanzero_vector(normalNN);
       double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
+	  cfile << " after normalisation of the NN field " << endl;
      // for (int i=0;i<size;i++)
        //    cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
@@ -1393,6 +1415,7 @@ double renewRegPerimeter (int regNum) {
           }//end if on radius
       } //end if on i
     }//end if on k
+	 cfile << "after creation of sectorized field " << endl;
 
       angleHold = meanzero_vector(angleHold);
 
@@ -1479,12 +1502,11 @@ double renewRegPerimeter (int regNum) {
         cout << " irB size " << irB.size() << " rB size " << rB.size() << endl;
 	  sortedBoundary[regNum] = irB;	
 	  //print out the line segments
-	  for (unsigned int i=0;i<vsize;i++){
+	  for (int i=0;i<vsize;i++){
 	    double startx = radialSegments[regNum][i].start.first;
 	    double starty = radialSegments[regNum][i].start.second;
 	    double endx = radialSegments[regNum][i].end.first;
 	    double endy = radialSegments[regNum][i].end.second;
-		double angle;
 		if (endy >= starty) 
 		{
 		  vertexAngle.push_back(atan2((endy - starty) , (endx - startx)));
@@ -1508,7 +1530,7 @@ double renewRegPerimeter (int regNum) {
 	  //cout << " offset outside " << offset << " hex angle " << rB[irB[offset]] << " vsize " << vsize << endl;
 	  ihE[0].push_back(irB[offset]);
 	  idissect = offset;
-	  for (unsigned int i=1; i< vsize; i++)
+	  for (int i=1; i< vsize; i++)
 	  {
 	    //cout << "head of segment loop " << i << " idissect  " << idissect << " vertexAngle " << vertexAngle[i%vsize] << endl;
 		  //ihE[i-1].push_back(irB[idissect%bsize]);
@@ -1538,7 +1560,7 @@ double renewRegPerimeter (int regNum) {
 		 }
 	   }
       */
-	 for (unsigned int iregion = 0;iregion<vsize;iregion++) 
+	 for (int iregion = 0;iregion<vsize;iregion++) 
 	 {
 	   int edgeOuter = regionList[regNum][iregion];
 	   cout << "edgeOuter " << edgeOuter << " region " << regNum << endl;
@@ -1587,7 +1609,7 @@ double renewRegPerimeter (int regNum) {
 	  {
 	    double result = 0;     
         ofstream edgefile(logpath + "/edgeCorrelations.txt",ios::app);
-		edgefile << " in morphed edge correlation routine "<<endl;
+//  	edgefile << " in morphed edge correlation routine "<<endl;
         //ofstream edgefile(logpath + "/edgeCorrelations.txt");
         vector<double> tempvect1;
         vector<double> tempvect2;
@@ -1677,6 +1699,6 @@ double renewRegPerimeter (int regNum) {
 	  cout << " countResult "<<countResult<<endl;
 	  result = result / (countResult * 1.0);
 	  return result;
-     } //end of function correlate_edges
+     } //end of function renewcorrelate_edges
 
 }; // DRegion
