@@ -64,6 +64,7 @@ public:
   vector<double> NN, CC; //hold the field values for each he
   morph::HexGrid* Hgrid;
   // Class constructor
+    ksSolver(){};
     ksSolver (int scale, string logpath, BezCurvePath bound, pair<double,double> seedPoint) {
     ofstream afile (logpath + "/ksdebug.out" );
     this->scale = scale;
@@ -73,6 +74,7 @@ public:
     n = 0;
     Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
     cout << " before y reversing loop " << endl;
+	//this->reverse_y();
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "before filling H " << Hgrid->num() << endl;
@@ -267,7 +269,6 @@ public:
         double xav=0;
         double yav = 0;
         int hexcount = 0;
-		double temp = 0;
 		/*
 	    for (auto& h : this->Hgrid->hexen)
 	    {
@@ -278,7 +279,7 @@ public:
 	      this->Hgrid->d_y[h.vi] = -temp;
 		}
 		*/
-	    this->reverse_y();
+	    //this->reverse_y();
         for (auto h : this->Hgrid->hexen) {
             hexcount++;
             xav += this->Hgrid->d_x[h.vi];
