@@ -1000,31 +1000,33 @@ double renewRegPerimeter (int regNum) {
         result.resize(0);
         sSize = svector.size();
         lSize = lvector.size();
-        sStep = 1.0 / (1.0 * (sSize-1.0));
-        lStep = 1.0 / (1.0 * (lSize-1.0));
+        sStep = 1.0 / (1.0 * (sSize-1));
+        lStep = 1.0 / (1.0 * (lSize-1));
         double start = 0;
         double finish = 0;
         double value = 0;
         int count = 1;
+		double delta = 0.00000001;
         result.push_back(svector[0]);
         for (int i = 0; i < sSize-1; i++) { // walk along the short vector
             start = i*sStep;
             finish = (i+1)*sStep;
             for (int j = 0; j < lSize; j++) { //walk along the long
-                if ((j*lStep > start) && (j*lStep) <= finish) {
-                    value = svector[i]*(j*lStep - start) + svector[i+1]*((j+1)*(finish - j*lStep));
+                if ((j*lStep > start) && (j*lStep) <= finish+delta) {
+                    //value = svector[i]*(j*lStep - start) + svector[i+1]*((j+1)*(finish - j*lStep));
+                    value = (svector[i]*(j*lStep - start) + svector[i+1]*(finish - j*lStep))/sStep;
                     result.push_back(value);
                     count++;
                 }
             }
         }
         if (count != lSize){
-           kfile << " count " << count << " lSize " << lSize << " sSize " << sSize <<  " not filled" << endl;
-            result.resize(0);
+           kfile << " count " << count << " lSize " << lSize << " sSize " << sSize << " count " << count <<  " not filled" << endl;
+            //  result.resize(0);
             return result;
         }
         else {
-             kfile << " count " << count << " l size " << lSize << " sSize " << sSize << " filled" << endl;
+             kfile << " count " << count << " l size " << lSize << " sSize " << sSize << " count " << count << " filled" << endl;
             // result.push_back(svector[sSize - 1]);
             return result;
         }
@@ -1203,27 +1205,26 @@ double renewRegPerimeter (int regNum) {
     for (int k=0;k<numSectors;k++) {
       startradius = (k*radiusInc);
       finishradius = (k+1)*radiusInc;
-
+      int count = 0;
       for (auto h : this->regionIndex[regNum]) {
 	   if (h.phi >= startAngle && h.phi < finishAngle) {
 	   if (h.r >= startradius && h.r <  finishradius) {
 	    radiusCount[k]++;
-        radiusNN[k] += normalNN[h.vi];
+        radiusNN[k] += normalNN[count];
 	   } //end of if on radius
       } //end of if on angleSector
+	  count++;
      } //end of loop over i
 
 
       if (radiusCount[k] != 0)
-	radiusNN[k] = radiusNN[k];
+	    radiusNN[k] = radiusNN[k];
       else
-	radiusNN[k] = 0.0;
+    	radiusNN[k] = 0.0;
+      dfile << " region " << regNum << " startradius "<<startradius<<"  finishradius "<<finishradius<< " radiusNN " << radiusNN[k] << endl;
+
     }//end loop on k
 
-	 for (int k=0;k<numSectors;k++)
-	 {
-      dfile << " region " << regNum << " startradius "<<startradius<<"  finishradius "<<finishradius<< " radiusNN " << radiusNN[k] << endl;
-	  }
 	  dfile << endl;
      return radiusNN;
 
@@ -1232,7 +1233,7 @@ double renewRegPerimeter (int regNum) {
      //sectorize over radius
     //adapted for digital output
     vector <int> sectorize_reg_Dradius (int regNum, int numSectors, int beginAngle, int endAngle) {
-        ofstream dfile ( "logs/sectorRadius.txt",ios::app);
+    ofstream dfile ( "logs/sectorRadius.txt",ios::app);
     vector <int>  radiusNN;
     radiusNN.resize(numSectors,0);
     vector <int> radiusCount;
@@ -1251,7 +1252,7 @@ double renewRegPerimeter (int regNum) {
     finishAngle = (endAngle%numSectors)*angleInc;
     //int size = (int) this->regionIndex[regNum].size();
     for (auto h : this->regionIndex[regNum]){
-          normalNN.push_back(h.vi);
+          normalNN.push_back(NN[h.vi]);
       }
     // to normalise the NN field
     normalNN = meanzero_vector(normalNN);
@@ -1262,16 +1263,20 @@ double renewRegPerimeter (int regNum) {
     for (int k=0;k<numSectors;k++) {
       startradius = (k*radiusInc);
       finishradius = (k+1)*radiusInc;
+	  int count = 0;
       for (auto h : this->regionIndex[regNum]) {
         if (h.phi >= startAngle && h.phi < finishAngle) {
           if (h.r >= startradius && h.r < finishradius) {
               radiusCount[k]++;
               //radiusCC[k] += this->CC[this->regionIndex[regNum][i]];
-              radiusHold[k] += normalNN[h.vi];
+              radiusHold[k] += normalNN[count];
           } //end of if on radius
         } //end of if on angleSector
+      count++;
       } //end of loop over i
     }//end of loop over k
+	
+	 dfile << "after creation of sectorized field region Dregion " << regNum <<  endl;
     
     for (int k=0;k<numSectors;k++){
 	    startradius = (k*radiusInc);
@@ -1288,11 +1293,8 @@ double renewRegPerimeter (int regNum) {
         else
                 radiusNN[k] = 0;
 
-    }//end loop on k
-	for (int k=0;k<numSectors;k++) 
-	{
        dfile << " region " << regNum <<" startradius "<<startradius<<"  finishradius "<<finishradius<< " DradiusNN " << radiusNN[k] << endl;
-	}
+    }//end loop on k
 	 dfile << endl;
      return radiusNN;
 
@@ -1306,10 +1308,9 @@ double renewRegPerimeter (int regNum) {
     ofstream cfile ("logs/sectorAngle.txt",ios::app);
     vector <double> angleNN; //average value of CC in each sector
     vector <double> normalNN;
-    vector <double>  angleVal;
-    vector <int> count; //number of hexes in each sector
+    vector <int> angleCount; //number of hexes in each sector
     angleNN.resize(numSectors,0);
-    count.resize(numSectors,0);
+    angleCount.resize(numSectors,0);
     double startAngle, endAngle, angleInc; //sector angles
     double startradius, finishradius,radiusInc;
     double minradius = min_radius(regNum);
@@ -1328,39 +1329,38 @@ double renewRegPerimeter (int regNum) {
         //   cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
     for (int k=0;k<numSectors;k++) {
-      //double angle;
       startAngle = k*angleInc;
       endAngle = (k+1)*angleInc;
       if ((k+1) == numSectors)
          endAngle = 2*PI;
 
-
+      int count = 0;
       for (auto h : this->regionIndex[regNum]) {
           if ( h.r  >= startradius && h.r < finishradius) {
               if (h.phi >= startAngle && h.phi < endAngle) {
-                  angleVal.push_back(h.phi);
-                  count[k]++;
+                  angleCount[k]++;
           //angle[k] += this->[this->regionIndex[regNum][i]];
-                  angleNN[k] += normalNN[h.vi];
+                  angleNN[k] += normalNN[count];
               }//end if on angle
         //cfile << setw(5) << angleVal[i]  <<"  ";
           }//end if on radius
+		count++;
       }//end loop on i
     }//end loop on k
+	cfile << "after creation of sectorized field region angle " << regNum <<  endl;
 
     angleNN = meanzero_vector(angleNN);
     for (int k=0;k<numSectors;k++){
 	    startAngle = k*angleInc;
 	    endAngle = k*angleInc;
-	    if (count[k] != 0)
-		    angleNN[k] = angleNN[k]/(1.*count[k]);
+	    if (angleCount[k] != 0)
+		    angleNN[k] = angleNN[k]/(1.*angleCount[k]);
 	    else
 		    angleNN[k] = -999.999;
+	    //write out values
+		cfile << " region " << regNum <<" startAngle "<< startAngle << "  endAngle "<< endAngle << " angleNN " << angleNN[k] << endl;
     }//end loop on k
-	for (int k=0;k<numSectors;k++) 
-	{
-	cfile << " region " << regNum <<" startradius "<<startradius<<"  finishradius "<<finishradius<< " angleNN " << angleNN[k] << endl;
-    }
+
      cfile << endl;
      return angleNN;
 
@@ -1373,11 +1373,11 @@ double renewRegPerimeter (int regNum) {
     vector <int> angleNN; //digitized value of NN in each sector
     vector <double> angleHold;
     vector <double> normalNN;
-    vector <double>  angleVal;
+    //vector <double>  angleVal;
     vector <int> angleCount; //number of hexes in each sector
     angleNN.resize(numSectors,0);
     angleHold.resize(numSectors,0);
-    angleCount.resize(numSectors);
+    angleCount.resize(numSectors,0);
     double startAngle, endAngle, angleInc; //sector angles
     double startradius, finishradius,radiusInc;
     //double maxradius = max_radius(regNum);
@@ -1388,12 +1388,15 @@ double renewRegPerimeter (int regNum) {
     angleInc = 2*PI/(1.*numSectors);
     // to normalise the NN field
     //int size = (int) this->regionIndex[regNum].size();
+	int NNcount = 0;
      for (auto h : this->regionIndex[regNum]){
           normalNN.push_back(this->NN[h.vi]);
+		  cfile << " h.vi " << h.vi << " NNcount " << " h.phi " << h.phi << " h.r " << h.r << NNcount <<  endl;
+		  NNcount++;
       }
       normalNN = meanzero_vector(normalNN);
       double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
-	  cfile << " after normalisation of the NN field " << endl;
+	  cfile << " after normalisation NN field in Dangle region " << regNum <<  " NNcount " << NNcount << endl;
      // for (int i=0;i<size;i++)
        //    cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
@@ -1402,27 +1405,30 @@ double renewRegPerimeter (int regNum) {
       endAngle = (k+1)*angleInc;
       if ((k+1) == numSectors)
          endAngle = 2*PI;
-
-      for (auto h : this->regionIndex[regNum]) {
+    cfile << " start of numSectors loop " << k << endl;		 
+    int count = 0;
+    for (auto &h : this->regionIndex[regNum]) {
+      cfile << " start of region index  loop " << count <<  " hex " << h.vi << " h.phi " << h.phi << " h.r " << h.r << endl;		 
           if (h.r >= startradius && h.r < finishradius) {
               if (h.phi >=startAngle && h.phi < endAngle) {
-                  angleVal.push_back(h.phi);
+                  //angleVal.push_back(h.phi);
                   angleCount[k]++;
           //angle[k] += this->[this->regionIndex[regNum][i]];
-                  angleHold[k] += normalNN[h.vi];
+                  angleHold[k] += normalNN[count];
               }//end if on angle
-        //cfile << setw(5) << angleVal[i]  <<"  ";
+        //cfile << setw(5) << angleVal[angleCount[k]]  <<" region  " << regNum << endl;
           }//end if on radius
+	    count++;
       } //end if on i
     }//end if on k
-	 cfile << "after creation of sectorized field " << endl;
+	 cfile << "after creation of sectorized field region Dangle " << regNum <<  endl;
 
       angleHold = meanzero_vector(angleHold);
 
       for (int k=0;k<numSectors;k++){
-      startAngle = k*angleInc;
-      endAngle = (k+1)*angleInc;
-      if (angleCount[k] == 0) {
+        startAngle = k*angleInc;
+        endAngle = (k+1)*angleInc;
+        if (angleCount[k] == 0) {
            angleNN[k] = 2;
            continue;
         }
@@ -1434,12 +1440,8 @@ double renewRegPerimeter (int regNum) {
         else
                 angleNN[k] = 0;
 
+        cfile << " region " << regNum <<" startangle  " << startAngle << "  endAngle  "<< endAngle << " DangleNN " << angleNN[k] << endl;
     } //end loop on k
-	 for (int k=0;k<numSectors;k++)
-	 {
-       cfile << " region " << regNum <<" startradius "<<startradius<<"  finishradius "<<finishradius<< " DangleNN " << angleNN[k] << endl;
-	 }
-	 cfile << endl;
      return angleNN;
 
   } //end of function sectorize_region1
@@ -1496,7 +1498,7 @@ double renewRegPerimeter (int regNum) {
 	    double angle = h.getPhi();
         rB.push_back(angle);
 		boundary.push_back(h.vi);
-	//	cout << " theta boundary " << angle << " boundary index " << h.vi << endl;
+		cout << "region " << regNum <<" theta boundary " << angle << " boundary index " << h.vi << endl;
       }
       irB = sort_indexes(rB); //indices after sort on theta
         cout << " irB size " << irB.size() << " rB size " << rB.size() << endl;
@@ -1518,48 +1520,50 @@ double renewRegPerimeter (int regNum) {
 		cout << " start.x " <<radialSegments[regNum][i].start.first  << " start.y " << radialSegments[regNum][i].start.second << " end.x "<< radialSegments[regNum][i].end.first << " end.y " <<radialSegments[regNum][i].end.second<<" angle " << vertexAngle[i] << endl;
       }
 	   //write the indices in phi order
+	  for (int i = 0; i < bsize; i++) 
+	  {
+	    cout << " boundHex " << i << " hex " << irB[i] << " angle " << rB[irB[i]] << endl;
+	  }
 	  int offset = 0;
 	  int idissect = 0;
 	  vector<vector<int>> ihE;
 	  ihE.resize(vsize);
-	  while ((rB[irB[offset]] <= vertexAngle[0]) && (offset<bsize)) 
+	  while ((rB[irB[offset]] < vertexAngle[0]) && (offset<bsize)) 
 	  {
-	    //cout << " offset inside " << offset << " vertexAngle " << vertexAngle[0] << " hex angle " << rB[irB[offset]]<< endl;
+	    cout << " offset inside " << offset << " vertexAngle " << vertexAngle[0] << " hex angle " << rB[irB[offset]]<< " hex " << irB[offset] << endl;
 		offset++;
 	  } 
-	  //cout << " offset outside " << offset << " hex angle " << rB[irB[offset]] << " vsize " << vsize << endl;
-	  ihE[0].push_back(irB[offset]);
+	  cout << " offset outside " << offset << " hex angle " << rB[irB[offset]] << " vsize " << vsize << " hex " << irB[offset] << endl;
 	  idissect = offset;
 	  for (int i=1; i< vsize; i++)
 	  {
-	    //cout << "head of segment loop " << i << " idissect  " << idissect << " vertexAngle " << vertexAngle[i%vsize] << endl;
-		  //ihE[i-1].push_back(irB[idissect%bsize]);
-		  while ((rB[irB[idissect%bsize]] <= vertexAngle[i%vsize]) && (idissect <= bsize))
+	    cout << "head of segment loop " << i << " idissect  " << idissect << " vertexAngle " << vertexAngle[i%vsize] << " hex " << irB[offset] << endl;
+		  while ((rB[irB[idissect%bsize]] < vertexAngle[i%vsize]) && (idissect <= bsize))
 		  {
-		    //cout << " filling edge loop " << i-1 << " index " << idissect << " angle " << rB[irB[idissect%bsize]] <<endl;
+		    cout << " filling edge loop " << i-1 << " index " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << irB[offset%bsize] << endl;
 		    ihE[i-1].push_back(irB[idissect%bsize]);
 			idissect++;
 		  }
 		}
 		cout << " just before  vsize end loop angle " << vertexAngle[0] + 2*PI << endl; 
-		while ((rB[irB[idissect%bsize]] <= vertexAngle[0] + 2*PI) && (idissect< bsize+offset-1))
+		while ((rB[irB[idissect%bsize]] < vertexAngle[0] + 2*PI) && (idissect< bsize+offset-1))
 		{
-		  //cout << " filling end edge loop 3 " << idissect << " angle " << rB[irB[idissect%bsize]] << endl;
+		  cout << " filling end edge loop 3 " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << irB[idissect%bsize] <<  endl;
 		  ihE[vsize-1].push_back(irB[idissect%bsize]);
 		  idissect++;
 		}
 
 	  // int index = 0;
-	  /*
+	  
 	   for (unsigned int i=0;i<vsize;i++)
 	   {
 	     for (unsigned int j=0; j<ihE[i].size(); j++) 
 		 {
-		  cout << " edge " << i << " size " << ihE[i].size() << " index "<< ihE[i][j] << " phi " << rB[ihE[i][j]] << endl;
+		  cout << " region " << regNum << " edge " << i << " size " << ihE[i].size() << " index "<< ihE[i][j] << " phi " << rB[ihE[i][j]] << endl;
 		//  index++;
 		 }
 	   }
-      */
+      
 	 for (int iregion = 0;iregion<vsize;iregion++) 
 	 {
 	   int edgeOuter = regionList[regNum][iregion];
@@ -1601,7 +1605,7 @@ double renewRegPerimeter (int regNum) {
 	   }
                 
 
-   } //end of method renewRegion
+   } //end of method renewDissect
    
 
     // function to renew correlate matching edges
@@ -1609,8 +1613,7 @@ double renewRegPerimeter (int regNum) {
 	  {
 	    double result = 0;     
         ofstream edgefile(logpath + "/edgeCorrelations.txt",ios::app);
-//  	edgefile << " in morphed edge correlation routine "<<endl;
-        //ofstream edgefile(logpath + "/edgeCorrelations.txt");
+    	edgefile << " in morphed edge correlation routine "<<endl;
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -1668,7 +1671,6 @@ double renewRegPerimeter (int regNum) {
 		    result += fabs(correlationValue);
             countResult++;
             edgefile << " regNum = " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-			edgefile.close();
             //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
             } //end of code if both edges are equal
             else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) 
@@ -1676,28 +1678,29 @@ double renewRegPerimeter (int regNum) {
               tempvect3 = this->equalize_vector(tempvect2,tempvect1);
               if (tempvect3.size() == 0)
 			  {
-                cout << " regNum " << regNum << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                edgefile  << " regNum " << regNum << " count1 " << tempvect1.size() << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
 			   }
               double correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
 		      result += fabs(correlationValue);
               countResult++;
-              cout << " regNum " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+              edgefile << " regNum " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
             }
             else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) 
 			{
               tempvect3 = this->equalize_vector(tempvect1,tempvect2);
               if (tempvect3.size() == 0)
 			  {
-                cout << " regNum " << regNum << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                edgefile << " regNum is " << regNum << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
 		      }
               double correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
 		      result += fabs(correlationValue);
               countResult++;
-              cout << " regNum = " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+              edgefile << " regNum = " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
              }
       } //end of single edge comparison
 	  cout << " countResult "<<countResult<<endl;
 	  result = result / (countResult * 1.0);
+	  edgefile.close();
 	  return result;
      } //end of function renewcorrelate_edges
 
