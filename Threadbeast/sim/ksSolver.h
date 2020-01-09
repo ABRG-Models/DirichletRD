@@ -58,9 +58,7 @@ public:
 
   // list of objects visible to member functions
   pair<double,double> seedPoint;
-  vector<double> rad;
   vector<vector<int> > N; // hex neighbourhood 
-  vector<double> psi;
   vector<double> NN, CC; //hold the field values for each he
   morph::HexGrid* Hgrid;
   // Class constructor
@@ -85,8 +83,6 @@ public:
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "after  filling H " << " n = " << n <<endl;
     N.resize(n);
-    this->psi.resize(n,0.0); // vector of azimuths
-    this->rad.resize(n,0.0); // vector of radii
 // making a neighbour array for convenience
 /*
    for (int idx = 0; idx < n; idx++) {
@@ -154,8 +150,9 @@ public:
     NN.resize(n);
     CC.resize(n);
 	afile << "after alloc NN and CC" <<endl;
-	pair<double, double> centroid = set_polars(this->seedPoint);
+	pair<double, double> centroid = set_kS_polars(this->seedPoint);
 	cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+	cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
  } // end of ksSolver constructor 
 
 
@@ -251,18 +248,18 @@ public:
 	    for (auto& h : this->Hgrid->hexen)
 	    {
 	      int index = h.vi;
-	      cout << " in y reversing loop " << h.vi << endl;
+	     // cout << " in y reversing loop " << h.vi << endl;
 	      double temp = double(this->Hgrid->d_y[index]);
 		  if (temp != 0.0)
 		  {
-	      cout << " in y reversing loop " << endl;
+	     // cout << " in y reversing loop " << endl;
 	      this->Hgrid->d_y[h.vi] = -temp;
 		  }
 		}
 	}
 
 // function to give r and theta relative to region centre
-    pair <double,double> set_polars(pair<double,double> centre){
+    pair <double,double> set_kS_polars(pair<double,double> centre){
         pair <double, double> result;
 		result.first = 0.0;
 		result.second = 0.0;
@@ -274,12 +271,12 @@ public:
 	    {
 	      int index = h.vi;
 	      cout << " in y reversing loop " << h.vi << endl;
-	      temp = double(this->Hgrid->d_y[index]);
+	      double temp = double(this->Hgrid->d_y[index]);
 	      cout << " in y reversing loop " << endl;
 	      this->Hgrid->d_y[h.vi] = -temp;
 		}
 		*/
-	    //this->reverse_y();
+	    this->reverse_y();
         for (auto h : this->Hgrid->hexen) {
             hexcount++;
             xav += this->Hgrid->d_x[h.vi];
