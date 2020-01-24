@@ -21,6 +21,9 @@
 #include "analysis.h"
 #include "ksSolver.h"
 #include <morph/display.h>
+#include <cctype>
+#include <locale>
+#include <algorithm>
 using std::array;
 using std::string;
 using std::stringstream;
@@ -35,7 +38,6 @@ using morph::Display
 */
 using namespace morph;
 using namespace std;
-
 
 int main (int argc, char **argv)
 {
@@ -105,12 +107,12 @@ int main (int argc, char **argv)
 // include the analysis methods
     Analysis L;
 
-    string fname = logpath + "/fileVal.h5";
+    string fname = logpath + "/first.h5";
     cout<< "just before first data read"<< " lcontinue " << Lcontinue <<endl;
 // initialise with random field
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
-	    cout<< "just after first data read "<< fname <<  endl;
+	    cout<< "just after first data read fname "<< fname << endl;
 	    input.read_contained_vals("n",M.NN);
 	    input.read_contained_vals("c",M.CC);
 	    cout<< "just after input of NN and CC1"<< endl;
@@ -127,6 +129,7 @@ int main (int argc, char **argv)
 	    } //end of code to set initial random field
     } //end of else on Lcontinue
     cout <<  "just after field creation" << endl;
+
 
         vector<double> fix(3, 0.0);
         vector<double> eye(3, 0.0);
@@ -183,7 +186,7 @@ int main (int argc, char **argv)
 	  {
 	     //cout << " just before time step " << " i " << i << endl;
          M.step(dt, Dn, Dchi, Dc);
-		 if ((i-numprint) == 1) {
+		 if (i%numprint == 0) {
           morph::Gdisplay disp(600, 900, 0, 0, "first run", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
@@ -237,7 +240,7 @@ int main (int argc, char **argv)
 
     //code run at end of timestepping
     //first save the  ofstream outFile;
-     morph::HdfData data (fname);
+     morph::HdfData data(fname);
      data.add_contained_vals("c",M.CC);
      data.add_contained_vals("n",M.NN);
      //data.add_contained_vals("X",M.X[0]);
@@ -469,28 +472,53 @@ for (int j=0;j<NUMPOINTS;j++) {
       ndisp.saveImage(logpath + "/Tesselation2.png");
       ndisp.closeDisplay();
 // initialise the fields
-      for (int j=0;j<NUMPOINTS;j++) 
-      {
-        for (int i=0;i<S[j].n;i++) {
-		    double choice = morph::Tools::randDouble();
-		    if (choice > 0.5)
-			  S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
-		    else
-			  S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
-		    S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
-         }
-       }
-       
-        //set up dispaly
-        morph::Gdisplay mdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-        mdisp.resetDisplay (fix, eye, rot);
-        // begin second time stepping loop
-        for (int i=0;i<numsteps;i++)
-        {
-		  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
-	      {
+    string gname = logpath + "/second.h5";
+    cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
+// initialise with random field
+    if (Lcontinue) 
+	{
+       morph::HdfData ginput(gname,1);
+       cout << "just after trying to open ../logs/second.h5" << endl;
+        for (unsigned int j=0;j<NUMPOINTS;j++)
+		{
+		    std::string ccstr = "c" + to_string(j);
+		    cout << " j string " << to_string(j) << " length" << ccstr.length()<< endl;
+			char * ccst = new char[ccstr.length()+1];
+			std::strcpy(ccst,ccstr.c_str());
+		    std::string nstr = "n" + to_string(j);
+			char * nst = new char[nstr.length()+1];
+			std::strcpy(nst,nstr.c_str());
+			cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+	        ginput.read_contained_vals(ccst,S[j].CC);
+	        ginput.read_contained_vals(nst,S[j].NN); 
+		}
+	  }
+      else 
+	  {
+        for (unsigned int j=0;j<NUMPOINTS;j++)
+		{
+	        for (int i=0;i<S[j].n;i++) {
+		        double choice = morph::Tools::randDouble();
+		        if (choice > 0.5)
+			        S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
+		        else
+			        S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
+		            S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+	      } //end of code to set initial random field
+		 }
+        } //end of else on Lcontinue
+     cout <<  "just after field creation first morph" << endl;
+
+    //set up dispaly
+    morph::Gdisplay mdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+    mdisp.resetDisplay (fix, eye, rot);
+    // begin second time stepping loop
+    for (int i=0;i<numsteps;i++)
+    {
+		for (int j = 0;j<NUMPOINTS;j++) //loop over regions
+	    {
 		  S[j].step(dt, Dn, Dchi, Dc);
-	      if (i - numprint == 1)
+	      if (i%numprint == 0)
 		  {
 		    cout << "in print routine"<<endl;
 		    vector<double> normalNN;
@@ -526,7 +554,7 @@ for (int j=0;j<NUMPOINTS;j++) {
 			  }
 		   }//end of graphics input block
          }//end of loop over regions
-         if (i - numprint == 1) 
+         if (i%numprint == 0) 
          { 
 		   cout << "just berore redraw display 2" << endl;
            mdisp.redrawDisplay();
@@ -535,22 +563,46 @@ for (int j=0;j<NUMPOINTS;j++) {
 		 }//end of loop on numprint drawing fields
        } // end of second time stepping
 
-      mdisp.closeDisplay();
-	  M.setRadialSegments();
+    //code run at end of timestepping
+    //first save the  ofstream outFile;
+    morph::HdfData gdata(gname);
+	for (unsigned int j=0;j<NUMPOINTS;j++)
+	{
+		std::string nstr = "n" + to_string(j);
+	    char * nst = new char[nstr.length()+1];
+		//std::copy(nstr.begin(),nstr.end(),nst);
+		std::strcpy(nst,nstr.c_str());
+    	std::string ccstr = "c" + to_string(j);
+	    char * ccst = new char[ccstr.length()+1];
+	//	std::copy(ccstr.begin(),ccstr.end(),cst);
+		std::strcpy(ccst,ccstr.c_str());
+		cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+        gdata.add_contained_vals(ccst,S[j].CC);
+        gdata.add_contained_vals(nst,S[j].NN);
+        //data.add_contained_vals("X",M.X[0]);
+        //data.add_contained_vals("Y",M.X[1]);
+     }	
+     gdata.add_val ("/Dchi", Dchi);
+     gdata.add_val ("/Dn", Dn);
+     gdata.add_val ("/Dc",Dc);
+     
+     cout << " just after writing data "  << endl; 
+     mdisp.closeDisplay();
+	 M.setRadialSegments();
 	  // repopulate the regions
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
+	 for (int j=0;j<NUMPOINTS;j++)
+     {
 	    M.renewRegion(j,S[j].Hgrid->hexen);
-	  }	
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
+	 }	
+	 for (int j=0;j<NUMPOINTS;j++)
+	 {
 	    M.renewBoundary(j,S[j].Hgrid->hexen);
-	  }	
+	 }	
 	  // redissect the boundaries
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
+	 for (int j=0;j<NUMPOINTS;j++)
+	 {
 	    M.renewDissect(j);
-      }
+     }
 	  /*
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {
@@ -616,43 +668,6 @@ for (int j=0;j<NUMPOINTS;j++) {
 	      } //end of if on non-zero regions
 } //end of loop on NUMPOINT
 
-//writing out of the image files after morphing
-    imin = 1000000;
-    imax = -1000000;
-    jmin =  1000000;
-    jmax = -1000000;
-	i = 0; j=0;
-    for (auto h : M.Hgrid->hexen) {
-       i = h.ri -h.bi;
-       j = h.ri + h.bi;
-       if (i<imin) imin = i;
-       if (i>imax) imax = i;
-       if (j<jmin) jmin = j;
-       if (j>jmax) jmax = j;
-    }
-    iextent = imax - imin + 1;
-    jextent = jmax - jmin + 1;
-    //cout << " imax " << imax << " imin " << imin << " jmax " << jmax << " jmin " << jmin << endl;
-    //cout << " iextent " << iextent << " jextent " << jextent << " gridsize " << M.n << endl;
-    for (int i=0;i<iextent;i++){
-	    for (int j=0;j<jextent;j++){
-		    NNfield[i][j] = 0;
-	    }
-    }
-    //cout << " after filling NNfield " << endl;
-    for (auto h : M.Hgrid->hexen) {
-       i = h.ri - h.bi - imin;
-       j = h.ri + h.bi - jmin;
-       //cout << " i " << i << " j " << j << endl;
-       NNfield[i][j] = M.NN[h.vi];
-    }
-
-    for (int i=0;i<iextent;i++){
-	    for (int j=0;j<jextent;j++){
-		    hfile << setprecision(10) << setw(15) << NNfield[i][j];
-	    }
-    }
-
 
     gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
 
@@ -674,11 +689,6 @@ for (int j=0;j<NUMPOINTS;j++) {
 
               avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
               int radiusOffset = 0;
-			  unsigned int boundSize = M.sortedBoundary[j].size();
-			  for (unsigned int i=0;i<boundSize;i++) 
-			  {
-			  angleVector.push_back(M.NN[M.sortedBoundary[j][i]]);
-			  }
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
               degreeAngle = L.find_zeroDAngle(angleDVector);
 		      avDegreeAngle += degreeAngle;
@@ -769,30 +779,55 @@ for (int j=0;j<NUMPOINTS;j++) {
       nndisp.saveImage(logpath + "/Tesselation3.png");
       nndisp.closeDisplay();
 // initialise the fields
-      for (int j=0;j<NUMPOINTS;j++) 
-      {
-        for (int i=0;i<S[j].n;i++) {
-		    double choice = morph::Tools::randDouble();
-		    if (choice > 0.5)
-			  S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
-		    else
-			  S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
-		    S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
-         }
-       }
-       
-        //set up dispaly
-        morph::Gdisplay mmdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-        mmdisp.resetDisplay (fix, eye, rot);
-        // begin second time stepping loop
-        for (i=0;i<numsteps;i++)
-        {
-		  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
-	      {
-		  S[j].step(dt, Dn, Dchi, Dc);
-	      if (i - numprint == 1)
+    cout<< "just before first data read"<< " lcontinue " << Lcontinue <<endl;
+// initialise with random field
+    string hname = logpath + "/third.h5";
+    if (Lcontinue)
+	{
+	   morph::HdfData hinput (hname,1);
+       for (int j=0;j<NUMPOINTS;j++)
+    	{
+		    std::string nstr = "n" + to_string(j);
+			char * nst = new char[nstr.length()+1];
+		    std::strcpy(nst,nstr.c_str());
+		    std::string ccstr = "c" + to_string(j);
+			char * ccst = new char[ccstr.length()+1];
+			cout << "labels "<< nstr <<" , " << ccstr<<endl;
+		    std::strcpy(ccst,ccstr.c_str());
+	        hinput.read_contained_vals(nst,S[j].NN);
+	        hinput.read_contained_vals(ccst,S[j].CC);
+	        cout<< "just after input of NN and CC1"<< endl;
+       //   input.close();
+        }
+	 }
+     else 
+	 {
+       for (int j=0;j<NUMPOINTS;j++)
+	   {
+	     for (int i=0;i<S[j].n;i++) 
+			{
+		        double choice = morph::Tools::randDouble();
+		        if (choice > 0.5)
+			        S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
+		        else
+			        S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
+		            S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+	        } //end of code to set initial random field
+		}
+     } //end of else on Lcontinue
+    cout <<  "just after field creation" << endl;
+    //set up dispaly
+    morph::Gdisplay mmdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+    mmdisp.resetDisplay (fix, eye, rot);
+    // begin second time stepping loop
+    for (i=0;i<numsteps;i++)
+	{
+   	  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
+	  {
+     	  S[j].step(dt, Dn, Dchi, Dc);
+	      if (i%numprint == 0)
 		  {
-		    cout << "in print routine"<<endl;
+	 	    cout << "in print routine"<<endl;
 		    vector<double> normalNN;
 		    normalNN.resize(S[j].n);
       //    afile << " NN " << "                normalNN" << endl;
@@ -826,7 +861,7 @@ for (int j=0;j<NUMPOINTS;j++) {
 			  }
 		   }//end of graphics input block
          }//end of loop over regions
-         if (i - numprint == 1) 
+         if (i%numprint == 0) 
          { 
 		   cout << "just berore redraw display 2" << endl;
            mmdisp.redrawDisplay();
@@ -835,22 +870,46 @@ for (int j=0;j<NUMPOINTS;j++) {
 		 }//end of loop on numprint drawing fields
        } // end of second time stepping
 
-      mmdisp.closeDisplay();
-	  M.setRadialSegments();
-	  // repopulate the regions
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
+    //code run at end of timestepping
+    //first save the  ofstream outFile;
+     morph::HdfData hdata(hname);
+	 cout <<"after creating hdata "<< hname << endl;
+	 for (int j=0;j<NUMPOINTS;j++)
+	 {
+		std::string nstr = "n" + to_string(j);
+	   	char * nst = new char[nstr.length()+1];
+		std::strcpy(nst,nstr.c_str());
+		std::string ccstr = "c" + to_string(j);
+	    char * ccst = new char[ccstr.length()+1];
+		std::strcpy(ccst,ccstr.c_str());
+		cout <<"in third hdf5 write "<<nstr <<" , "<<ccstr<<endl;
+        hdata.add_contained_vals(ccst,S[j].CC);
+        hdata.add_contained_vals(nst,S[j].NN);
+	 }
+         //data.add_contained_vals("X",M.X[0]);
+         //data.add_contained_vals("Y",M.X[1]);
+    // hdata.add_val ("/Dchi", Dchi);
+    // hdata.add_val ("/Dn", Dn);
+    // hdata.add_val ("/Dc",Dc);
+	 
+     
+     cout << " just after writing data "  << endl;
+     mmdisp.closeDisplay();
+	 M.setRadialSegments();
+	 // repopulate the regions
+	 for (int j=0;j<NUMPOINTS;j++)
+	 {
 	    M.renewRegion(j,S[j].Hgrid->hexen);
-	  }	
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
+     }	
+	 for (int j=0;j<NUMPOINTS;j++)
+	 {
 	    M.renewBoundary(j,S[j].Hgrid->hexen);
-	  }	
-	  // redissect the boundaries
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
+     }	
+	 // redissect the boundaries
+	 for (int j=0;j<NUMPOINTS;j++)
+	 {
 	    M.renewDissect(j);
-      }
+     }
 	  /*
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {
@@ -860,113 +919,70 @@ for (int j=0;j<NUMPOINTS;j++) {
 	  */
 
       gfile << endl << "analysis on second morphing iteration " << endl;
-      for (int j=0;j<NUMPOINTS;j++) {
-              if (M.regArea(j) != 0){
-                  cout<<"in the degree loop" << endl;
-                  gfile<<"in the degree loop" << endl;
-                  //angle degree
-                  tempArea = M.regArea(j)*(5.0/Dn);
-                  tempPerimeter = M.renewRegPerimeter(j)*sqrt(5.0/Dn);
+      for (int j=0;j<NUMPOINTS;j++) 
+	  {
+          if (M.regArea(j) != 0)
+		  {
+              cout<<"in the degree loop" << endl;
+              gfile<<"in the degree loop" << endl;
+			  //angle degree
+              tempArea = M.regArea(j)*(5.0/Dn);
+              tempPerimeter = M.renewRegPerimeter(j)*sqrt(5.0/Dn);
+              // digital version
+              int radiusOffset = 0;
+              angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
+               degreeAngle = L.find_zeroDAngle(angleDVector);
+               gfile << "region "<< j << " degreeDAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
 
-                  // digital version
-                  int radiusOffset = 0;
-                  angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
-                  degreeAngle = L.find_zeroDAngle(angleDVector);
-                  gfile << "region "<< j << " degreeDAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
-
-                  // analogue version
-                  radiusOffset = 0;
-                  angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
-                  angleVector = L.meanzero_vector(angleVector);
-                  //degreeAngle = M.find_max(angleVector,3);
-                  degreeAngle = L.find_zeroAngle(angleVector,3);
-                  gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
-                  //radial degree
-                  degreeRadius = -100;
-                  int newdegreeRadius = 0;
-                  for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=3){
+               // analogue version
+			   radiusOffset = 0;
+               angleVector = M.sectorize_reg_angle(j,numSectors,radiusOffset, radiusOffset + 11);
+                angleVector = L.meanzero_vector(angleVector);
+                //degreeAngle = M.find_max(angleVector,3);
+                degreeAngle = L.find_zeroAngle(angleVector,3);
+                gfile << "region "<< j << " degreeAngle "<< degreeAngle << "  " << tempArea<< "  "<< tempPerimeter<<endl<<flush;
+                //radial degree
+                degreeRadius = -100;
+                int newdegreeRadius = 0;
+                for (int angleOffset=0; angleOffset<numSectors - 1; angleOffset +=3)
+				{
                   radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + 3);
                   //gfile <<"after sectorize_reg_radius"<<endl;
                   // radiusVector = M.meanzero_vector(radiusVector);
-
                   newdegreeRadius = L.find_zeroDRadius(radiusDVector);
                   // gfile << " ndR " << newdegreeRadius;
                   if (newdegreeRadius > degreeRadius)
-                          degreeRadius = newdegreeRadius;
+                      degreeRadius = newdegreeRadius;
                   }
                   gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl ;
 		  
                   ///radial degree
                   degreeRadius = -100;
                   newdegreeRadius = 0;
-                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3){
-			  radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
-			  newdegreeRadius = L.find_zeroRadius(radiusVector,3);
-			  if (newdegreeRadius > degreeRadius)
-				  degreeRadius = newdegreeRadius;
-		  }
-
-
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3)
+				  {
+			          radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + 3);
+			          newdegreeRadius = L.find_zeroRadius(radiusVector,3);
+			          if (newdegreeRadius > degreeRadius)
+				          degreeRadius = newdegreeRadius;
+		           }
                   gfile <<  " region "<< j << " degreeRadius  "<< degreeRadius << "  " <<endl << endl;
-
-
-                  regionCount++;
-                  
+                  regionCount++;                  
 	      } //end of if on non-zero regions
-} //end of loop on NUMPOINT
+     } //end of loop on NUMPOINT
 
-//writing out of the image files after morphing
-    imin = 1000000;
-    imax = -1000000;
-    jmin =  1000000;
-    jmax = -1000000;
-	i = 0; j=0;
-    for (auto h : M.Hgrid->hexen) {
-       i = h.ri -h.bi;
-       j = h.ri + h.bi;
-       if (i<imin) imin = i;
-       if (i>imax) imax = i;
-       if (j<jmin) jmin = j;
-       if (j>jmax) jmax = j;
-    }
-    iextent = imax - imin + 1;
-    jextent = jmax - jmin + 1;
-    //cout << " imax " << imax << " imin " << imin << " jmax " << jmax << " jmin " << jmin << endl;
-    //cout << " iextent " << iextent << " jextent " << jextent << " gridsize " << M.n << endl;
-    for (int i=0;i<iextent;i++){
-	    for (int j=0;j<jextent;j++){
-		    NNfield[i][j] = 0;
-	    }
-    }
-    //cout << " after filling NNfield " << endl;
-    for (auto h : M.Hgrid->hexen) {
-       i = h.ri - h.bi - imin;
-       j = h.ri + h.bi - jmin;
-       //cout << " i " << i << " j " << j << endl;
-       NNfield[i][j] = M.NN[h.vi];
-    }
-    ofstream iifile (logpath + "/NNfieldMorph.txt");
-    //cout << " after creating NNfield.txt " << endl;
-
-    for (int i=0;i<iextent;i++){
-	    for (int j=0;j<jextent;j++){
-		    hfile << setprecision(10) << setw(15) << NNfield[i][j];
-	    }
-    }
-
-
-    gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
-
-	      avDegreeAngle = 0;
-	      avDegreeRadius = 0;
-	      occupancy = 0;
-		  avAbsCorrelation = 0;
-		  tempPerimeter = 0;
-		  tempArea = 0;
-	      countRegions = 0;
-          for (int j=0;j<NUMPOINTS;j++) {
-	        if (M.regArea(j) != 0)
-			{
+//computing average values over all regions
+	  avDegreeAngle = 0;
+	  avDegreeRadius = 0;
+	  occupancy = 0;
+      avAbsCorrelation = 0;
+	  tempPerimeter = 0;
+	  tempArea = 0;
+	  countRegions = 0;
+      for (int j=0;j<NUMPOINTS;j++) 
+	  {
+	      if (M.regArea(j) != 0)
+    		{
 	          countRegions++;
               avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
 	          gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
@@ -975,11 +991,6 @@ for (int j=0;j<NUMPOINTS;j++) {
               tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
 
               int radiusOffset = 0;
-			  unsigned int boundSize = M.sortedBoundary[j].size();
-			  for (unsigned int i=0;i<boundSize;i++) 
-			  {
-			  angleVector.push_back(M.NN[M.sortedBoundary[j][i]]);
-			  }
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
               degreeAngle = L.find_zeroDAngle(angleDVector);
 		      avDegreeAngle += degreeAngle;

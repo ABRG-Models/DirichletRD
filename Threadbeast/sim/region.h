@@ -33,7 +33,7 @@
 #include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-#define NUMPOINTS 79 //just the A-E rows.
+#define NUMPOINTS 5 //just the A-E rows.
 //#define NUMPOINTS 5 //just the A-E rows.
 
 using std::vector;
@@ -120,16 +120,12 @@ public:
 	ds = 1.0/s;
     //double overds = 1./(1.5*29.0*29.0*ds*ds);
     //cout << " overds " << overds << endl;
-#include "centres.h"
-/*
 centres[0].first = 0.0f; centres[0].second = 0.0f;
 centres[1].first = 0.1f; centres[1].second = 0.1f;
 centres[2].first = 0.1f; centres[2].second = -0.1f;
 centres[3].first = -0.1f; centres[3].second = -0.1f;
 centres[4].first = -0.1f; centres[4].second = 0.1f;
-*/
-#include "bezRectangle.h"
-//#include "bez5side.h"
+#include "bez5side.h"
 cout << "after creating BezCurve" << endl;
 
 //	for (int j=0;j<NUMPOINTS;j++)
@@ -1466,9 +1462,9 @@ double renewRegPerimeter (int regNum) {
   }
    
   //method to renew polars and boundary
-  pair<double,double> renewBoundary(int regNum, list<Hex> hexen)
+  void renewBoundary(int regNum, list<Hex> hexen)
   {
-    pair<double,double> diff;
+    //pair<double,double> diff;
 	for (auto h : hexen) 
 	{
       if (h.boundaryHex())
@@ -1479,7 +1475,7 @@ double renewRegPerimeter (int regNum) {
 	cout << " region " << regNum << " bound size " <<regionBound[regNum].size() << endl;
     //result.first = diff.first + centres[regNum].first;
     //result.second = diff.second + centres[regNum].second;
-	return diff;
+	return;
   }
    
 // now sort the boundary by angle

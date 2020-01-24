@@ -21,12 +21,15 @@
 #include "analysis.h"
 #include "ksSolver.h"
 #include <morph/display.h>
+#include <json/json.h>
+#include <morph/RD_Base.h>
 using std::array;
 using std::string;
 using std::stringstream;
 using std::cerr;
 using std::endl;
 using std::runtime_error;
+using morph::RD_Base;
 /*
 using morph::HexGrid;
 using morph::HdfData;:
@@ -39,11 +42,79 @@ using namespace std;
 
 int main (int argc, char **argv)
 {
-    if (argc < 9) {
+    if (argc < 2) {
       std::cout << "not enough arguments" << argc << endl;
       return -1;
     }
-    //const char* logdir = "cd logs";
+    string paramsfile(argv[1]);
+    // JSON setup
+    ifstream jsonfile_test;
+    int srtn = system ("pwd");
+    if (srtn) {
+        cerr << "system call returned " << srtn << endl;
+    }
+    jsonfile_test.open (paramsfile, ios::in);
+    if (jsonfile_test.is_open()) {
+        // Good, file exists.
+        jsonfile_test.close();
+    } else {
+        cerr << "json config file " << paramsfile << " not found." << endl;
+        return 1;
+    }
+    // Parse the JSON
+    ifstream jsonfile (paramsfile, ifstream::binary);
+    Json::Value root;
+    string errs;
+    Json::CharReaderBuilder rbuilder;
+    rbuilder["collectComments"] = false;
+    bool parsingSuccessful = Json::parseFromStream (rbuilder, jsonfile, &root, &errs);
+    if (!parsingSuccessful) {
+        // report to the user the failure and their locations in the document.
+        cerr << "Failed to parse JSON: " << errs;
+        return 1;
+    }
+
+    /*
+     * Get simulation-wide parameters from JSON
+     */
+    const unsigned int numsteps = root.get ("numsteps", 1000).asUInt();
+    if (numsteps == 0) {
+        cerr << "Not much point simulating 0 steps! Exiting." << endl;
+        return 1;
+    }
+    const unsigned int numprint = root.get ("logevery", 100).asUInt();
+    if (numprint == 0) {
+        cerr << "Can't print every 0 steps. Exiting." << endl;
+        return 1;
+    }
+    const int  scale = root.get ("scale", 8).asInt();
+    const float boundaryFalloffDist = root.get ("boundaryFalloffDist", 0.01).asFloat();
+    const string svgpath = root.get ("svgpath", "./ellipse.svg").asString();
+    bool overwrite_logs = root.get ("overwrite_logs", false).asBool();
+    string logpath = root.get ("logpath", "logs/erm2").asString();
+    if (argc == 3) {
+        string argpath(argv[2]);
+        cerr << "Overriding the config-given logpath " << logpath << " with " << argpath << endl;
+        logpath = argpath;
+        if (overwrite_logs == true) {
+            cerr << "WARNING: You set a command line log path.\n"
+                 << "       : Note that the parameters config permits the program to OVERWRITE LOG\n"
+                 << "       : FILES on each run (\"overwrite_logs\" is set to true)." << endl;
+        }
+    }
+
+    const double dt = root.get ("dt", 0.00001).asDouble();
+    const double Dn = root.get ("Dn", 0.3).asDouble();
+    const double Dc = root.get ("Dc", 0.3*0.3).asDouble(); // 0.3 * Dn
+   // const double beta = root.get ("beta", 5.0).asDouble();
+   // const double a = root.get ("a", 1.0).asDouble();
+   // const double b = root.get ("b", 1.0).asDouble();
+   // const double mu = root.get ("mu", 1.0).asDouble();
+    const double Dchi = root.get ("Dchi", 0.3).asDouble(); // Dchi
+	const bool Lcontinue = root.get("Lcontinue",0).asBool();
+
+    cout << "steps to simulate: " << numsteps << endl;
+    /*
    // system (logdir);
     string logpath = argv[1];
     string commandStem;
@@ -55,6 +126,7 @@ int main (int argc, char **argv)
     int numsteps = atoi(argv[6]); //length of integration 
     int numprint = atoi(argv[7]); //frequency of printing
     int Lcontinue = atoi(argv[8]); //logical to determine if coldstart
+	*/
       /*
      * Now create a log directory if necessary, and exit on any
      * failures.
@@ -83,21 +155,8 @@ int main (int argc, char **argv)
     ofstream jfile ( logpath + "/results.txt",ios::app);
 
 
-    // DISPLAYS
-    //vector<morph::Gdisplay> displays;
-    //vector<double>fix(3,0.0);
-    //vector<double>eye(3,0.0);
-    //vector<double>rot(3,0.0);
-    //displays.push_back (morph::Gdisplay (600, "NN field", 0., 0., 0.));
-    //displays[0].resetDisplay(fix,eye,rot);
-    //displays[0].redrawDisplay();
-    //displays.push_back (morph::Gdisplay (600, "CC field", 0., 0., 0.));
-    //displays[1].resetDisplay(fix,eye,rot);
-    //displays[1].redrawDisplay();
-    //bfile << "just after displays" << endl;
-
 // initialise DRegion class setting scale
-    DRegion M(8,logpath);
+    DRegion M(scale,logpath);
     cout << "before dissect_boundary " << endl;
     vector<std::pair<double,double>> centroids;
     centroids = M.dissectBoundary(logpath); //dissect region boundary
@@ -110,7 +169,7 @@ int main (int argc, char **argv)
 // initialise with random field
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
-	    cout<< "just after first data read "<< fname <<  endl;
+	    cout<< "just after first data read"<< endl;
 	    input.read_contained_vals("n",M.NN);
 	    input.read_contained_vals("c",M.CC);
 	    cout<< "just after input of NN and CC1"<< endl;
