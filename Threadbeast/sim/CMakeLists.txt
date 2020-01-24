@@ -21,7 +21,7 @@ else()
 endif()
 
 # Add the host definition to CXXFLAGS along with other switches
-set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -std=c++11")
+set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -std=c++11 -g -O0")
 
 # Lib finding - we have to do this, so that the correct include paths
 # are present for OpenGL, OpenCV, etc; they're all included by
@@ -48,7 +48,27 @@ endif()
 
 # The main process executable
 add_executable(process process.cpp)
-target_link_libraries(process ${MORPH_LDFLAGS})
+target_link_libraries(process ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK})
+
+#use online display
+add_executable(processDisplay processDisplay.cpp)
+target_compile_definitions(processDisplay PUBLIC FLT=float COMPILE_PLOTTING)
+target_link_libraries(processDisplay ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK})
+
+#run without display, e.g. remotely
+add_executable(processNoDisplay processNoDisplay.cpp)
+target_compile_definitions(processNoDisplay PUBLIC FLT=float COMPILE_PLOTTING)
+target_link_libraries(processNoDisplay ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK})
+
+#run just to create display from noDisplay run
+add_executable(processField processField.cpp)
+target_compile_definitions(processField PUBLIC FLT=float COMPILE_PLOTTING)
+target_link_libraries(processField ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK})
+
+#use json for parameters
+add_executable(processJson processJson.cpp)
+target_compile_definitions(processJson PUBLIC FLT=float COMPILE_PLOTTING)
+target_link_libraries(processJson ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK})
 
 # For debugging of variables:
 set(DEBUG_VARIABLES ON)

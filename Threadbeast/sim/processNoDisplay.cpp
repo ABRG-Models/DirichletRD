@@ -92,7 +92,7 @@ int main (int argc, char **argv)
 // include the analysis methods
     Analysis L;
 
-    string fname = logpath + "/fileVal.h5";
+    string fname = logpath + "/first.h5";
     cout<< "just before first data read"<< " lcontinue " << Lcontinue <<endl;
 // load from HDF5 file or initialise with random field
 // as a perturbation of n=1.0, c=2.5
@@ -300,19 +300,43 @@ int main (int argc, char **argv)
 	}	
 	cout << "just after populating the ksVector"<<endl;
 
-    // initialise the fields
-      for (int j=0;j<NUMPOINTS;j++) 
-      {
-        for (int i=0;i<S[j].n;i++) 
+// initialise the fields
+    string gname = logpath + "/second.h5";
+    cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
+// initialise with random field
+    if (Lcontinue) 
+	{
+       morph::HdfData ginput(gname,1);
+       cout << "just after trying to open ../logs/second.h5" << endl;
+        for (unsigned int j=0;j<NUMPOINTS;j++)
 		{
-		    double choice = morph::Tools::randDouble();
-		    if (choice > 0.5)
-			  S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
-		    else
-			  S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
-		    S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
-         }
-       }
+		    std::string ccstr = "c" + to_string(j);
+		    cout << " j string " << to_string(j) << " length" << ccstr.length()<< endl;
+			char * ccst = new char[ccstr.length()+1];
+			std::strcpy(ccst,ccstr.c_str());
+		    std::string nstr = "n" + to_string(j);
+			char * nst = new char[nstr.length()+1];
+			std::strcpy(nst,nstr.c_str());
+			cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+	        ginput.read_contained_vals(ccst,S[j].CC);
+	        ginput.read_contained_vals(nst,S[j].NN); 
+		}
+	  }
+      else 
+	  {
+        for (unsigned int j=0;j<NUMPOINTS;j++)
+		{
+	        for (int i=0;i<S[j].n;i++) {
+		        double choice = morph::Tools::randDouble();
+		        if (choice > 0.5)
+			        S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
+		        else
+			        S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
+		            S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+	      } //end of code to set initial random field
+		 }
+        } //end of else on Lcontinue
+     cout <<  "just after field creation first morph" << endl;
 
       // begin second time stepping loop
 	  for (int i = 0; i<numsteps; i++)
@@ -323,6 +347,30 @@ int main (int argc, char **argv)
 		}
 	  }	
 	    
+    //code run at end of timestepping
+    //first save the  ofstream outFile;
+    morph::HdfData gdata(gname);
+	for (unsigned int j=0;j<NUMPOINTS;j++)
+	{
+		std::string nstr = "n" + to_string(j);
+	    char * nst = new char[nstr.length()+1];
+		//std::copy(nstr.begin(),nstr.end(),nst);
+		std::strcpy(nst,nstr.c_str());
+    	std::string ccstr = "c" + to_string(j);
+	    char * ccst = new char[ccstr.length()+1];
+	//	std::copy(ccstr.begin(),ccstr.end(),cst);
+		std::strcpy(ccst,ccstr.c_str());
+		cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+        gdata.add_contained_vals(ccst,S[j].CC);
+        gdata.add_contained_vals(nst,S[j].NN);
+        //data.add_contained_vals("X",M.X[0]);
+        //data.add_contained_vals("Y",M.X[1]);
+     }	
+     gdata.add_val ("/Dchi", Dchi);
+     gdata.add_val ("/Dn", Dn);
+     gdata.add_val ("/Dc",Dc);
+     
+     cout << " just after writing data "  << endl;
 	  // set the segments from the vertices to the seed points
 	  M.setRadialSegments();
 	  // repopulate the regions
@@ -406,46 +454,6 @@ int main (int argc, char **argv)
 	      } //end of if on non-zero regions
 } //end of loop on NUMPOINT
 
-//writing out of the image files after morphing
-    imin = 1000000;
-    imax = -1000000;
-    jmin =  1000000;
-    jmax = -1000000;
-	i = 0; j=0;
-    for (auto h : M.Hgrid->hexen) {
-       i = h.ri -h.bi;
-       j = h.ri + h.bi;
-       if (i<imin) imin = i;
-       if (i>imax) imax = i;
-       if (j<jmin) jmin = j;
-       if (j>jmax) jmax = j;
-    }
-    iextent = imax - imin + 1;
-    jextent = jmax - jmin + 1;
-    //cout << " imax " << imax << " imin " << imin << " jmax " << jmax << " jmin " << jmin << endl;
-    //cout << " iextent " << iextent << " jextent " << jextent << " gridsize " << M.n << endl;
-    for (int i=0;i<iextent;i++){
-	    for (int j=0;j<jextent;j++){
-		    NNfield[i][j] = 0;
-	    }
-    }
-    //cout << " after filling NNfield " << endl;
-    for (auto h : M.Hgrid->hexen) {
-       i = h.ri - h.bi - imin;
-       j = h.ri + h.bi - jmin;
-       //cout << " i " << i << " j " << j << endl;
-       NNfield[i][j] = M.NN[h.vi];
-    }
-
-    for (int i=0;i<iextent;i++){
-	    for (int j=0;j<jextent;j++){
-		    hfile << setprecision(10) << setw(15) << NNfield[i][j];
-	    }
-    }
-
-
-    gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
-
 	      avDegreeAngle = 0;
 	      avDegreeRadius = 0;
 	      occupancy = 0;
@@ -509,18 +517,78 @@ int main (int argc, char **argv)
 		}	
 		cout << "just after populating the ksVector"<<endl;
 // initialise the fields
-      for (int j=0;j<NUMPOINTS;j++) 
-      {
-        for (int i=0;i<S[j].n;i++) {
-		    double choice = morph::Tools::randDouble();
-		    if (choice > 0.5)
-			  S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
-		    else
-			  S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
-		    S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
-         }
-       }
+// initialise the fields
+    string hname = logpath + "/third.h5";
+    cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
+// initialise with random field
+    if (Lcontinue) 
+	{
+       morph::HdfData hinput(hname,1);
+       cout << "just after trying to open ../logs/third.h5" << endl;
+        for (unsigned int j=0;j<NUMPOINTS;j++)
+		{
+		    std::string ccstr = "c" + to_string(j);
+		    cout << " j string " << to_string(j) << " length" << ccstr.length()<< endl;
+			char * ccst = new char[ccstr.length()+1];
+			std::strcpy(ccst,ccstr.c_str());
+		    std::string nstr = "n" + to_string(j);
+			char * nst = new char[nstr.length()+1];
+			std::strcpy(nst,nstr.c_str());
+			cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+	        hinput.read_contained_vals(ccst,S[j].CC);
+	        hinput.read_contained_vals(nst,S[j].NN); 
+		}
+	  }
+      else 
+	  {
+        for (unsigned int j=0;j<NUMPOINTS;j++)
+		{
+	        for (int i=0;i<S[j].n;i++) {
+		        double choice = morph::Tools::randDouble();
+		        if (choice > 0.5)
+			        S[j].NN[i]=-(morph::Tools::randDouble())*1.0 + 1.;
+		        else
+			        S[j].NN[i]=(morph::Tools::randDouble())*1.0 + 1.;
+		            S[j].CC[i]=(morph::Tools::randDouble())*1.0 + 2.5;
+	      } //end of code to set initial random field
+		 }
+        } //end of else on Lcontinue
+     cout <<  "just after field creation first morph" << endl;
        
+      // begin third time stepping loop
+	  for (int i = 0; i<numsteps; i++)
+	  {
+		for (int j = 0;j<NUMPOINTS;j++) //loop over regions
+	    {
+		  S[j].step(dt, Dn, Dchi, Dc);
+		}
+	  }	
+
+    //code run at end of third timestepping
+    //first save the  ofstream outFile;
+    morph::HdfData hdata(hname);
+	for (unsigned int j=0;j<NUMPOINTS;j++)
+	{
+		std::string nstr = "n" + to_string(j);
+	    char * nst = new char[nstr.length()+1];
+		//std::copy(nstr.begin(),nstr.end(),nst);
+		std::strcpy(nst,nstr.c_str());
+    	std::string ccstr = "c" + to_string(j);
+	    char * ccst = new char[ccstr.length()+1];
+	//	std::copy(ccstr.begin(),ccstr.end(),cst);
+		std::strcpy(ccst,ccstr.c_str());
+		cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+        hdata.add_contained_vals(ccst,S[j].CC);
+        hdata.add_contained_vals(nst,S[j].NN);
+        //data.add_contained_vals("X",M.X[0]);
+        //data.add_contained_vals("Y",M.X[1]);
+     }	
+     hdata.add_val ("/Dchi", Dchi);
+     hdata.add_val ("/Dn", Dn);
+     hdata.add_val ("/Dc",Dc);
+     
+     cout << " just after writing data "  << endl;
+	    
 	  // M.setRadialSegments();
 	  // repopulate the regions
 	  for (int j=0;j<NUMPOINTS;j++)
@@ -598,53 +666,6 @@ int main (int argc, char **argv)
                   
        } //end of if on non-zero regions
     } //end of loop on NUMPOINT
-
-//writing out of the image files after morphing
-    imin = 1000000;
-    imax = -1000000;
-    jmin =  1000000;
-    jmax = -1000000;
-	i = 0; j=0;
-    for (auto h : M.Hgrid->hexen) 
-	{
-       i = h.ri -h.bi;
-       j = h.ri + h.bi;
-       if (i<imin) imin = i;
-       if (i>imax) imax = i;
-       if (j<jmin) jmin = j;
-       if (j>jmax) jmax = j;
-    }
-    iextent = imax - imin + 1;
-    jextent = jmax - jmin + 1;
-    //cout << " imax " << imax << " imin " << imin << " jmax " << jmax << " jmin " << jmin << endl;
-    //cout << " iextent " << iextent << " jextent " << jextent << " gridsize " << M.n << endl;
-    for (int i=0;i<iextent;i++)
-	{
-	   for (int j=0;j<jextent;j++)
-	   {
-		  NNfield[i][j] = 0;
-	   }
-    }
-    //cout << " after filling NNfield " << endl;
-    for (auto h : M.Hgrid->hexen)  
-	{
-       i = h.ri - h.bi - imin;
-       j = h.ri + h.bi - jmin;
-       //cout << " i " << i << " j " << j << endl;
-       NNfield[i][j] = M.NN[h.vi];
-    }
-    ofstream iifile (logpath + "/NNfieldMorph.txt");
-    //cout << " after creating NNfield.txt " << endl;
-
-    for (int i=0;i<iextent;i++)
-	{
-	    for (int j=0;j<jextent;j++){
-		    hfile << setprecision(10) << setw(15) << NNfield[i][j];
-	    }
-    }
-
-
-    gfile << " imin " << imin << " imax " << imax << " jmin " << jmin << " jmax " << jmax << endl;
 
 	avDegreeAngle = 0;
 	avDegreeRadius = 0;
