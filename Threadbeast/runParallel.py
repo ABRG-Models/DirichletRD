@@ -4,14 +4,15 @@ from math import *
 import numpy as np
 import os
 import concurrent.futures
-for j in range(0,3):
-    valTemp = 3.0 - j*2.0
+for j in range(0,8):
+    valTemp = 0.42 - j*0.07
     Dn = exp(valTemp)
-    for k in range(0,3):
-        Chi = (k+1)*1.0
+    Dc = Dn*0.3
+    for k in range(0,4):
+        Chi = (1.0 + k*0.6)*Dn
         logpath = "logs/Dn" + str(j) + "Chi" + str(k)
         # print(logpath)
-        command="sim/build/process " + logpath +" 0.00001 " + str(Dn)  + " " +  str(Chi) + " 500000" + " 100000 &"
+        command="sim/build/processNoDisplay " + logpath +" 0.00001 " + str(Dn)  + " " +  str(Chi) + " " + str(Dc) + " 500000" + " 100000 " + " 0 >output &"
         # print(command)
         #  os.system(command)
         with concurrent.futures.ProcessPoolExecutor(max_workers=32) as executor:
