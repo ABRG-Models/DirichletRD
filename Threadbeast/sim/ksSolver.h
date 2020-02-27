@@ -54,6 +54,9 @@ public:
     int scale;
     int n;
     double ds;
+	double nnInitialOffset = 1.0;
+	double ccInitialOffset = 2.5;
+	double boundaryFalloffDist = 0.024;
 	//double overds;
 
   // list of objects visible to member functions
@@ -63,7 +66,7 @@ public:
   morph::HexGrid* Hgrid;
   // Class constructor
     ksSolver(){};
-    ksSolver (int scale, string logpath, BezCurvePath bound, pair<double,double> seedPoint) {
+    ksSolver (int scale, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
     ofstream afile (logpath + "/ksdebug.out" );
     this->scale = scale;
 	this->seedPoint = seedPoint;
@@ -83,6 +86,11 @@ public:
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "after  filling H " << " n = " << n <<endl;
     N.resize(n);
+    Hgrid->computeDistanceToBoundary();
+    for (auto h : Hgrid->hexen)
+	{
+	  cout << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
+	}
 // making a neighbour array for convenience
 /*
    for (int idx = 0; idx < n; idx++) {
@@ -197,29 +205,97 @@ public:
         } //matches for on i
 		return cT;
 	} //end of function chemoTaxis
+  //function to timestep coupled equations solely b.c. on the flux
+    void step(double dt, double Dn, double Dchi, double Dc)
+	{
+        dt = dt * 2.5 / Dn;
 
-  //function to timestep coupled equations
-    void step(double dt, double Dn, double Dchi, double Dc) {
-      dt = dt * 2.5 / Dn;
 
-
-       // Set up boundary conditions with ghost points
-      //cout << " in time step before ghost points" << endl;
-      for(auto h : Hgrid->hexen){
+        // Set up boundary conditions with ghost points
+        //cout << " in time step before ghost points" << endl;
+        for(auto h : Hgrid->hexen)
+		{
 	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
-        if(h.boundaryHex()){
-          for(int j=0;j<6;j++){
-		     int i = int(h.vi);
+            if(h.boundaryHex())
+			{
+                for(int j=0;j<6;j++)
+				{
+		            int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
-             if(N[h.vi][j] == i) {
-       	       NN[N[h.vi][j]] = NN[h.vi];
+                    if(N[h.vi][j] == i) 
+					{
+       	                NN[N[h.vi][j]] = NN[h.vi];
 			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
-	           CC[N[h.vi][j]] = CC[h.vi];
-	      }
-	     }
-	   }
-      }
+	                    CC[N[h.vi][j]] = CC[h.vi];
+	                }
+	            }
+	         }
+          }
 
+
+        double beta = 5.;
+        double a = 1., b = 1., mu = 1;
+		//cout << " before calls to Laplacian " << endl;
+        vector<double> lapN = getLaplacian(NN,ds);
+        vector<double> lapC = getLaplacian(CC,ds);
+        vector<double> cTaxis = chemoTaxis(NN,CC,ds);
+
+        // step N
+        for (auto h : Hgrid->hexen) {
+          NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
+        }
+
+        // step C
+        double N2;
+        for(auto h : Hgrid->hexen){
+		    unsigned int i = h.vi;
+            N2 = NN[i]*NN[i];
+            CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
+        }
+    }//end step
+
+  //function to timestep coupled equations option to set boundary to constant value
+    void step(double dt, double Dn, double Dchi, double Dc, int steps, int numAdjust)
+	{
+        dt = dt * 2.5 / Dn;
+
+
+      if ((steps%numAdjust == 0) && (steps/numAdjust != 0))
+	  { 
+	     cout << "in numAdjust if step " << steps << endl;
+	     for (auto h : this->Hgrid->hexen) 
+	     {
+		     //cout << "dist to bdry" << h.distToBoundary << endl;
+	         if (h.distToBoundary > -0.5) 
+		     { // It's possible that distToBoundary is set to -1.0
+                double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- this->boundaryFalloffDist)) );
+				//cout << "bSig " << bSig << " for hex " << h.vi << endl;
+                this->NN[h.vi] = (this->NN[h.vi] - this->nnInitialOffset) * bSig + this->nnInitialOffset; 
+                this->CC[h.vi] = (this->CC[h.vi] - this->ccInitialOffset) * bSig + this->ccInitialOffset; 
+		     } //end of if on boundary distance
+	     }//end of loop over hexGrid
+	  } //end of code applied to keep boundary conditions static  
+
+        // Set up boundary conditions with ghost points
+        //cout << " in time step before ghost points" << endl;
+        for(auto h : Hgrid->hexen)
+		{
+	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
+            if(h.boundaryHex())
+			{
+                for(int j=0;j<6;j++)
+				{
+		            int i = int(h.vi);
+		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
+                    if(N[h.vi][j] == i) 
+					{
+       	                NN[N[h.vi][j]] = NN[h.vi];
+			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
+	                    CC[N[h.vi][j]] = CC[h.vi];
+	                }
+	            }
+	         }
+          }
 
 
         double beta = 5.;
@@ -300,12 +376,12 @@ public:
 			+ (this->Hgrid->d_y[index]-centre.second)*(this->Hgrid->d_y[index]-centre.second));
             if (this->Hgrid->d_y[index] >= centre.second) {
               angle =  + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
-			  h.setPhi(angle);
+			  h.vi = angle;
 			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
               angle =  2*PI + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
-              h.setPhi(angle);
+              h.vi = angle;
 			  cout<< " setPhi test ksSolver " << h.phi<<  " index " << h.vi << endl;
 			  }
         }

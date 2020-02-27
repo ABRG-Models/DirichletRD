@@ -103,7 +103,7 @@ public:
   pair <float, float> centres[NUMPOINTS]; //seed points for regions
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   morph::HexGrid* Hgrid;
-  vector<morph::BezCurvePath> curvedBoundary;
+  vector<morph::BezCurvePath<float>> curvedBoundary;
   hexGeometry* hGeo;
   vector<vector<hexGeometry::lineSegment>> radialSegments; //radial segements from original vertices
 
@@ -664,12 +664,12 @@ double renewRegPerimeter (int regNum) {
 			+ (this->Hgrid->d_y[index]-ycentre)*(this->Hgrid->d_y[index]-ycentre));
             if ((this->Hgrid->d_y[index] -ycentre) >= 0) {
               angle =  + atan2((this->Hgrid->d_y[index]-ycentre), (this->Hgrid->d_x[index]-xcentre));
-			  h.setPhi(angle);
+			  h.phi = angle;
 			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
               angle =  2*PI + atan2((this->Hgrid->d_y[index]-ycentre), (this->Hgrid->d_x[index]-xcentre));
-              h.setPhi(angle);
+              h.phi = angle;
 			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
         }
@@ -707,7 +707,7 @@ double renewRegPerimeter (int regNum) {
             if (this->Creg[h.vi] >0){
               //cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
               regionBoundary.push_back(h.vi);
-			  angle = h.getPhi();
+			  h.vi = angle;
 			  cout<< " getPhi test " << angle <<  " index " << h.vi << endl;
 			  psi.push_back(angle);
             }
@@ -1079,9 +1079,9 @@ double renewRegPerimeter (int regNum) {
 
 
 // method to round the corners of a region
-      morph::BezCurvePath roundBoundary (int regNum, bool first) 
+      morph::BezCurvePath<float> roundBoundary (int regNum, bool first) 
 	  {
-      morph::BezCurvePath bound;
+      morph::BezCurvePath<float> bound;
      // vector<pair<double,double>> vCoords;
      // vector<pair<double,double>> mCoords;
 	  int size = this->regionVertex[regNum].size();
@@ -1125,7 +1125,7 @@ double renewRegPerimeter (int regNum) {
 		ma = this->mCoords[regNum][((i-1)+size)%size];
 		mb = this->mCoords[regNum][i];
 		va = this->vCoords[regNum][i];
-	    morph::BezCurve bc(ma,mb,va);
+	    morph::BezCurve<float> bc(ma,mb,va);
 	    bound.addCurve(bc);
 	  }
 	  //now update vCoords with mCoords 
@@ -1135,6 +1135,8 @@ double renewRegPerimeter (int regNum) {
 	  return bound;
 	}//end of roundBoundary method
 	  
+// returns the shortest distace from the seed point to the region boundary
+// use of Creg makes it only relevant to unmorphed code
 	  double min_radius(int regNum) {
         point  barycentre;
         point boundHex;
@@ -1143,7 +1145,9 @@ double renewRegPerimeter (int regNum) {
         barycentre.yval =  this->centres[regNum].second;
         double minradius = 100000.0;
         for (auto h : this->regionIndex[regNum]) {
-            if (Creg[h.vi] > 0) {
+           // if (Creg[h.vi] > 0) {
+		   if (h.boundaryHex() == true)
+		   {
                 boundHex.xval = Hgrid->d_x[h.vi],
                 boundHex.yval = Hgrid->d_y[h.vi];
                 double boundDist = getdist(boundHex,barycentre);
@@ -1349,7 +1353,7 @@ double renewRegPerimeter (int regNum) {
 	cfile << "after creation of sectorized field region angle " << regNum <<  endl;
 
     angleNN = meanzero_vector(angleNN);
-    for (int k=0;k<numSectors;k++){
+    for (int k=0;k<numSectors;k++){ //calculate the average angle in the sector
 	    startAngle = k*angleInc;
 	    endAngle = k*angleInc;
 	    if (angleCount[k] != 0)
@@ -1372,7 +1376,6 @@ double renewRegPerimeter (int regNum) {
     vector <int> angleNN; //digitized value of NN in each sector
     vector <double> angleHold;
     vector <double> normalNN;
-    //vector <double>  angleVal;
     vector <int> angleCount; //number of hexes in each sector
     angleNN.resize(numSectors,0);
     angleHold.resize(numSectors,0);
@@ -1494,7 +1497,7 @@ double renewRegPerimeter (int regNum) {
     
     for (auto h : regionBound[regNum])
 	  {
-	    double angle = h.getPhi();
+	    double angle = h.vi;
         rB.push_back(angle);
 		boundary.push_back(h.vi);
 		cout << "region " << regNum <<" theta boundary " << angle << " boundary index " << h.vi << endl;
