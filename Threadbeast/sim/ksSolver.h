@@ -359,7 +359,7 @@ public:
 //go over the region and put the hexes into bins then average
         for (auto&  h : this->Hgrid->hexen) {
             int index = h.vi;
-			double angle;
+			double angle = 0;
 			cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
 			cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
             h.r = sqrt((this->Hgrid->d_x[index]-centre.first)*(this->Hgrid->d_x[index]-centre.first) 

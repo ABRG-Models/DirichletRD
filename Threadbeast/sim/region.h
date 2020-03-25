@@ -1570,7 +1570,7 @@ double renewRegPerimeter (int regNum) {
 
 	  // int index = 0;
 	  
-	   for (unsigned int i=0;i<vsize;i++)
+	   for (int i=0;i<vsize;i++)
 	   {
 	     for (unsigned int j=0; j<ihE[i].size(); j++) 
 		 {

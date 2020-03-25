@@ -74,10 +74,10 @@ public:
   int value;
 
   hexGeometry() {
-   int value = 0;
-   point start;
-   start.first = 0.0;
-   start.second = 0.0;
+   //int value = 0;
+   //point start;
+   //start.first = 0.0;
+   //start.second = 0.0;
    }
   
   //returns line from lineSegment

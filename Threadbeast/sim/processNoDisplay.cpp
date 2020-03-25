@@ -53,7 +53,7 @@ int main (int argc, char **argv)
     double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
     double Dc = stod(argv[5]);
     int numsteps = atoi(argv[6]); //length of integration 
-    int numprint = atoi(argv[7]); //frequency of printing
+    // int numprint = atoi(argv[7]); //frequency of printing
     int Lcontinue = atoi(argv[8]); //logical to determine if coldstart
       /*
      * Now create a log directory if necessary, and exit on any
@@ -472,13 +472,6 @@ int main (int argc, char **argv)
 
               avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
               int radiusOffset = 0;
-			  unsigned int boundSize = M.sortedBoundary[j].size();
-			  /* what is this loop doing?
-			  for (unsigned int i=0;i<boundSize;i++) 
-			  {
-			  angleVector.push_back(M.NN[M.sortedBoundary[j][i]]);
-			  }
-			  */
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
               degreeAngle = L.find_zeroDAngle(angleDVector);
 		      avDegreeAngle += degreeAngle;
@@ -685,13 +678,6 @@ int main (int argc, char **argv)
           tempArea = M.regArea(j)*(5.0/Dn);
           tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
           int radiusOffset = 0;
-	      unsigned int boundSize = M.sortedBoundary[j].size();
-		  /* ?what is this loop doing
-		  for (unsigned int i=0;i<boundSize;i++) 
-		  {
-			 angleVector.push_back(M.NN[M.sortedBoundary[j][i]]);
-		  }
-		  */
           angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
           degreeAngle = L.find_zeroDAngle(angleDVector);
 		  avDegreeAngle += degreeAngle;
