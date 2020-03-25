@@ -411,7 +411,7 @@ for (int j=0;j<NUMPOINTS;j++) {
         vector<ksSolver> S;
 		//S.resize(NUMPOINTS);
 // now set the boundaries for the regions, stored in curvedBoundary
-		M.populateBoundVector();
+		M.populateBoundVector(1);
          cout << "just after setting curved boundaries " << M.curvedBoundary.size()<<endl;
 		for (int j = 0;j<NUMPOINTS;j++)
 		{
@@ -545,18 +545,14 @@ for (int j=0;j<NUMPOINTS;j++) {
 	  {
 	    M.renewRegion(j,S[j].Hgrid->hexen);
 	  }	
-	  vector<pair<double,double>> diffCentres;		 
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {
-	    diffCentres.push_back(M.renewBoundary(j,S[j].Hgrid->hexen));
+	    M.renewBoundary(j,S[j].Hgrid->hexen);
 	  }	
 	  // redissect the boundaries
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {
 	    M.renewDissect(j);
-		double x = diffCentres[j].first;
-		double y = diffCentres[j].second;
-		cout << " centres " << x << " , " << y << endl;
       }
 	  for (int j=0;j<NUMPOINTS;j++)
 	  {

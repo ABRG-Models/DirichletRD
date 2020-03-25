@@ -120,15 +120,16 @@ public:
 	ds = 1.0/s;
     //double overds = 1./(1.5*29.0*29.0*ds*ds);
     //cout << " overds " << overds << endl;
-/*
+
 centres[0].first = 0.0f; centres[0].second = 0.0f;
 centres[1].first = 0.1f; centres[1].second = 0.1f;
 centres[2].first = 0.1f; centres[2].second = -0.1f;
 centres[3].first = -0.1f; centres[3].second = -0.1f;
 centres[4].first = -0.1f; centres[4].second = 0.1f;
-*/
+
 #include "centres.h"
 #include "bezRectangle.h"
+//#include "originalBez5side.h"
 cout << "after creating BezCurve" << endl;
 
 //	for (int j=0;j<NUMPOINTS;j++)
@@ -143,7 +144,9 @@ cout << "after creating BezCurve" << endl;
   hGeo = new hexGeometry();
 //  morph::ReadCurves r("./barrelAE.svg");
 //  Hgrid->setBoundary (r.getCorticalPath());
-  Hgrid->setBoundary (bound);
+// this was the original call, I am trying out setBoundaryDregion for debugging 
+    Hgrid->setBoundaryDRegion(bound);
+//  Hgrid->setBoundary (bound);
   cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
   cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
@@ -707,7 +710,7 @@ double renewRegPerimeter (int regNum) {
             if (this->Creg[h.vi] >0){
               //cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
               regionBoundary.push_back(h.vi);
-			  h.vi = angle;
+			  angle = h.phi;
 			  cout<< " getPhi test " << angle <<  " index " << h.vi << endl;
 			  psi.push_back(angle);
             }
@@ -878,8 +881,9 @@ double renewRegPerimeter (int regNum) {
     }//end of function dissectBoundary
 
     // function to correlate matching edges
-     double correlate_edges(string logpath)  {
-	double result = 0;     
+    double correlate_edges(string logpath)  
+	{
+	    double result = 0;     
         ofstream edgefile(logpath + "/edgeCorrelations.txt",ios::app);
         vector<double> tempvect1;
         vector<double> tempvect2;
@@ -892,20 +896,23 @@ double renewRegPerimeter (int regNum) {
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
         int countResult = 0;
-        for (int i = 0; i <NUMPOINTS; i++) {
-		vector<double> normalNN;
-		double NNmean;
-		int size = (int) this->regionIndex[i].size();
-		normalNN.resize(size,0.0);
-		// create a vector of the NN values in the region
-		for (auto h : this->regionIndex[i]){
-			//edgefile << "create normalNN j " << j <<endl;
+        for (int i = 0; i <NUMPOINTS; i++) 
+		{
+		    vector<double> normalNN;
+		    double NNmean;
+		    int size = (int) this->regionIndex[i].size();
+		    normalNN.resize(size,0.0);
+		    // create a vector of the NN values in the region
+		    for (auto h : this->regionIndex[i])
+			{
+			    //edgefile << "create normalNN j " << j <<endl;
 		       	normalNN.push_back(NN[h.vi]);
-		}
+		    }
 	       	NNmean = this->absmean_vector(normalNN);
-		edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
-                edgefile << " i iteration " << i << endl;
-            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
+		    edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
+            edgefile << " i iteration " << i << endl;
+            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) 
+			{
                 //edgefile << " j iteration " << *j << endl;
                 tempvect1.resize(0);
                 tempvect2.resize(0);
@@ -916,27 +923,31 @@ double renewRegPerimeter (int regNum) {
                 int edgeIndex2 = this->pair2int(edgePair2,this->base);
                 int count1 = 0;
                 int count2 = 0;
-                for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++){
+                for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
+				{
                     tempvect1.push_back(this->NN[*itr] - NNmean);
                     count1++;
                 }
                 // edgefile << " after filling tempvector1 " << endl;
-                for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++) {
-                    tempvect2.push_back(this->NN[*itr] - NNmean);
-                    count2++;
+                for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++) 
+				{
+                     tempvect2.push_back(this->NN[*itr] - NNmean);
+                     count2++;
                 }
-                   std::reverse(tempvect2.begin(),tempvect2.end());
+                std::reverse(tempvect2.begin(),tempvect2.end());
                 // edgefile << " after filling tempvector2 " << endl;
                 //int correlationValue = this->correlate_vector(tempvect1,tempvect2);
                 //edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
-                if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0){
+                if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+				{
                     double correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
-		    result += fabs(correlationValue);
+		            result += fabs(correlationValue);
                     countResult++;
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                     //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
                 } //end of code if both edges are equal
-                else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
+                else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) 
+				{
                     tempvect3 = this->equalize_vector(tempvect2,tempvect1);
                     if (tempvect3.size() == 0)
                         edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
@@ -945,7 +956,8 @@ double renewRegPerimeter (int regNum) {
                     countResult++;
                     edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
                 }
-                else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) {
+                else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) 
+				{
                     tempvect3 = this->equalize_vector(tempvect1,tempvect2);
                     if (tempvect3.size() == 0)
                         edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
@@ -956,11 +968,12 @@ double renewRegPerimeter (int regNum) {
                 }
             } //end of single edge comparison
         } // end of loop on regions
-	edgefile << " countResult "<<countResult<<endl;
+    edgefile << " countResult "<<countResult<<endl;
 	result = result / (countResult * 1.0);
 	edgefile.close();
 	return result;
-     } //end of function correlate_edges
+    } //end of function correlate_edges
+
 
     //function to return the correlation of two vectors
     double correlate_Eqvector(vector<double> vector1, vector<double> vector2) {
