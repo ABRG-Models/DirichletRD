@@ -343,7 +343,6 @@ public:
         double yav = 0;
         int hexcount = 0;
 	    this->reverse_y();
-	    cout <<"in set polars ksSolver xcentre" << centre.first << " y_centre  " << centre.second <<endl;
         for (auto &h : this->Hgrid->hexen) {
             hexcount++;
             xav += this->Hgrid->d_x[h.vi];
@@ -361,21 +360,17 @@ public:
         for (auto&  h : this->Hgrid->hexen) {
             int index = h.vi;
 			double angle = 0;
-			double dx = this->Hgrid->d_x[index];
-			double dy = this->Hgrid->d_y[index];
-			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
-			cout << "d_x " << dx << " dy " << dy <<endl;
-            h.r = sqrt((dx - centre.first)*(dx - centre.first) 
-			+ (dy - centre.second)*(dy - centre.second));
-            if (dy >= centre.second) {
-              angle =   atan2((dy - centre.second), (dx - centre.first));
-			  h.phi = angle;
-			  cout<< " setPhi if 1 " << h.phi<<  " index " << h.vi << endl;
+			cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
+			cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
+            h.r = sqrt((this->Hgrid->d_x[index]-centre.first)*(this->Hgrid->d_x[index]-centre.first) 
+			+ (this->Hgrid->d_y[index]-centre.second)*(this->Hgrid->d_y[index]-centre.second));
+            if (this->Hgrid->d_y[index] >= centre.second) {
+              angle =  + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
+			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
-              angle =  2*PI + atan2((dy - centre.second), (dx - centre.first));
-			  h.phi = angle;
-			  cout<< " setPhi if 2 " << h.phi<<  " index " << h.vi << endl;
+              angle =  2*PI + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
+			  cout<< " setPhi test ksSolver " << h.phi<<  " index " << h.vi << endl;
 			  }
         }
 /*

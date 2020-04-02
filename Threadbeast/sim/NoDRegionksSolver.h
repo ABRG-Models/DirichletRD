@@ -67,27 +67,29 @@ public:
   // Class constructor
     ksSolver(){};
     ksSolver (int scale, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
-    ofstream afile (logpath + "/ksdebug.out",ios::app );
+    ofstream afile (logpath + "/ksdebug.out" );
     this->scale = scale;
 	this->seedPoint = seedPoint;
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
     n = 0;
     Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
+    cout << " before y reversing loop " << endl;
+	//this->reverse_y();
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "before filling H " << Hgrid->num() << endl;
     afile << "after creating HexGrid"<<endl;
-    Hgrid->setBoundaryDRegion (bound);
+    Hgrid->setBoundary (bound);
     afile << "after setting boundary on  H " << Hgrid->num() << endl;
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "after  filling H " << " n = " << n <<endl;
     N.resize(n);
     Hgrid->computeDistanceToBoundary();
-    for (auto &h : Hgrid->hexen)
+    for (auto h : Hgrid->hexen)
 	{
-	  afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
+	  cout << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
 	}
 // making a neighbour array for convenience
 /*
@@ -102,7 +104,7 @@ public:
   } 
  */
   // this determines the type of hex
-      for (auto &h : Hgrid->hexen){
+      for (auto h : Hgrid->hexen){
         N[h.vi].resize(6);
         if (!HAS_NE(h.vi)) {
 		  h.setBoundaryHex();
@@ -165,7 +167,7 @@ public:
     vector<double> getLaplacian(vector<double> Q, double dx) {
         double overds = 1./(1.5*29.0*29.0*dx*dx);
         vector<double> L(n,0.);
-        for(auto &h : this->Hgrid->hexen){
+        for(auto h : this->Hgrid->hexen){
          int i = int(h.vi);
             L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overds;
         }
@@ -176,7 +178,7 @@ public:
 		vector<double> cT(n,0.);
           double overds = 1./(1.5*29.0*29.0*dx*dx);
 
-        for (auto &h : Hgrid->hexen) {
+        for (auto h : Hgrid->hexen) {
 		  unsigned int i = h.vi;
         // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
 	      double dr0Q = (Q[N[i][0]]+Q[i])/2.;
@@ -211,7 +213,7 @@ public:
 
         // Set up boundary conditions with ghost points
         //cout << " in time step before ghost points" << endl;
-        for(auto &h : Hgrid->hexen)
+        for(auto h : Hgrid->hexen)
 		{
 	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
             if(h.boundaryHex())
@@ -239,13 +241,13 @@ public:
         vector<double> cTaxis = chemoTaxis(NN,CC,ds);
 
         // step N
-        for (auto &h : Hgrid->hexen) {
+        for (auto h : Hgrid->hexen) {
           NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
         }
 
         // step C
         double N2;
-        for(auto &h : Hgrid->hexen){
+        for(auto h : Hgrid->hexen){
 		    unsigned int i = h.vi;
             N2 = NN[i]*NN[i];
             CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
@@ -261,7 +263,7 @@ public:
       if ((steps%numAdjust == 0) && (steps/numAdjust != 0))
 	  { 
 	     cout << "in numAdjust if step " << steps << endl;
-	     for (auto &h : this->Hgrid->hexen) 
+	     for (auto h : this->Hgrid->hexen) 
 	     {
 		     //cout << "dist to bdry" << h.distToBoundary << endl;
 	         if (h.distToBoundary > -0.5) 
@@ -276,7 +278,7 @@ public:
 
         // Set up boundary conditions with ghost points
         //cout << " in time step before ghost points" << endl;
-        for(auto &h : Hgrid->hexen)
+        for(auto h : Hgrid->hexen)
 		{
 	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
             if(h.boundaryHex())
@@ -304,13 +306,13 @@ public:
         vector<double> cTaxis = chemoTaxis(NN,CC,ds);
 
         // step N
-        for (auto &h : Hgrid->hexen) {
+        for (auto h : Hgrid->hexen) {
           NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
         }
 
         // step C
         double N2;
-        for(auto &h : Hgrid->hexen){
+        for(auto h : Hgrid->hexen){
 		    unsigned int i = h.vi;
             N2 = NN[i]*NN[i];
             CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
@@ -319,17 +321,15 @@ public:
  
     void reverse_y ()
 	{
-	  for (auto &h : this->Hgrid->hexen)
+	    for (auto& h : this->Hgrid->hexen)
 	    {
-	      cout << " in reverse_y " << h.vi << endl;
-	      //int index = h.vi;
-	      cout << " in y reversing loop " << h.vi << endl;
-	      double temp = double(this->Hgrid->d_y[h.vi]);
-	      cout << " after getting y " << temp << endl;
+	      int index = h.vi;
+	     // cout << " in y reversing loop " << h.vi << endl;
+	      double temp = double(this->Hgrid->d_y[index]);
 		  if (temp != 0.0)
 		  {
-	          cout << " in y reversing loop " << endl;
-	          this->Hgrid->d_y[h.vi] = -temp;
+	     // cout << " in y reversing loop " << endl;
+	      this->Hgrid->d_y[h.vi] = -temp;
 		  }
 		}
 	}
@@ -342,9 +342,18 @@ public:
         double xav=0;
         double yav = 0;
         int hexcount = 0;
+		/*
+	    for (auto& h : this->Hgrid->hexen)
+	    {
+	      int index = h.vi;
+	      cout << " in y reversing loop " << h.vi << endl;
+	      double temp = double(this->Hgrid->d_y[index]);
+	      cout << " in y reversing loop " << endl;
+	      this->Hgrid->d_y[h.vi] = -temp;
+		}
+		*/
 	    this->reverse_y();
-	    cout <<"in set polars ksSolver xcentre" << centre.first << " y_centre  " << centre.second <<endl;
-        for (auto &h : this->Hgrid->hexen) {
+        for (auto h : this->Hgrid->hexen) {
             hexcount++;
             xav += this->Hgrid->d_x[h.vi];
             yav += this->Hgrid->d_y[h.vi];
@@ -360,22 +369,20 @@ public:
 //go over the region and put the hexes into bins then average
         for (auto&  h : this->Hgrid->hexen) {
             int index = h.vi;
-			double angle = 0;
-			double dx = this->Hgrid->d_x[index];
-			double dy = this->Hgrid->d_y[index];
-			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
-			cout << "d_x " << dx << " dy " << dy <<endl;
-            h.r = sqrt((dx - centre.first)*(dx - centre.first) 
-			+ (dy - centre.second)*(dy - centre.second));
-            if (dy >= centre.second) {
-              angle =   atan2((dy - centre.second), (dx - centre.first));
-			  h.phi = angle;
-			  cout<< " setPhi if 1 " << h.phi<<  " index " << h.vi << endl;
+			double angle;
+			cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
+			cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
+            h.r = sqrt((this->Hgrid->d_x[index]-centre.first)*(this->Hgrid->d_x[index]-centre.first) 
+			+ (this->Hgrid->d_y[index]-centre.second)*(this->Hgrid->d_y[index]-centre.second));
+            if (this->Hgrid->d_y[index] >= centre.second) {
+              angle =  + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
+			  h.vi = angle;
+			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
-              angle =  2*PI + atan2((dy - centre.second), (dx - centre.first));
-			  h.phi = angle;
-			  cout<< " setPhi if 2 " << h.phi<<  " index " << h.vi << endl;
+              angle =  2*PI + atan2((this->Hgrid->d_y[index]-centre.second), (this->Hgrid->d_x[index]-centre.first));
+              h.vi = angle;
+			  cout<< " setPhi test ksSolver " << h.phi<<  " index " << h.vi << endl;
 			  }
         }
 /*

@@ -33,8 +33,8 @@
 #include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-//#define NUMPOINTS 5 //just the A-E rows.
-#define NUMPOINTS 79 //just the A-E rows.
+#define NUMPOINTS 5 //just the A-E rows.
+//#define NUMPOINTS 79 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -120,17 +120,14 @@ public:
 	ds = 1.0/s;
     //double overds = 1./(1.5*29.0*29.0*ds*ds);
     //cout << " overds " << overds << endl;
-/*
 centres[0].first = 0.0f; centres[0].second = 0.0f;
 centres[1].first = 0.1f; centres[1].second = 0.1f;
 centres[2].first = 0.1f; centres[2].second = -0.1f;
-centres[3].first = -0.1f; centres[3].second = -0.1f;
+centres[3].first = -0.2f; centres[3].second = -0.1f;
 centres[4].first = -0.1f; centres[4].second = 0.1f;
-*/
-
-#include "centres.h"
-#include "bezRectangle.h"
-//#include "originalBez5side.h"
+//#include "centres.h"
+//#include "bezRectangle.h"
+#include "bez5side.h"
 cout << "after creating BezCurve" << endl;
 
 //	for (int j=0;j<NUMPOINTS;j++)
@@ -637,7 +634,7 @@ double renewRegPerimeter (int regNum) {
         double xav=0;
         double yav = 0;
         int hexcount = 0;
-        cout << "in set polars region " << regNum << " size " << this->regionIndex[regNum].size() << endl;
+        //cout << "in set polars region " << regNum << " size " << this->regionIndex[regNum].size() << endl;
 		/*
   cout << "in listHex" << endl;
 	for (auto h : Hgrid->hexen) {
@@ -658,27 +655,27 @@ double renewRegPerimeter (int regNum) {
 		else {
 		  //cout << " in set_polars no hexes in region "<<endl;
 		  }
-//set the phi values for each hex, this time relative to the region centre
+//go over the region and put the hexes into bins then average
         for (auto&  h : this->regionIndex[regNum]) {
             int index = h.vi;
 			double angle;
-			//cout <<"in set polars index " << index << " i " << h.vi <<endl;
+			cout <<"in set polars index " << index << " i " << h.vi <<endl;
 			cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
             h.r = sqrt((this->Hgrid->d_x[index]-xcentre)*(this->Hgrid->d_x[index]-xcentre) 
 			+ (this->Hgrid->d_y[index]-ycentre)*(this->Hgrid->d_y[index]-ycentre));
             if ((this->Hgrid->d_y[index] -ycentre) >= 0) {
               angle =  + atan2((this->Hgrid->d_y[index]-ycentre), (this->Hgrid->d_x[index]-xcentre));
 			  h.phi = angle;
-			  cout<< "region" << regNum << " h.phi "  << h.phi<<  " index " << h.vi << endl;
+			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
               angle =  2*PI + atan2((this->Hgrid->d_y[index]-ycentre), (this->Hgrid->d_x[index]-xcentre));
               h.phi = angle;
-			  cout<< "region " << regNum << " h.phi " << h.phi<<  " index " << h.vi << endl;
+			  cout<< " setPhi test " << h.phi<<  " index " << h.vi << endl;
 			  }
         }
-        result.first = xav - xcentre; //diff between seed point and barycentre
-        result.second = yav - ycentre ;
+        result.first = xav ; //diff between seed point and barycentre
+        result.second = yav ;
 		cout << " result.first " << result.first << " result.second " << result.second <<endl;
         return result;
     } //end of function set_polars
@@ -711,7 +708,7 @@ double renewRegPerimeter (int regNum) {
             if (this->Creg[h.vi] >0){
               //cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
               regionBoundary.push_back(h.vi);
-			  angle = h.phi;
+			  h.vi = angle;
 			  cout<< " getPhi test " << angle <<  " index " << h.vi << endl;
 			  psi.push_back(angle);
             }
@@ -886,7 +883,6 @@ double renewRegPerimeter (int regNum) {
 	{
 	    double result = 0;     
         ofstream edgefile(logpath + "/edgeCorrelations.txt",ios::app);
-        ofstream edgerest(logpath + "/edgeRest.txt",ios::app);
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -1512,7 +1508,7 @@ double renewRegPerimeter (int regNum) {
     
     for (auto h : regionBound[regNum])
 	  {
-	    double angle = h.phi;
+	    double angle = h.vi;
         rB.push_back(angle);
 		boundary.push_back(h.vi);
 		cout << "region " << regNum <<" theta boundary " << angle << " boundary index " << h.vi << endl;
@@ -1572,7 +1568,7 @@ double renewRegPerimeter (int regNum) {
 
 	  // int index = 0;
 	  
-	   for (int i=0;i<vsize;i++)
+	   for (unsigned int i=0;i<vsize;i++)
 	   {
 	     for (unsigned int j=0; j<ihE[i].size(); j++) 
 		 {
