@@ -91,6 +91,7 @@ public:
   vector<vector<int>> regionList; //for each region, regions that are its neighbours
   vector<vector<int>> regionVertex; //for each region, vertices that bound it
   vector<vector<int>> sortedBoundary; // indices of boundary hexes sorted by angle
+  vector<int> edgeIndex; // vector of the keys for the integers representing the edge pairs
   vector<list<Hex>> regionBound; //for each region, index of boundary vertices
   std::map<int,vector<int>> edges; //map of (i,j) edges, uses pair<->int converters
   vector<vector<double> > regionDist; //from each hexdistances to each seed point
@@ -128,7 +129,7 @@ centres[3].first = -0.1f; centres[3].second = -0.1f;
 centres[4].first = -0.1f; centres[4].second = 0.1f;
 */
 
-#include "centres.h"
+//#include "centres.h"
 #include "bezRectangle.h"
 //#include "originalBez5side.h"
 cout << "after creating BezCurve" << endl;
@@ -139,7 +140,11 @@ cout << "after creating BezCurve" << endl;
   n = 0;
   Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
   n = Hgrid->num();
-  cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
+  double maxX = Hgrid->getXmax(0.0);
+  double minX = Hgrid->getXmin(0.0);
+  double maxY = 0.0;
+  double minY = 0.0;
+  cout << " max x " << maxX << " min x " << minX << endl; 
   cout << "before filling H " << Hgrid->num() << endl;
   cout << "after creating HexGrid"<<endl;
   hGeo = new hexGeometry();
@@ -150,7 +155,32 @@ cout << "after creating BezCurve" << endl;
 //  Hgrid->setBoundary (bound);
   cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
-  cout << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
+  maxX = 0.5;
+  minX = -0.5;
+  maxY = 0.75;
+  minY = -0.75;
+  cout << " max x " << maxX << " min x " << minX << endl; 
+  for (int i=0;i<NUMPOINTS;i++) {
+      double choice = morph::Tools::randDouble();
+	  if ((0 < choice) && (choice <= 0.25)) {
+          centres[i].first = (morph::Tools::randDouble()) * maxX;
+          centres[i].second = (morph::Tools::randDouble()) * maxY  ;
+	  }	
+      else if ((0.25 < choice) && (choice <= 0.5))
+	  {
+          centres[i].first = (morph::Tools::randDouble()) * maxX;
+          centres[i].second = (morph::Tools::randDouble()) * minY  ;
+	  }
+	  else if ((0.5 < choice) && (choice  <= 0.75)) {
+          centres[i].first = (morph::Tools::randDouble()) * minX;
+          centres[i].second = (morph::Tools::randDouble()) * maxY  ;
+	  }	
+      else 
+	  {
+          centres[i].first = (morph::Tools::randDouble()) * minX;
+          centres[i].second = (morph::Tools::randDouble()) * minY;
+	  }
+   } //end of setting of random values
   cout << "after  filling H " << " n = " << n <<endl;
 //these are the vectors of vectors for the regions
   regionDist.resize(n);
@@ -563,6 +593,24 @@ double renewRegPerimeter (int regNum) {
         return result;
     }
 
+	// transform vector of pairs so its mean is (0,0)
+	vector<std::pair<double,double>> meanzero_vector(vector<std::pair<double,double>> invector) {
+		double sum1, sum2 = 0;
+		int size = invector.size();
+	    vector<std::pair<double,double>> result;
+		for (int i=0;i<size;i++) {
+		    sum1 += invector[i].first;
+		    sum2 += invector[i].second;
+		}
+		sum1 = sum1 / (1.0*size);
+		sum2 = sum2 / (1.0*size);
+        for (int i=0;i<size;i++) {
+		    std::pair<double,double> tempPair((invector[i].first - sum1),(invector[i].second - sum2));
+		    result.push_back(tempPair);
+		}
+		return result;
+
+    }
     // return the mean of the absolute values of a  vector
         double absmean_vector(vector<double> invector) {
         //ofstream meanzero ("meanzero.txt",ios::app);
@@ -690,32 +738,34 @@ double renewRegPerimeter (int regNum) {
 
 
     //function to find all the edges and vertices of the internal boundary
-    vector <std::pair<double,double>> dissectBoundary(string logpath) {
-        ofstream hfile ( logpath + "/dissectdebug.out" );
-        ofstream ifile ( logpath + "/regionList.out" );
-        ofstream kfile ( logpath + "/edgesList.out" );
-        ofstream lfile ( logpath + "/verticesList.out" );
-        hfile<<"just in dissectBoundary"<<endl;
-        vector<std::pair<double,double>> result; 
-        vector<int>  regionBoundary; //holding array for the hexes in each region boundary
-        for (int i=0; i < NUMPOINTS; i++) {
-          cout << " region index " << i << " size "  <<this->regionIndex[i].size() << endl;
-		  vector<double> psi;
-		  psi.resize(0);
-          regionBoundary.resize(0);
-          // fill the regionBoundary
-          for (auto h : this->regionIndex[i]) {
-		    double angle;
-          //    cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<< " j " << j << endl;
-
-            if (this->Creg[h.vi] >0){
-              //cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
-              regionBoundary.push_back(h.vi);
-			  angle = h.phi;
-			  cout<< " getPhi test " << angle <<  " index " << h.vi << endl;
-			  psi.push_back(angle);
-            }
-          } //end of loop on a single region
+     vector <std::pair<double,double>> dissectBoundary(string logpath) {
+         ofstream hfile ( logpath + "/dissectDebug.out" );
+         ofstream ifile ( logpath + "/regionList.out" );
+         ofstream kfile ( logpath + "/edgesList.out" );
+         ofstream lfile ( logpath + "/verticesList.out" );
+		 ofstream ufile ( logpath + "/keysList.out" );
+         hfile<<"just in dissectBoundary"<<endl;
+         vector<std::pair<double,double>> result; 
+         vector<int>  regionBoundary; //holding array for the hexes in each region boundary
+		 this->edgeIndex.resize(0); //reset edgeIndex
+	     int sideCount = 0;
+         for (int i=0; i < NUMPOINTS; i++) {
+             cout << " region index " << i << " size "  <<this->regionIndex[i].size() << endl;
+		     vector<double> psi;
+		     psi.resize(0);
+             regionBoundary.resize(0);
+// fill the regionBoundary
+             for (auto h : this->regionIndex[i]) {
+		         double angle;
+// cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<< " j " << j << endl;
+                 if (this->Creg[h.vi] >0){
+// cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
+                    regionBoundary.push_back(h.vi);
+			        angle = h.phi;
+			        cout<< " getPhi test " << angle <<  " index " << h.vi << endl;
+			        psi.push_back(angle);
+                 }
+             } //end of loop on a single region
 
          cout<<"after filling of regionEdge and regionVertex" <<endl;
          cout<<"regionBoundary.size "<<regionBoundary.size() << endl;
@@ -724,68 +774,70 @@ double renewRegPerimeter (int regNum) {
          vector<double> rB; //contains the boundary thetas
          vector<int> irB; //holds the sorted boundary indicies
          for (unsigned int j = 0; j < regionBoundary.size();j++){
-           rB.push_back(psi[j]);
-		   //cout << " theta value on boundary " << psi[regionBoundary[j]] << endl;
-         }
-         irB = sort_indexes(rB); //indices after sort on theta
+             rB.push_back(psi[j]);
+//cout << " theta value on boundary " << psi[regionBoundary[j]] << endl;
+         } //end of loop to fill the boundary angle vector
+         irB = sort_indexes(rB); //irB holds sorted indices after sort on theta
          hfile << " irB size " << irB.size() << " rB size " << rB.size() << endl;
 		 for (unsigned int i=0;i<irB.size();i++){
-		 hfile << " Creg " << Creg[regionBoundary[irB[i]]] << " index " << regionBoundary[irB[i]] << " theta " << rB[irB[i]] <<endl;
-		 }
-         unsigned int Size = irB.size();
-              if (Size == 0) {
-                 cout << "region i " << region[i][0] << " irB size " << Size << endl;
-                 continue;
-              }
+		     hfile << " Creg " << Creg[regionBoundary[irB[i]]] << " index " << regionBoundary[irB[i]] << " theta " << rB[irB[i]] <<endl;
+		 } //debugging loop for dissectdebug
+         unsigned int irBSize = irB.size();
+         if (irBSize == 0) {
+             cout << "region i " << region[i][0] << " irB size " << irBSize << endl;
+             continue;
+          } // catches empty boundaries.
 
-         // we now walk round the boundary in theta order
+// we now walk round the boundary in theta order, find the first vertex then proceed from there to find vertices in order
          unsigned int idissect = 0; //counts number of boundary hexes processed
          unsigned int Vcount = 0; //count of the vertices
          unsigned int Ecount = 0; //count of the edges
-         int newVertex;
+         int newVertex; //integer to enumerate the vertices
          unsigned int offset = 0; //number of boundary hexes before the first vertex
          vector<int> ihE; //contains the sorted indicies of each edge
 		 //find the offset to the first vertex
-         while (offset < irB.size()) {
+         while (offset < irBSize) {
             //cout << " offset " << offset << endl;
             //cout << "Creg " << Creg[regionBoundary[irB[offset]]] <<endl;
-               if  (Creg[regionBoundary[irB[offset]]] > 1) {
-                 Vcount++; //its a vertex
-				// cout << " offset " << offset << " idissect " << idissect<<endl;
-				 newVertex = regionBoundary[irB[offset]];
-				 idissect++;
-				 break;
-           } offset++;
+             if (Creg[regionBoundary[irB[offset]]] > 1) 
+			    {
+                     Vcount++; //its a vertex
+// cout << " offset " << offset << " idissect " << idissect<<endl;
+				     newVertex = regionBoundary[irB[offset]];
+				     idissect++;
+				     break;
+                } 
+			    offset++;
 		 }
          cout<<"after offset loop" << " offset " << offset  << " idissect " << idissect << endl;
-         while ((idissect < Size)) {
+         while ((idissect < irBSize)) {
               Ecount = 0;
               ihE.resize(0);
-              while (Creg[regionBoundary[irB[(idissect + offset) % Size]]] > 1) {
-				newVertex = regionBoundary[irB[(idissect+offset)%Size]];
-                cout << "in vertex loop" << " idissect " << idissect << " Creg "
-              << Creg[regionBoundary[irB[(idissect + offset) % Size]]] << endl;
-			       idissect++;
-                   Vcount++;
-              //     break;
-				}
-             // cout << "vertexloop" <<endl;
-              //walk along the edge until the next vertex
-              cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%Size]]] << " boundary " << regionBoundary[irB[(idissect + offset)%Size]] << " newVertex Creg " << Creg[newVertex] << endl;
+// while loop to catch the nasty case of artificial adjacent vertices, we only count the last.
+// this is a result of our proceeding via hex body rather than hex edge.
+              while (Creg[regionBoundary[irB[(idissect + offset) % irBSize]]] > 1) {
+		   	      newVertex = regionBoundary[irB[(idissect+offset)%irBSize]];
+                  cout << "in vertex loop" << " idissect " << idissect << " Creg "
+                  << Creg[regionBoundary[irB[(idissect + offset) % irBSize]]] << endl;
+			      idissect++;
+                  Vcount++;
+			  } // cout << "vertexloop" <<endl;
+//walk along the edge until the next vertex
+              cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%irBSize]]] << " boundary " << regionBoundary[irB[(idissect + offset)%irBSize]] << " newVertex Creg " << Creg[newVertex] << endl;
 		      regionVertex[i].push_back(newVertex);
-              while ((this->Creg[regionBoundary[irB[(idissect + offset)%Size]]] == 1) && (idissect < Size)) {
-                   ihE.push_back(regionBoundary[irB[(idissect + offset)%Size]]);
+              while ((this->Creg[regionBoundary[irB[(idissect + offset)%irBSize]]] == 1) && (idissect < irBSize)) {
+                   ihE.push_back(regionBoundary[irB[(idissect + offset)%irBSize]]);
                    Ecount++;
 				   idissect++;
                  }
               ihE.insert(ihE.begin(),newVertex);
               Ecount++;
               cout << "after edge loop Ecount " << Ecount << " Vcount " << Vcount <<endl;
-               if (Ecount == 0){
-               cout<<"Oops - empty edge=========================================="<<endl;
-               continue;
-                }
-               cout<<"ihE Size "<<ihE.size() <<endl;
+              if (Ecount == 0) {
+                  cout<<"Oops - empty edge=========================================="<<endl;
+                  continue;
+              } //loop to catch empty edge
+              cout<<"ihE Size "<<ihE.size() <<endl;
 			   
 			   /*
 			   if (ihE.size() > 1) {
@@ -805,79 +857,95 @@ double renewRegPerimeter (int regNum) {
 				 continue;
 				 }
 			   */	 
-               cout <<"Vcount "<< Vcount << " Ecount "<< Ecount << endl;
-               int regMiddle = region[ihE.rbegin()[1]][0];
-               int edgeOuter = -2;
-               for (int ihex = 0; ihex<6; ihex++){ //find the first region not the same as the central, since Creg = 1 there can only be one such region.
+              cout <<"Vcount "<< Vcount << " Ecount "<< Ecount << endl;
+              int regMiddle = region[ihE.rbegin()[1]][0]; // find the first hex in the edge after the vertex edge
+              int edgeOuter = -2;
+              for (int ihex = 0; ihex<6; ihex++){ //find the first region not the same as the central, since Creg = 1 there can only be one such region.
                   if (regMiddle != hexRegionList[ihE.rbegin()[1]][ihex]){
-                     edgeOuter = hexRegionList[ihE.rbegin()[1]][ihex];
-                     break;
+                      edgeOuter = hexRegionList[ihE.rbegin()[1]][ihex];
+                      break;
                   }
-                }
-                hfile<<"after edgeOuter assignment"<<endl;
-                hfile<<"edgeOuter "<<edgeOuter<< " edgeInner " << i << endl;
-				if (edgeOuter > -1) {
+              }
+              hfile<<"after edgeOuter assignment"<<endl;
+              hfile<<"edgeOuter "<<edgeOuter<< " edgeInner " << i << endl;
+			  if (edgeOuter > -1) { // edgouter = -1 means that the edge is on the outside of the computational region
                   std::pair <int,int> keypair(i,edgeOuter);
                   int keyint = this->pair2int(keypair,this->base);
                   std::pair <int, vector<int>> p1(keyint,ihE);
-                  hfile <<"after pair set"<<endl;
+                  hfile <<"after pair set keyint " << keyint << " edgeOuter " << edgeOuter << endl;
                   this->edges.insert(p1);
+				  if (ihE.size() > 0) {
+				  this->edgeIndex.push_back(keyint);
+				  sideCount++;
+				  }
                   hfile << "after edges insert" << endl;
                   hfile <<"=================================================="<<endl;
                   this->regionList[i].push_back(edgeOuter);
-				}
-                else 
-				{
-                  cout << "edgeouter "<< edgeOuter << endl;
-                  this->regionList[i].push_back(edgeOuter);
-                } 
-             } // end of idissect loop
-			 cout << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<endl;
-			 if (regionList[i].size() != Vcount) {
-		       cout << "AyAyAy duplicate region" << endl;
-			 }
-			 if (regionList[i].size() == 0){ 
-			   continue;
-			   }
-			   //write out to  regionList file
-			 ifile << "number of nbrs for region " << i << " is " << regionList[i].size() << endl;
-             for (unsigned int iregion = 0; iregion < regionList[i].size(); iregion++){
-                ifile << " r " << i << " rNbr " << regionList[i][iregion];
-                cout << " r " << i << " rNbr " << regionList[i][iregion];
-                ifile << endl;
-                ifile << "---------------------------------------"<< endl;
-             }
-			 cout <<endl;
-             //write to vertexlist file
-			 lfile << "number of vertices for region " << i << " is " << regionVertex[i].size() << endl;
-             for (unsigned int iregion = 0; iregion < regionVertex[i].size(); iregion++){
-                lfile << " r " << i << " vertex " << regionVertex[i][iregion] << " x " << Hgrid->d_x[regionVertex[i][iregion]] << " y " << Hgrid->d_y[regionVertex[i][iregion]] << endl;
-                cout << " r " << i << " vertex " << regionVertex[i][iregion];
-                lfile << endl;
-                lfile << "---------------------------------------"<< endl;
-             }
-			 cout << " end of iteration of region " << i << endl;
+			  }
+              else {
+                   cout << "edgeouter "<< edgeOuter << endl;
+                   this->regionList[i].push_back(edgeOuter);
+              } 
+          } // end of idissect loop
+		  cout << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<  endl;
+		  if (regionList[i].size() != Vcount) {
+		      cout << "AyAyAy duplicate region" << endl;
+		  }
+		  if (regionList[i].size() == 0) { 
+			  continue;
+		  }
+//write out to  regionList file the neighbouring regions to this one
+		  ifile << "number of nbrs for region " << i << " is " << regionList[i].size() << endl;
+          for (unsigned int iregion = 0; iregion < regionList[i].size(); iregion++) {
+               ifile << " r " << i << " rNbr " << regionList[i][iregion];
+               cout << " r " << i << " rNbr " << regionList[i][iregion];
+               ifile << endl;
+               ifile << "---------------------------------------"<< endl;
+          }
+		  cout <<endl;
+// write to vertexlist file, vertex x and y coordinates
+		  lfile << "number of vertices for region " << i << " is " << regionVertex[i].size() << endl;
+          for (unsigned int iregion = 0; iregion < regionVertex[i].size(); iregion++){
+               lfile << " r " << i << " vertex " << regionVertex[i][iregion] << " x " << Hgrid->d_x[regionVertex[i][iregion]] << " y " << Hgrid->d_y[regionVertex[i][iregion]] << endl;
+               cout << " r " << i << " vertex " << regionVertex[i][iregion];
+               lfile << endl;
+               lfile << "---------------------------------------"<< endl;
+          }
+		  cout << " end of iteration of region " << i << endl;
 
         } //end of loop on regions
-		cout << " after loop on regions " << endl;
+		cout << " after loop on regions edgeIndex size " << edgeIndex.size() << " edges size " << edges.size() << " sideCount " << sideCount << endl;
         int difference = 0;
-        for (int irlook = 0; irlook < NUMPOINTS; irlook++)
+// loops to fill the edges map structure		
+        int countIndex = 0;
+		int halfway = int(edgeIndex.size()) / 2;
+        for (int irlook = 0; irlook < NUMPOINTS; irlook++) {
             for (int jrlook = 0; jrlook < irlook; jrlook++) {
                 std::pair <int,int> klook(irlook,jrlook);
+                std::pair <int, int> koolk(jrlook,irlook);
                 int k = pair2int(klook,this->base);
-                if (edges.count(k) == 0)
+				int k1 = pair2int(koolk,this->base);
+                if (edges.count(k) == 0) // no entry in the container for K
                     continue;
                 else {
                     int sizeij = edges[k].size();
-                    std::pair <int, int> koolk(jrlook,irlook);
-                    k = pair2int(koolk,this->base);
-                    int sizeji = edges[k].size();
+                    int sizeji = edges[k1].size();
                     difference = (sizeij - sizeji)*(sizeij - sizeji);
-                    if ((sizeij*sizeji != 0) && (difference < 1000))
+                    if ((sizeij*sizeji != 0) && (difference < 1000)) { // just to check that the edge size hasnt run away
                         kfile << irlook << " " << jrlook << " sizeij " << sizeij << " "<< jrlook << " " << irlook << " sizeji " << sizeji << endl;
+				        hfile << " k = " << k << " k1 = " << k1 << " countIndex = " << countIndex << " edge Indexij = " << edgeIndex[countIndex] << " edgeIndexji " <<  edgeIndex[countIndex + halfway] <<  endl;
+		                countIndex++;
+					}
+					else{
+					    hfile << " size was zero for k " << k << " and k1 " << k1 << " countIndex " << countIndex << " edge Indexij = " << edgeIndex[countIndex] << " edgeIndexji " <<  edgeIndex[countIndex + halfway]  << endl;
+						countIndex++;
+					}
                 }
-            }
-
+            } // end of inner loop over edges
+        } //end of outer loop over edges
+		for (unsigned int i = 0; i<edgeIndex.size(); i++) {
+		    ufile << " for number in edgeIndex " << i << " value is " << edgeIndex[i] << endl;
+		}
         return result;
     }//end of function dissectBoundary
 
