@@ -113,41 +113,21 @@ public:
   DRegion (int scale, string logpath) {
   ofstream afile (logpath + "/debug.out" );
   ofstream jfile (logpath + "/correlateVector.out");
-
   cout << "before creating BezCurve" <<endl;;
   srand(time(NULL));
     this->scale = scale;
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
-    //double overds = 1./(1.5*29.0*29.0*ds*ds);
-    //cout << " overds " << overds << endl;
-/*
-centres[0].first = 0.0f; centres[0].second = 0.0f;
-centres[1].first = 0.1f; centres[1].second = 0.1f;
-centres[2].first = 0.1f; centres[2].second = -0.1f;
-centres[3].first = -0.1f; centres[3].second = -0.1f;
-centres[4].first = -0.1f; centres[4].second = 0.1f;
-*/
-
-//#include "centres.h"
-#include "bezRectangle.h"
-//#include "originalBez5side.h"
-cout << "after creating BezCurve" << endl;
-
-//	for (int j=0;j<NUMPOINTS;j++)
-//          afile << "j = " << j <<" x = " << centres[j] .xval  << "  y = " << centres[j].yval <<endl;
-//	afile << " s = " << s << endl;
   n = 0;
   Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
   n = Hgrid->num();
-  double maxX = Hgrid->getXmax(0.0);
-  double minX = Hgrid->getXmin(0.0);
-  double maxY = 0.0;
-  double minY = 0.0;
-  cout << " max x " << maxX << " min x " << minX << endl; 
-  cout << "before filling H " << Hgrid->num() << endl;
   cout << "after creating HexGrid"<<endl;
+  //double maxX = Hgrid->getXmax(0.0);
+  //double minX = Hgrid->getXmin(0.0);
+  cout << "before filling H " << Hgrid->num() << endl;
   hGeo = new hexGeometry();
+// now read in the boundary either as a header or as a morph read
+#include "bezRectangle.h"
 //  morph::ReadCurves r("./barrelAE.svg");
 //  Hgrid->setBoundary (r.getCorticalPath());
 // this was the original call, I am trying out setBoundaryDregion for debugging 
@@ -155,11 +135,10 @@ cout << "after creating BezCurve" << endl;
 //  Hgrid->setBoundary (bound);
   cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
-  maxX = 0.5;
-  minX = -0.5;
-  maxY = 0.75;
-  minY = -0.75;
-  cout << " max x " << maxX << " min x " << minX << endl; 
+  cout << "after  filling H " << " n = " << n <<endl;
+// now set the centres either read in or randomly generated
+  #include "centres.h"
+  /*
   for (int i=0;i<NUMPOINTS;i++) {
       double choice = morph::Tools::randDouble();
 	  if ((0 < choice) && (choice <= 0.25)) {
@@ -181,7 +160,8 @@ cout << "after creating BezCurve" << endl;
           centres[i].second = (morph::Tools::randDouble()) * minY;
 	  }
    } //end of setting of random values
-  cout << "after  filling H " << " n = " << n <<endl;
+*/
+   cout << "after setting centres " << endl;
 //these are the vectors of vectors for the regions
   regionDist.resize(n);
   region.resize(n);  
