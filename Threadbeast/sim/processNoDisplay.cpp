@@ -81,7 +81,9 @@ int main (int argc, char **argv)
     }
     ofstream gfile ( logpath + "/edges.out",ios::app);
     ofstream jfile ( logpath + "/results.txt",ios::app);
-
+// seed the random number generator
+    unsigned int a_seed = time(0);
+	srand(a_seed);
 
 // initialise DRegion class setting scale
     DRegion M(8,logpath);
