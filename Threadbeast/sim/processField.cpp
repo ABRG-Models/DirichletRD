@@ -252,8 +252,7 @@ int main (int argc, char **argv)
           usleep (1000000);
           disp.redrawDisplay();
           usleep (1000000); // one hundred seconds
-		  string str = to_string(i);
-		  disp.saveImage(logpath + "/nnField" + str + ".png");
+		  disp.saveImage(logpath + "/nnField.png");
           disp.closeDisplay();
          } // end of print on numprint
          //M.step(dt, Dn, Dchi, Dc);
@@ -561,9 +560,8 @@ int main (int argc, char **argv)
 		   cout << "just before redraw display 1" << endl;
            mmdisp.redrawDisplay();
 		   cout << "just after redraw display 1" << endl;
-		   string str = to_string(i);
 		   cout << "just after to_string"<<endl;
-		   mmdisp.saveImage(logpath + "/nnField2" + str + ".png");
+		   mmdisp.saveImage(logpath + "/nnField2.png");
            usleep (1000000); // one hundred seconds
 		   cout << "just after saveImage 1" << endl;
 		   mmdisp.closeDisplay();
@@ -872,8 +870,7 @@ int main (int argc, char **argv)
            nndisp.redrawDisplay();
 		   cout << "just after redraw display 2 i " <<  i << endl;
            usleep (1000000); // one hundred seconds
-		   string str = to_string(i);
-		   nndisp.saveImage(logpath + "/nnField3" + str + ".png");
+		   nndisp.saveImage(logpath + "/nnField3.png");
 		   cout << "just after saveImage i " << i  << endl;
            nndisp.closeDisplay();
 		   cout << "just after closeDisplay i " << i  << endl;
