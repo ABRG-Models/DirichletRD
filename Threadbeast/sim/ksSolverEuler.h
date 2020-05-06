@@ -71,7 +71,7 @@ public:
     this->scale = scale;
 	this->seedPoint = seedPoint;
     double s = pow(2.0, scale-1);
-	this->ds = 1.0/s;
+	ds = 1.0/s;
     n = 0;
     Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
     n = Hgrid->num();
@@ -203,41 +203,11 @@ public:
         } //matches for on i
 		return cT;
 	} //end of function chemoTaxis
-
-  // function to compute the derivative
-     void compute_dNNdt(vector<double>& inN, vector<double>& dNdt, double Dn, double Dchi) {
-        vector<double> lapN(this->n,0);
-		vector<double> cTaxis(this->n,0);
-		//cout << "in compute_dNN just before laplacian" << endl;
-		lapN = getLaplacian(inN,this->ds);
-        cTaxis = chemoTaxis(inN,CC,this->ds);
-        double a = 1., b = 1.;
-		//cout << "in compute_dNN just before the loop" << endl;
-        for (int h=0; h < this->n; h++) {
-          dNdt[h] = a-b*inN[h] + Dn*lapN[h] - Dchi*cTaxis[h];
-        }
-	}
-
-	void compute_dCCdt(vector<double>& inC, vector<double>&  dCdt, double Dc) {
-        double beta = 5.;
-        double mu = 1;
-		//cout << " before calls to Laplacian " << endl;
-        vector<double> lapC(this->n,0);
-		lapC = getLaplacian(inC,this->ds);
-        double N2;
-        for(int h=0; h < this->n;h++){
-            N2 = this->NN[h]*this->NN[h];
-            dCdt[h] =  beta*N2/(1.+N2) - mu*inC[h] + Dc*lapC[h];
-        }
-    }
-
   //function to timestep coupled equations solely b.c. on the flux
     void step(double dt, double Dn, double Dchi, double Dc)
 	{
         dt = dt * 2.5 / Dn;
-       
-        // cout  << "value of NN[5] start Runge " << this->NN[5] << endl;
-	
+
 
         // Set up boundary conditions with ghost points
         //cout << " in time step before ghost points" << endl;
@@ -260,132 +230,26 @@ public:
 	         }
           }
 
-        // 2. Do integration of NN
-        {
-            // Runge-Kutta integration for A. This time, I'm taking
-            // ownership of this code and properly understanding it.
 
-            // Ntst: "A at a test point". Ntst is a temporary estimate for A.
-            vector<double> Ntst(this->n, 0.0);
-            vector<double> dNdt(this->n, 0.0);
-            vector<double> K1(this->n, 0.0);
-            vector<double> K2(this->n, 0.0);
-            vector<double> K3(this->n, 0.0);
-            vector<double> K4(this->n, 0.0);
+        double beta = 5.;
+        double a = 1., b = 1., mu = 1;
+		//cout << " before calls to Laplacian " << endl;
+        vector<double> lapN = getLaplacian(NN,ds);
+        vector<double> lapC = getLaplacian(CC,ds);
+        vector<double> cTaxis = chemoTaxis(NN,CC,ds);
 
-            /*
-             * Stage 1
-             */ 
-			 //cout << "in ksSolver before compute_dNNdt" << endl;
-            this->compute_dNNdt (this->NN, dNdt, Dn, Dchi);
-			 //cout << "in ksSolver after compute_dNNdt" << endl;
-#pragma omp parallel for
-            for (int h=0; h< this->n; ++h) {
-                K1[h] = dNdt[h] * dt;
-                Ntst[h] = this->NN[h] + K1[h] * 0.5 ;
-            }
-
-            /*
-             * Stage 2
-             */
-            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-#pragma omp parallel for
-            for (int h=0; h< this->n; ++h) {
-                K2[h] = dNdt[h] * dt;
-                Ntst[h] = this->NN[h] + K2[h] * 0.5;
-            }
-
-            /*
-             * Stage 3
-             */
-            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                K3[h] = dNdt[h] * dt;
-                Ntst[h] = this->NN[h] + K3[h];
-            }
-
-            /*
-             * Stage 4
-             */
-            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                K4[h] = dNdt[h] * dt;
-            }
-
-            /*
-             * Final sum together. This could be incorporated in the
-             * for loop for Stage 4, but I've separated it out for
-             * pedagogy.
-             */
-#pragma omp parallel for
-            for (int h=0;h<this->n;h++) {
-                this->NN[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
-				//this->NN[i] = i * 1.0;
-            }
+        // step N
+        for (auto &h : Hgrid->hexen) {
+          NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
         }
 
-        // 3. Do integration of B
-        {
-            // Ctst: "B at a test point". Ctst is a temporary estimate for B.
-            vector<double> Ctst(this->n, 0.0);
-            vector<double> dCdt(this->n, 0.0);
-            vector<double> K1(this->n, 0.0);
-            vector<double> K2(this->n, 0.0);
-            vector<double> K3(this->n, 0.0);
-            vector<double> K4(this->n, 0.0);
-
-            /*
-             * Stage 1
-             */
-            this->compute_dCCdt (this->CC, dCdt, Dc);
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                K1[h] = dCdt[h] * dt;
-                Ctst[h] = this->CC[h] + K1[h] * 0.5 ;
-            }
-
-            /*
-             * Stage 2
-             */
-		    this->compute_dCCdt (Ctst, dCdt, Dc);
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                K2[h] = dCdt[h] * dt;
-                Ctst[h] = this->CC[h] + K2[h] * 0.5;
-            }
-
-            /*
-             * Stage 3
-             */
-            this->compute_dCCdt (Ctst, dCdt, Dc);
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                K3[h] = dCdt[h] * dt;
-                Ctst[h] = this->CC[h] + K3[h];
-            }
-
-            /*
-             * Stage 4
-             */
-            this->compute_dCCdt (Ctst, dCdt, Dc);
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                K4[h] = dCdt[h] * dt;
-            }
-
-            /*
-             * Final sum together. This could be incorporated in the
-             * for loop for Stage 4, but I've separated it out for
-             * pedagogy.
-             */
-#pragma omp parallel for
-            for (int h=0; h < this->n; ++h) {
-                this->CC[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
-            }
+        // step C
+        double N2;
+        for(auto &h : Hgrid->hexen){
+		    unsigned int i = h.vi;
+            N2 = NN[i]*NN[i];
+            CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
         }
-        //cout  << "value of NN[5] end Runge " << this->NN[5] <<  " number of hexes " << this->n << endl;
     }//end step
 
   //function to timestep coupled equations option to set boundary to constant value
@@ -430,7 +294,27 @@ public:
 	            }
 	         }
           }
-          void step(double dt, double Dn, double Dchi, double Dc);
+
+
+        double beta = 5.;
+        double a = 1., b = 1., mu = 1;
+		//cout << " before calls to Laplacian " << endl;
+        vector<double> lapN = getLaplacian(NN,ds);
+        vector<double> lapC = getLaplacian(CC,ds);
+        vector<double> cTaxis = chemoTaxis(NN,CC,ds);
+
+        // step N
+        for (auto &h : Hgrid->hexen) {
+          NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
+        }
+
+        // step C
+        double N2;
+        for(auto &h : Hgrid->hexen){
+		    unsigned int i = h.vi;
+            N2 = NN[i]*NN[i];
+            CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
+        }
     }//end step
  
     void reverse_y ()
