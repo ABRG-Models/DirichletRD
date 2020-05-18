@@ -291,7 +291,6 @@ int main (int argc, char **argv)
         for (int j=0;j<NUMPOINTS;j++) {
               if (M.regArea(j) != 0){
 			      int regionCount = 0;
-                  cout<<"in the degree loop" << endl;
                   gfile<<"in the degree loop" << endl;
                   tempArea = M.regArea(j); //area by hexes
                   tempPerimeter = M.regPerimeter(j); //perimeter by hexes
@@ -404,6 +403,9 @@ int main (int argc, char **argv)
         avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
 	    occupancy = occupancy / (1.0 * countRegions);
 	    jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl; 
+// look at correlation between random edges
+         const int max_comp = NUMPOINTS*6;
+		 M.random_correlate(logpath, max_comp,0);
 //end of integration on the original tesselation
          cout << "just before setting curved boundaries" <<endl;
 // section for solving on the curved boundaries
@@ -520,9 +522,10 @@ int main (int argc, char **argv)
 	  int countHex = 0;
    	  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	  {
-		  cout << "just before morph 1 step i "<< i <<endl;
-     	  S[j].step(dt, Dn, Dchi, Dc, i, numAdjust);
-		  cout << "just after morph 1 step i "<< i <<endl;
+		  //cout << "just before morph 1 step i "<< i <<endl;
+     	  S[j].step(dt, Dn, Dchi, Dc);
+		  if (i%100 == 0) 
+		     cout << "just after morph 1 octopus i "<< j << " NN[5] " << S[j].NN[5] << endl;
 	  }
 	  if (i%numprint == 0)
 	  {
@@ -621,7 +624,6 @@ int main (int argc, char **argv)
       for (int j=0;j<NUMPOINTS;j++) {
               if (M.regArea(j) != 0){
 			      int regionCount = 0;
-                  cout<<"in the degree loop" << endl;
                   gfile<<"in the degree loop" << endl;
                   //angle degree
                   tempArea = M.regArea(j);
@@ -678,6 +680,9 @@ int main (int argc, char **argv)
 		  tempArea = 0;
 		  tempPerimeter = 0;
 		  avAbsCorrelation = 0;
+		  cout << "just after renewcorrelate_edges morph1 " << endl;
+		  M.random_correlate(logpath, max_comp,1);
+		  cout << "just after randomcorrelate_edges morph1 " << endl;
           for (int j=0;j<NUMPOINTS;j++) {
 	        if (M.regArea(j) != 0)
 			{
@@ -687,7 +692,7 @@ int main (int argc, char **argv)
               tempArea = M.regArea(j);
               tempPerimeter = M.regPerimeter(j);
 
-              avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
+              avAbsCorrelation += M.renewcorrelate_edges(j,logpath,1);
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, numSectors);
               degreeAngle = L.find_zeroDAngle(angleDVector);
 		      avDegreeAngle += degreeAngle;
@@ -828,7 +833,7 @@ int main (int argc, char **argv)
 	  cout << " head of second time stepping loop i " << i << endl;
    	  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	  {
-     	   S[j].step(dt, Dn, Dchi, Dc, i, numAdjust);
+     	   S[j].step(dt, Dn, Dchi, Dc);
      	 //  S[j].step(dt, Dn, Dchi, Dc);
 	  }
 
@@ -933,7 +938,6 @@ int main (int argc, char **argv)
 	      if (M.regArea(j) != 0)
 		  {
 	         int regionCount = 0;
-             cout<<"in the degree loop" << endl;
              gfile<<"in the degree loop" << endl;
 	         //angle degree
              tempArea = M.regArea(j);
@@ -980,20 +984,29 @@ int main (int argc, char **argv)
 	  tempPerimeter = 0;
 	  tempArea = 0;
 	  countRegions = 0;
+	  cout << "just after renewcorrelate_edges morph2 " << endl;
+	  M.random_correlate(logpath, max_comp, 2);
+	  cout << "just after random correlate_edges morph2 " << endl;
       for (int j=0;j<NUMPOINTS;j++) 
 	  {
 	      if (M.regArea(j) != 0)
     	  {
 	          countRegions++;
-              avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
-	          gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
-		  occupancy += M.regNNfrac(j);
+              avAbsCorrelation += M.renewcorrelate_edges(j,logpath,2);
+	          gfile << " fraction of positive NN morph2 " << M.regNNfrac(j) << endl;
+		      // occupancy += M.regNNfrac(j);
+		      cout << "after renNNfrac " << endl;
               tempArea = M.regArea(j);
+			  cout << " after regArea " << endl;
               tempPerimeter = M.regPerimeter(j);
+			  cout << " after regPerimeter " << endl;
 
+			  cout << "before sectorixe Dangle morph2 " << endl;
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, numSectors);
+			  cout << "after sectorixe Dangle morph2 " << endl;
               degreeAngle = L.find_zeroDAngle(angleDVector);
 		      avDegreeAngle += degreeAngle;
+			  cout << "after sectorixe Dangle morph2 " << endl;
               //radial degree
 		      degreeRadius = 0;
               radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + numSectors/2);

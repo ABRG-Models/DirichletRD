@@ -473,6 +473,36 @@ vector<int> sort_indexes(const vector<T> &v) {
 		return cT;
 	} //end of function chemoTaxis
 
+
+  // function to compute the derivative
+     void compute_dNNdt(vector<double>& inN, vector<double>& dNdt, double Dn, double Dchi) {
+        vector<double> lapN(this->n,0);
+		vector<double> cTaxis(this->n,0);
+		//cout << "in compute_dNN just before laplacian" << endl;
+		lapN = getLaplacian(inN,this->ds);
+        cTaxis = chemoTaxis(inN,CC,this->ds);
+        double a = 1., b = 1.;
+		//cout << "in compute_dNN just before the loop" << endl;
+        for (int h=0; h < this->n; h++) {
+          dNdt[h] = a-b*inN[h] + Dn*lapN[h] - Dchi*cTaxis[h];
+        }
+	}
+
+	void compute_dCCdt(vector<double>& inC, vector<double>&  dCdt, double Dc) {
+        double beta = 5.;
+        double mu = 1;
+		//cout << " before calls to Laplacian " << endl;
+        vector<double> lapC(this->n,0);
+		lapC = getLaplacian(inC,this->ds);
+        double N2;
+        for(int h=0; h < this->n;h++){
+            N2 = this->NN[h]*this->NN[h];
+            dCdt[h] =  beta*N2/(1.+N2) - mu*inC[h] + Dc*lapC[h];
+        }
+    }
+
+
+
   //function to timestep coupled equations
     void step(double dt, double Dn, double Dchi, double Dc) {
       dt = dt * 2.5 / Dn;
@@ -495,27 +525,133 @@ vector<int> sort_indexes(const vector<T> &v) {
 	   }
       }
 
+        // 2. Do integration of NN
+        {
+            // Runge-Kutta integration for A. This time, I'm taking
+            // ownership of this code and properly understanding it.
 
+            // Ntst: "A at a test point". Ntst is a temporary estimate for A.
+            vector<double> Ntst(this->n, 0.0);
+            vector<double> dNdt(this->n, 0.0);
+            vector<double> K1(this->n, 0.0);
+            vector<double> K2(this->n, 0.0);
+            vector<double> K3(this->n, 0.0);
+            vector<double> K4(this->n, 0.0);
 
-        double beta = 5.;
-        double a = 1., b = 1., mu = 1;
-		//cout << " before calls to Laplacian " << endl;
-        vector<double> lapN = getLaplacian(NN,ds);
-        vector<double> lapC = getLaplacian(CC,ds);
-        vector<double> cTaxis = chemoTaxis(NN,CC,ds);
+            /*
+             * Stage 1
+             */ 
+			 //cout << "in ksSolver before compute_dNNdt" << endl;
+            this->compute_dNNdt (this->NN, dNdt, Dn, Dchi);
+			 //cout << "in ksSolver after compute_dNNdt" << endl;
+#pragma omp parallel for
+            for (int h=0; h< this->n; ++h) {
+                K1[h] = dNdt[h] * dt;
+                Ntst[h] = this->NN[h] + K1[h] * 0.5 ;
+            }
 
-        // step N
-        for (auto h : Hgrid->hexen) {
-          NN[h.vi]+=dt*( a-b*NN[h.vi] + Dn*lapN[h.vi] - Dchi*cTaxis[h.vi]);
+            /*
+             * Stage 2
+             */
+            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
+#pragma omp parallel for
+            for (int h=0; h< this->n; ++h) {
+                K2[h] = dNdt[h] * dt;
+                Ntst[h] = this->NN[h] + K2[h] * 0.5;
+            }
+
+            /*
+             * Stage 3
+             */
+            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                K3[h] = dNdt[h] * dt;
+                Ntst[h] = this->NN[h] + K3[h];
+            }
+
+            /*
+             * Stage 4
+             */
+            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                K4[h] = dNdt[h] * dt;
+            }
+
+            /*
+             * Final sum together. This could be incorporated in the
+             * for loop for Stage 4, but I've separated it out for
+             * pedagogy.
+             */
+#pragma omp parallel for
+            for (int h=0;h<this->n;h++) {
+                this->NN[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
+				//this->NN[i] = i * 1.0;
+            }
         }
 
-        // step C
-        double N2;
-        for(auto h : Hgrid->hexen){
-		    unsigned int i = h.vi;
-            N2 = NN[i]*NN[i];
-            CC[i]+=dt*( beta*N2/(1.+N2) - mu*CC[i] + Dc*lapC[i] );
+        // 3. Do integration of B
+        {
+            // Ctst: "B at a test point". Ctst is a temporary estimate for B.
+            vector<double> Ctst(this->n, 0.0);
+            vector<double> dCdt(this->n, 0.0);
+            vector<double> K1(this->n, 0.0);
+            vector<double> K2(this->n, 0.0);
+            vector<double> K3(this->n, 0.0);
+            vector<double> K4(this->n, 0.0);
+
+            /*
+             * Stage 1
+             */
+            this->compute_dCCdt (this->CC, dCdt, Dc);
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                K1[h] = dCdt[h] * dt;
+                Ctst[h] = this->CC[h] + K1[h] * 0.5 ;
+            }
+
+            /*
+             * Stage 2
+             */
+		    this->compute_dCCdt (Ctst, dCdt, Dc);
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                K2[h] = dCdt[h] * dt;
+                Ctst[h] = this->CC[h] + K2[h] * 0.5;
+            }
+
+            /*
+             * Stage 3
+             */
+            this->compute_dCCdt (Ctst, dCdt, Dc);
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                K3[h] = dCdt[h] * dt;
+                Ctst[h] = this->CC[h] + K3[h];
+            }
+
+            /*
+             * Stage 4
+             */
+            this->compute_dCCdt (Ctst, dCdt, Dc);
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                K4[h] = dCdt[h] * dt;
+            }
+
+            /*
+             * Final sum together. This could be incorporated in the
+             * for loop for Stage 4, but I've separated it out for
+             * pedagogy.
+             */
+#pragma omp parallel for
+            for (int h=0; h < this->n; ++h) {
+                this->CC[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
+            }
         }
+        //cout  << "value of NN[5] end Runge " << this->NN[5] <<  " number of hexes " << this->n << endl;
+
     }//end step
 
   //function to return area of a region
@@ -604,7 +740,18 @@ double renewRegPerimeter (int regNum) {
         return sum;
     } 
 
-
+   // return the mean of the values of a  vector
+        double mean_vector(vector<double> invector) {
+        //ofstream meanzero ("meanzero.txt",ios::app);
+	      double sum = 0;
+          int size = invector.size();
+        //meanzero << "size " << size << endl;
+          for (int i=0; i <size; i++) {
+            sum += invector[i];
+        }
+        sum = sum/(1.0*size);
+        return sum;
+    }
 
     double maxVal( vector<double> invector) {
             double result = -1.0e7;
@@ -933,8 +1080,9 @@ double renewRegPerimeter (int regNum) {
     double correlate_edges(string logpath)  
 	{
 	    double result = 0;     
-        ofstream edgefile(logpath + "/edgeCorrelations.txt",ios::app);
+        ofstream edgefile(logpath + "/edgeCorrelations0.txt",ios::app);
         ofstream edgerest(logpath + "/edgeRest.txt",ios::app);
+		ofstream correl(logpath + "/correlate0.data");
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -951,16 +1099,17 @@ double renewRegPerimeter (int regNum) {
 		    vector<double> normalNN;
 		    double NNmean;
 		    int size = (int) this->regionIndex[i].size();
-		    normalNN.resize(size,0.0);
+			int cnt = 0;
 		    // create a vector of the NN values in the region
 		    for (auto h : this->regionIndex[i])
 			{
 			    //edgefile << "create normalNN j " << j <<endl;
 		       	normalNN.push_back(NN[h.vi]);
+				cnt++;
 		    }
-	       	NNmean = this->absmean_vector(normalNN);
+	       	NNmean = this->mean_vector(normalNN);
 		    edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
-            edgefile << " i iteration " << i << endl;
+            edgefile << " size of region " << size << " size of normalNN " << normalNN.size() << " cnt " << cnt << endl;
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) 
 			{
                 //edgefile << " j iteration " << *j << endl;
@@ -994,6 +1143,7 @@ double renewRegPerimeter (int regNum) {
 		            result += fabs(correlationValue);
                     countResult++;
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				    correl << correlationValue << endl;
                     //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
                 } //end of code if both edges are equal
                 else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) 
@@ -1005,6 +1155,7 @@ double renewRegPerimeter (int regNum) {
 		    result += fabs(correlationValue);
                     countResult++;
                     edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				    correl << correlationValue << endl;
                 }
                 else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0) 
 				{
@@ -1015,6 +1166,7 @@ double renewRegPerimeter (int regNum) {
 		    result += fabs(correlationValue);
                     countResult++;
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				    correl << correlationValue << endl;
                 }
             } //end of single edge comparison
         } // end of loop on regions
@@ -1024,6 +1176,57 @@ double renewRegPerimeter (int regNum) {
 	return result;
     } //end of function correlate_edges
 
+    // method to compare random pairs of edges
+	void random_correlate(string logpath, const int max_comp, const int morphNum) {
+	    ofstream jfile; 
+	    ofstream kfile; 
+		int max_rand = edges.size();
+		string str = to_string(morphNum);
+		jfile.open(logpath + "/random_correlate" + str + ".txt");
+		kfile.open(logpath + "/random_correlate" + str + ".data");
+		vector<double> dinterp, first, second;
+		double corr;
+		jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
+		for (int i=0;i<max_comp;i++) {
+		   int r1 = rand() % max_rand;
+		   int r2 = rand() % max_rand;
+		   int rr1 = edgeIndex[r1];
+		   int rr2 = edgeIndex[r2]; 
+		   int s3 = 0;
+		   first.resize(0);
+		   second.resize(0);
+		   int s1 = edges[rr1].size();
+		   int s2 = edges[rr2].size();
+		   if ((s1 != 0) && (s2 != 0))
+		   {
+			   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
+               for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
+                   first.push_back(this->NN[*itr]);
+               }
+               for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
+                   second.push_back(this->NN[*itr]);
+               }
+			   first = meanzero_vector(first);
+			   second = meanzero_vector(second);
+			   if (s1 < s2) {
+			       dinterp = equalize_vector(first , second);
+				   s3 = dinterp.size();
+				   corr = correlate_Eqvector(dinterp, second);
+			   }
+			   else if (s1 > s2) {
+			       dinterp = equalize_vector(second, first);
+				   s3 = dinterp.size();
+				   corr = correlate_Eqvector(dinterp, first);
+			   }
+               else {
+			       corr = correlate_Eqvector(first, second);
+				   s3 = 0;
+			   }
+               jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl;
+		       kfile << corr << endl;
+		   }
+        }
+	}
 
     //function to return the correlation of two vectors
     double correlate_Eqvector(vector<double> vector1, vector<double> vector2) {
@@ -1208,7 +1411,6 @@ double renewRegPerimeter (int regNum) {
         barycentre.yval =  this->centres[regNum].second;
         double minradius = 100000.0;
         for (auto h : this->regionIndex[regNum]) {
-           // if (Creg[h.vi] > 0) {
 		   if (h.boundaryHex() == true)
 		   {
                 boundHex.xval = Hgrid->d_x[h.vi],
@@ -1243,273 +1445,271 @@ double renewRegPerimeter (int regNum) {
 
     //sectorize over radius
     vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
-    ofstream dfile ("logs/sectorRadius.txt",ios::app);
-    vector <double>  radiusNN;
-    vector <double> normalNN;
-	vector <int> radiusCount;
-    radiusCount.resize(numSectors,0); 
-	radiusNN.resize(numSectors,0);
-    double startradius, finishradius, radiusInc; //sector radii
-    double minradius = min_radius(regNum);
-   // double maxradius = max_radius(regNum);
-    dfile << "region " << regNum << " minradius used " << minradius <<endl;
-    radiusInc = minradius /(1.0*numSectors);
-    double startAngle, finishAngle, angleInc; //sector angles
-    angleInc = 2*PI/(1.*numSectors);
-    startAngle = (beginAngle%numSectors)*angleInc;
-    finishAngle = (endAngle%numSectors)*angleInc;
-    //int size = (int) this->regionIndex[regNum].size();
-    // to normalise the NN field
-     for (auto h : this->regionIndex[regNum]){
-          normalNN.push_back(this->NN[h.vi]);
-      }
-      normalNN = meanzero_vector(normalNN); 
-	  dfile << "after normalise "<<endl;
-      //for (int i=0;i<size;i++)
-          // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+        ofstream dfile ("logs/sectorRadius.txt",ios::app);
+        vector <double>  radiusNN;
+        vector <double> normalNN;
+	    vector <int> radiusCount;
+        radiusCount.resize(numSectors,0); 
+	    radiusNN.resize(numSectors,0);
+        double startradius, finishradius, radiusInc; //sector radii
+        double minradius = min_radius(regNum);
+// double maxradius = max_radius(regNum);
+        dfile << "region " << regNum << " minradius used " << minradius <<endl;
+        radiusInc = minradius /(1.0*numSectors);
+        double startAngle, finishAngle, angleInc; //sector angles
+        angleInc = 2*PI/(1.*numSectors);
+        startAngle = (beginAngle%numSectors)*angleInc;
+        finishAngle = (endAngle%numSectors)*angleInc;
+ //int size = (int) this->regionIndex[regNum].size();
+ // to normalise the NN field
+        for (auto h : this->regionIndex[regNum]){
+           normalNN.push_back(this->NN[h.vi]);
+        }
+        normalNN = meanzero_vector(normalNN); 
+	    dfile << "after normalise "<<endl;
+//for (int i=0;i<size;i++)
+// dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
-    for (int k=0;k<numSectors;k++) {
-      startradius = (k*radiusInc);
-      finishradius = (k+1)*radiusInc;
-      int count = 0;
-      for (auto h : this->regionIndex[regNum]) {
-	   if (h.phi >= startAngle && h.phi < finishAngle) {
-	   if (h.r >= startradius && h.r <  finishradius) {
-	    radiusCount[k]++;
-        radiusNN[k] += normalNN[count];
-	   } //end of if on radius
-      } //end of if on angleSector
-	  count++;
-     } //end of loop over i
+        for (int k=0;k<numSectors;k++) {
+        startradius = (k*radiusInc);
+        finishradius = (k+1)*radiusInc;
+        int count = 0;
+        for (auto h : this->regionIndex[regNum]) {
+		    if (h.phi >= startAngle && h.phi < finishAngle) {
+	            if (h.r >= startradius && h.r <  finishradius) {
+	                radiusCount[k]++;
+                    radiusNN[k] += normalNN[count];
+	            } //end of if on radius
+            } //end of if on angleSector
+	         count++;
+		} //end of loop over the hexes in the region
 
 
-      if (radiusCount[k] != 0)
-	    radiusNN[k] = radiusNN[k];
-      else
-    	radiusNN[k] = 0.0;
-      dfile << " region " << regNum << " startradius "<<startradius<<"  finishradius "<<finishradius<< " radiusNN " << radiusNN[k] << endl;
+        if (radiusCount[k] == 0)
+    	    radiusNN[k] = 0.0;
+        dfile << " region " << regNum << " startradius "<<startradius<<"  finishradius "<<finishradius<< " radiusNN " << radiusNN[k] << endl;
 
-    }//end loop on k
+        }//end loop over regions
 
-	  dfile << endl;
-     return radiusNN;
+	    dfile << endl;
+        return radiusNN;
 
-  } //end of function sectorize_radius
+    } //end of function sectorize_radius
 
      //sectorize over radius
     //adapted for digital output
     vector <int> sectorize_reg_Dradius (int regNum, int numSectors, int beginAngle, int endAngle) {
-    ofstream dfile ( "logs/sectorRadius.txt",ios::app);
-    vector <int>  radiusNN;
-    radiusNN.resize(numSectors,0);
-    vector <int> radiusCount;
-    vector <double> radiusHold;
-    vector <double> normalNN;
-    radiusCount.resize(numSectors,0);
-    radiusHold.resize(numSectors,0);
-    double startradius, finishradius, radiusInc; //sector radii
-    double maxradius = max_radius(regNum);
-    double minradius = min_radius(regNum);
-    dfile << "region " << regNum << " maxradius used " << maxradius << " minradius used " << minradius <<endl;
-    radiusInc = minradius /(1.0*numSectors);
-    double startAngle, finishAngle, angleInc; //sector angles
-    angleInc = 2*PI/(1.*numSectors);
-    startAngle = (beginAngle%numSectors)*angleInc;
-    finishAngle = (endAngle%numSectors)*angleInc;
-    //int size = (int) this->regionIndex[regNum].size();
-    for (auto h : this->regionIndex[regNum]){
+       ofstream dfile ( "logs/sectorRadius.txt",ios::app);
+       vector <int>  radiusNN;
+       radiusNN.resize(numSectors,0);
+       vector <int> radiusCount;
+       vector <double> radiusHold;
+       vector <double> normalNN;
+       radiusCount.resize(numSectors,0);
+       radiusHold.resize(numSectors,0);
+       double startradius, finishradius, radiusInc; //sector radii
+       double maxradius = max_radius(regNum);
+       double minradius = min_radius(regNum);
+       dfile << "region " << regNum << " maxradius used " << maxradius << " minradius used " << minradius <<endl;
+       radiusInc = minradius /(1.0*numSectors);
+       double startAngle, finishAngle, angleInc; //sector angles
+       angleInc = 2*PI/(1.*numSectors);
+       startAngle = (beginAngle%numSectors)*angleInc;
+       finishAngle = (endAngle%numSectors)*angleInc;
+ //int size = (int) this->regionIndex[regNum].size();
+       for (auto h : this->regionIndex[regNum]){
           normalNN.push_back(NN[h.vi]);
-      }
-    // to normalise the NN field
-    normalNN = meanzero_vector(normalNN);
-    double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
-      //for (int i=0;i<size;i++)
-          // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+       }
+// to normalise the NN field
+       normalNN = meanzero_vector(normalNN);
+       double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
+ //for (int i=0;i<size;i++)
+ // dfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
-    for (int k=0;k<numSectors;k++) {
-      startradius = (k*radiusInc);
-      finishradius = (k+1)*radiusInc;
-	  int count = 0;
-      for (auto h : this->regionIndex[regNum]) {
-        if (h.phi >= startAngle && h.phi < finishAngle) {
-          if (h.r >= startradius && h.r < finishradius) {
-              radiusCount[k]++;
-              //radiusCC[k] += this->CC[this->regionIndex[regNum][i]];
-              radiusHold[k] += normalNN[count];
-          } //end of if on radius
-        } //end of if on angleSector
-      count++;
-      } //end of loop over i
-    }//end of loop over k
+      for (int k=0;k<numSectors;k++) {
+         startradius = (k*radiusInc);
+         finishradius = (k+1)*radiusInc;
+	     int count = 0;
+         for (auto h : this->regionIndex[regNum]) {
+            if (h.phi >= startAngle && h.phi < finishAngle) {
+                if (h.r >= startradius && h.r < finishradius) {
+                    radiusCount[k]++;
+//radiusCC[k] += this->CC[this->regionIndex[regNum][i]];
+                   radiusHold[k] += normalNN[count];
+                } //end of if on radius
+            } //end of if on angleSector
+            count++;
+         } //end of loop over hexes in and individual region
+      }//end of loop over all regions
 	
-	 dfile << "after creation of sectorized field region Dregion " << regNum <<  endl;
+	  dfile << "after creation of sectorized field region Dregion " << regNum <<  endl;
     
-    for (int k=0;k<numSectors;k++){
-	    startradius = (k*radiusInc);
-	    finishradius = (k+1)*radiusInc;
-	    if (radiusCount[k] == 0) {
+      for (int k=0;k<numSectors;k++){
+	     startradius = (k*radiusInc);
+	     finishradius = (k+1)*radiusInc;
+	     if (radiusCount[k] == 0) {
 		    radiusNN[k] = 2;
 		    continue;
-	    }
-//	    radiusHold[k]  = radiusHold[k]  / (1.*radiusCount[k]);
-        if (radiusHold[k] > epsilon)
-                radiusNN[k] = 1;
-        else if (radiusHold[k] < epsilon)
-                radiusNN[k] = -1;
-        else
-                radiusNN[k] = 0;
+	     }
+//radiusHold[k]  = radiusHold[k]  / (1.*radiusCount[k]);
+         if (radiusHold[k] > epsilon)
+             radiusNN[k] = 1;
+         else if (radiusHold[k] < epsilon)
+             radiusNN[k] = -1;
+         else
+             radiusNN[k] = 0;
 
-       dfile << " region " << regNum <<" startradius "<<startradius<<"  finishradius "<<finishradius<< " DradiusNN " << radiusNN[k] << endl;
-    }//end loop on k
-	 dfile << endl;
-     return radiusNN;
+         dfile << " region " << regNum <<" startradius "<<startradius<<"  finishradius "<<finishradius<< " DradiusNN " << radiusNN[k] << endl;
+      }//end loop over sectors
+	  dfile << endl;
+      return radiusNN;
 
-  } //end of function sectorize_radius
+   } //end of function sectorize_radius
 
 
 
  //function to count the hexes in sectors of a region via angular sectors
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginradius, int endradius) {
     //std::pair<double,double> diff; //difference between seed point and CoG of region
-    ofstream cfile ("logs/sectorAngle.txt",ios::app);
-    vector <double> angleNN; //average value of CC in each sector
-    vector <double> normalNN;
-    vector <int> angleCount; //number of hexes in each sector
-    angleNN.resize(numSectors,0);
-    angleCount.resize(numSectors,0);
-    double startAngle, endAngle, angleInc; //sector angles
-    double startradius, finishradius,radiusInc;
-    double minradius = min_radius(regNum);
-    // double minradius = min_radius(regNum);
-    radiusInc = minradius/ (1.0*numSectors);
-    startradius = beginradius*radiusInc;
-    finishradius = endradius*radiusInc;
-    angleInc = 2*PI/(1.*numSectors);
-    // to normalise the NN field
-    //int size = (int) this->regionIndex[regNum].size();
-     for (auto h : this->regionIndex[regNum]){
-          normalNN.push_back(this->NN[h.vi]);
-      }
-      normalNN = meanzero_vector(normalNN);
-      //for (int i=0;i<size;i++)
-        //   cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+        ofstream cfile ("logs/sectorAngle.txt",ios::app);
+        vector <double> angleNN; //average value of CC in each sector
+        vector <double> normalNN;
+        vector <int> angleCount; //number of hexes in each sector
+        angleNN.resize(numSectors,0);
+        angleCount.resize(numSectors,0);
+        double startAngle, endAngle, angleInc; //sector angles
+        double startradius, finishradius,radiusInc;
+        double minradius = min_radius(regNum);
+// double minradius = min_radius(regNum);
+        radiusInc = minradius/ (1.0*numSectors);
+        startradius = beginradius*radiusInc;
+        finishradius = endradius*radiusInc;
+        angleInc = 2*PI/(1.*numSectors);
+// to normalise the NN field
+//int size = (int) this->regionIndex[regNum].size();
+        for (auto h : this->regionIndex[regNum]){
+           normalNN.push_back(this->NN[h.vi]);
+        }
+        normalNN = meanzero_vector(normalNN);
+//for (int i=0;i<size;i++)
+//   cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
 
-    for (int k=0;k<numSectors;k++) {
-      startAngle = k*angleInc;
-      endAngle = (k+1)*angleInc;
-      if ((k+1) == numSectors)
-         endAngle = 2*PI;
+        for (int k=0;k<numSectors;k++) {
+            startAngle = k*angleInc;
+            endAngle = (k+1)*angleInc;
+            if ((k+1) == numSectors)
+               endAngle = 2*PI;
 
-      int count = 0;
-      for (auto h : this->regionIndex[regNum]) {
-          if ( h.r  >= startradius && h.r < finishradius) {
-              if (h.phi >= startAngle && h.phi < endAngle) {
-                  angleCount[k]++;
-          //angle[k] += this->[this->regionIndex[regNum][i]];
-                  angleNN[k] += normalNN[count];
-              }//end if on angle
-        //cfile << setw(5) << angleVal[i]  <<"  ";
-          }//end if on radius
-		count++;
-      }//end loop on i
-    }//end loop on k
-	cfile << "after creation of sectorized field region angle " << regNum <<  endl;
+            int count = 0;
+            for (auto h : this->regionIndex[regNum]) {
+                if ( h.r  >= startradius && h.r < finishradius) {
+                    if (h.phi >= startAngle && h.phi < endAngle) {
+                        angleCount[k]++;
+//angle[k] += this->[this->regionIndex[regNum][i]];
+                        angleNN[k] += normalNN[count];
+                    }//end if on angle
+//cfile << setw(5) << angleVal[i]  <<"  ";
+                }//end if on radius
+		        count++;
+            }//end loop over all hexes in a region
+        }//end loop on all sectors
+	    //cfile << "after creation of sectorized field region angle " << regNum << " number of hexes " << count <<  endl;
 
-    angleNN = meanzero_vector(angleNN);
-    for (int k=0;k<numSectors;k++){ //calculate the average angle in the sector
-	    startAngle = k*angleInc;
-	    endAngle = k*angleInc;
-	    if (angleCount[k] != 0)
-		    angleNN[k] = angleNN[k]/(1.*angleCount[k]);
-	    else
-		    angleNN[k] = -999.999;
-	    //write out values
-		cfile << " region " << regNum <<" startAngle "<< startAngle << "  endAngle "<< endAngle << " angleNN " << angleNN[k] << endl;
-    }//end loop on k
+        angleNN = meanzero_vector(angleNN);
+        for (int k=0;k<numSectors;k++){ //calculate the average angle in the sector
+	        startAngle = k*angleInc;
+	        endAngle = k*angleInc;
+	        if (angleCount[k] != 0)
+		        angleNN[k] = angleNN[k]/(1.*angleCount[k]);
+	        else
+		        angleNN[k] = -999.999;
+//write out values
+		    cfile << " region " << regNum <<" startAngle "<< startAngle << "  endAngle "<< endAngle << " angleNN " << angleNN[k] << endl;
+        }//end loop on sectors
 
-     cfile << endl;
-     return angleNN;
+        cfile << endl;
+        return angleNN;
 
-  } //end of function sectorize_region
+    } //end of function sectorize_region
 
  //function to count the hexes in sectors of a region via angular sectors
     vector <int> sectorize_reg_Dangle (int regNum, int numSectors, int beginradius, int endradius) {
-    ofstream cfile ("logs/sectorAngle.txt",ios::app);
-    //std::pair<double,double> diff; //difference between seed point and CoG of region
-    vector <int> angleNN; //digitized value of NN in each sector
-    vector <double> angleHold;
-    vector <double> normalNN;
-    vector <int> angleCount; //number of hexes in each sector
-    angleNN.resize(numSectors,0);
-    angleHold.resize(numSectors,0);
-    angleCount.resize(numSectors,0);
-    double startAngle, endAngle, angleInc; //sector angles
-    double startradius, finishradius,radiusInc;
-    //double maxradius = max_radius(regNum);
-    double minradius = min_radius(regNum);
-    radiusInc = minradius/ (1.0*numSectors);
-    startradius = beginradius*radiusInc;
-    finishradius = endradius*radiusInc;
-    angleInc = 2*PI/(1.*numSectors);
-    // to normalise the NN field
-    //int size = (int) this->regionIndex[regNum].size();
-	int NNcount = 0;
-     for (auto h : this->regionIndex[regNum]){
-          normalNN.push_back(this->NN[h.vi]);
-		  cfile << " h.vi " << h.vi << " NNcount " << " h.phi " << h.phi << " h.r " << h.r << NNcount <<  endl;
-		  NNcount++;
-      }
-      normalNN = meanzero_vector(normalNN);
-      double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
-	  cfile << " after normalisation NN field in Dangle region " << regNum <<  " NNcount " << NNcount << endl;
-     // for (int i=0;i<size;i++)
-       //    cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
-
-    for (int k=0;k<numSectors;k++) {
-      startAngle = k*angleInc;
-      endAngle = (k+1)*angleInc;
-      if ((k+1) == numSectors)
-         endAngle = 2*PI;
-    cfile << " start of numSectors loop " << k << endl;		 
-    int count = 0;
-    for (auto &h : this->regionIndex[regNum]) {
-      cfile << " start of region index  loop " << count <<  " hex " << h.vi << " h.phi " << h.phi << " h.r " << h.r << endl;		 
-          if (h.r >= startradius && h.r < finishradius) {
-              if (h.phi >=startAngle && h.phi < endAngle) {
-                  //angleVal.push_back(h.phi);
-                  angleCount[k]++;
-          //angle[k] += this->[this->regionIndex[regNum][i]];
-                  angleHold[k] += normalNN[count];
-              }//end if on angle
-        //cfile << setw(5) << angleVal[angleCount[k]]  <<" region  " << regNum << endl;
-          }//end if on radius
-	    count++;
-      } //end if on i
-    }//end if on k
-	 cfile << "after creation of sectorized field region Dangle " << regNum <<  endl;
-
-      angleHold = meanzero_vector(angleHold);
-
-      for (int k=0;k<numSectors;k++){
-        startAngle = k*angleInc;
-        endAngle = (k+1)*angleInc;
-        if (angleCount[k] == 0) {
-           angleNN[k] = 2;
-           continue;
+        ofstream cfile ("logs/sectorAngle.txt",ios::app);
+ //std::pair<double,double> diff; //difference between seed point and CoG of region
+        vector <int> angleNN; //digitized value of NN in each sector
+        vector <double> angleHold;
+        vector <double> normalNN;
+        vector <int> angleCount; //number of hexes in each sector
+        angleNN.resize(numSectors,0);
+        angleHold.resize(numSectors,0);
+        angleCount.resize(numSectors,0);
+        double startAngle, endAngle, angleInc; //sector angles
+        double startradius, finishradius,radiusInc;
+ //double maxradius = max_radius(regNum);
+        double minradius = min_radius(regNum);
+        radiusInc = minradius/ (1.0*numSectors);
+        startradius = beginradius*radiusInc;
+        finishradius = endradius*radiusInc;
+        angleInc = 2*PI/(1.*numSectors);
+// to normalise the NN field
+//int size = (int) this->regionIndex[regNum].size();
+    	int NNcount = 0;
+        for (auto h : this->regionIndex[regNum]){
+            normalNN.push_back(this->NN[h.vi]);
+		    cfile << " h.vi " << h.vi << " NNcount " << " h.phi " << h.phi << " h.r " << h.r << NNcount <<  endl;
+		    NNcount++;
         }
-        //angleHold[k] = angleHold[k] / (1.*angleCount[k]);
-        if (angleHold[k] > epsilon)
+        normalNN = meanzero_vector(normalNN);
+        double epsilon = 0.0001*(this->maxVal(normalNN) - this->minVal(normalNN));
+	    cfile << " after normalisation NN field in Dangle region " << regNum <<  " NNcount " << NNcount << endl;
+// for (int i=0;i<size;i++)
+//    cfile << " i " << i << " normalNN[i] " << normalNN[i] << endl;
+
+        for (int k=0;k<numSectors;k++) {
+            startAngle = k*angleInc;
+            endAngle = (k+1)*angleInc;
+            if ((k+1) == numSectors)
+            endAngle = 2*PI;
+            cfile << " start of numSectors loop " << k << endl;		 
+            int count = 0;
+            for (auto &h : this->regionIndex[regNum]) {
+                cfile << " start of region index  loop " << count <<  " hex " << h.vi << " h.phi " << h.phi << " h.r " << h.r << endl;		 
+                if (h.r >= startradius && h.r < finishradius) {
+                    if (h.phi >=startAngle && h.phi < endAngle) {
+//angleVal.push_back(h.phi);
+                    angleCount[k]++;
+//angle[k] += this->[this->regionIndex[regNum][i]];
+                    angleHold[k] += normalNN[count];
+                    }//end if on angle
+//cfile << setw(5) << angleVal[angleCount[k]]  <<" region  " << regNum << endl;
+                }//end if on radius
+	            count++;
+            } //end if over hexes in a region
+        }//end if on over all sectors
+	    cfile << "after creation of sectorized field region Dangle " << regNum <<  endl;
+
+        angleHold = meanzero_vector(angleHold);
+
+        for (int k=0;k<numSectors;k++){
+            startAngle = k*angleInc;
+            endAngle = (k+1)*angleInc;
+            if (angleCount[k] == 0) {
+                angleNN[k] = 2;
+                continue;
+            }
+//angleHold[k] = angleHold[k] / (1.*angleCount[k]);
+            if (angleHold[k] > epsilon)
                 angleNN[k] = 1;
-        else if (angleHold[k] < epsilon)
+            else if (angleHold[k] < epsilon)
                 angleNN[k] = -1;
-        else
+            else
                 angleNN[k] = 0;
 
-        cfile << " region " << regNum <<" startangle  " << startAngle << "  endAngle  "<< endAngle << " DangleNN " << angleNN[k] << endl;
-    } //end loop on k
-     return angleNN;
+            cfile << " region " << regNum <<" startangle  " << startAngle << "  endAngle  "<< endAngle << " DangleNN " << angleNN[k] << endl;
+        } //end loop over sectors
+        return angleNN;
 
-  } //end of function sectorize_region1
+    } //end of function sectorize_region digital version
 
   //method for comparing hexes by angle
   bool hexcompare(morph::Hex h1, morph::Hex h2)
@@ -1674,10 +1874,12 @@ double renewRegPerimeter (int regNum) {
    
 
     // function to renew correlate matching edges
-     double renewcorrelate_edges(int regNum, string logpath)  
+     double renewcorrelate_edges(int regNum, string logpath, const int morphNum)  
 	  {
 	    double result = 0;     
-        ofstream edgefile(logpath + "/edgeCorrelations.txt",ios::app);
+		string str = to_string(morphNum);
+		ofstream corrfile(logpath + "/correlate" + str + ".data",ios::app);
+        ofstream edgefile(logpath + "/edgeCorrelations" + str + ".txt",ios::app);
     	edgefile << " in morphed edge correlation routine "<<endl;
         vector<double> tempvect1;
         vector<double> tempvect2;
@@ -1693,18 +1895,16 @@ double renewRegPerimeter (int regNum) {
 		vector<double> normalNN;
 		double NNmean;
 		int size = (int) this->regionIndex[regNum].size();
-		normalNN.resize(size,0.0);
 		// create a vector of the NN values in the region
 		for (auto h : this->regionIndex[regNum])
 		{
 			//edgefile << "create normalNN j " << j <<endl;
 		  normalNN.push_back(NN[h.vi]);
 		}
-	    NNmean = this->absmean_vector(normalNN);
+	    NNmean = this->mean_vector(normalNN);
 		cout << " mean of NN in region " << regNum << "is " <<NNmean << endl;
         //edgefile << " i iteration " << i << endl;
-        for (auto j = this->regionList[regNum].begin(); j != this->regionList[regNum].end();j++) 
-		{
+        for (auto j = this->regionList[regNum].begin(); j != this->regionList[regNum].end();j++)  {
           //edgefile << " j iteration " << *j << endl;
           tempvect1.resize(0);
           tempvect2.resize(0);
@@ -1725,7 +1925,8 @@ double renewRegPerimeter (int regNum) {
 		  {
             tempvect2.push_back(this->NN[*itr] - NNmean);
             count2++;
-          }
+			}
+          
           std::reverse(tempvect2.begin(),tempvect2.end());
           // edgefile << " after filling tempvector2 " << endl;
           //int correlationValue = this->correlate_vector(tempvect1,tempvect2);
@@ -1761,6 +1962,7 @@ double renewRegPerimeter (int regNum) {
 		      result += fabs(correlationValue);
               countResult++;
               edgefile << " regNum = " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+              corrfile <<  correlationValue << endl;
              }
       } //end of single edge comparison
 	  cout << " countResult "<<countResult<<endl;
