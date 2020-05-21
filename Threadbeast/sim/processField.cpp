@@ -75,7 +75,7 @@ int main (int argc, char **argv)
                  << logpath << " which does not exist."<< endl;
             return 1;
         }
-    } else {
+     else {
         // Directory DOES exist. See if it contains a previous run and
         // exit without overwriting to avoid confusion.
         if (overwrite_logs == false
@@ -164,10 +164,10 @@ int main (int argc, char **argv)
     cout <<  "just after field creation" << endl;
 
 
-        vector<double> fix(3, 0.0);
-        vector<double> eye(3, 0.0);
+        vector<double> fix(15, 0.0);
+        vector<double> eye(15, 0.0);
         vector<double> rot(3, 0.0);
-        double rhoInit = 1.7;
+        double rhoInit = 5.1;
         //morph::Gdisplay isp(600, 900, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
         //isp.resetDisplay (fix, eye, rot);
         // plot stuff here.
@@ -206,7 +206,7 @@ int main (int argc, char **argv)
 	     //cout << " just before time step " << " i " << i << endl;
          M.step(dt, Dn, Dchi, Dc);
 		 if (i%numprint == 0) {
-          morph::Gdisplay disp(600, 900, 0, 0, "first run", rhoInit, 0.0, 0.0);
+          morph::Gdisplay disp(900, 900, 0, 0, "first run", rhoInit, 0.0, 0.0);
           disp.resetDisplay (fix, eye, rot);
 		  cout << "in print routine"<<endl;
 		  vector<double> normalNN;
@@ -426,6 +426,7 @@ int main (int argc, char **argv)
 			}
 	     }
 // now draw the intial tesselation        
+/*
         morph::Gdisplay mdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         mdisp.resetDisplay (fix, eye, rot);
 		for (int j=0;j<NUMPOINTS;j++)
@@ -464,6 +465,7 @@ int main (int argc, char **argv)
       usleep (100000); // one hundred seconds
       mdisp.saveImage(logpath + "/Tesselation2.png");
       mdisp.closeDisplay();
+	  */
 // initialise the fields
     string gname = logpath + "/second.h5";
     cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
@@ -530,7 +532,7 @@ int main (int argc, char **argv)
 	  if (i%numprint == 0)
 	  {
           //set up display
-          morph::Gdisplay mmdisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+          morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
           mmdisp.resetDisplay (fix, eye, rot);
    	      for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	      {
@@ -570,7 +572,7 @@ int main (int argc, char **argv)
 		   mmdisp.closeDisplay();
 		   cout << "just after close display 1 i " << i << endl;
 		 }//end of loop on numprint drawing fields
-		 cout << "iteration " << i << " of morph 1 time step" << endl;
+		 //cout << "iteration " << i << " of morph 1 time step" << endl;
        } // end of second time stepping
 
     //code run at end of timestepping
@@ -724,7 +726,7 @@ int main (int argc, char **argv)
 		}	
 		cout << "just after populating the ksVector"<<endl;
 // now draw the intial tesselation        
-        morph::Gdisplay ndisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         ndisp.resetDisplay (fix, eye, rot);
 		for (int j=0;j<NUMPOINTS;j++)
 		{
@@ -830,7 +832,7 @@ int main (int argc, char **argv)
      //begin second time stepping loop
     for (i=0;i<numsteps;i++)
 	{
-	  cout << " head of second time stepping loop i " << i << endl;
+	  //cout << " head of second time stepping loop i " << i << endl;
    	  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	  {
      	   S[j].step(dt, Dn, Dchi, Dc);
@@ -841,7 +843,7 @@ int main (int argc, char **argv)
 	  {
 	     int countHex = 0;
           //set up display
-          morph::Gdisplay nndisp(600, 900, 0, 0, "morph 2 u run", rhoInit, 0.0, 0.0);
+          morph::Gdisplay nndisp(900, 900, 0, 0, "morph 2 u run", rhoInit, 0.0, 0.0);
           nndisp.resetDisplay (fix, eye, rot);
    	      for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	      {

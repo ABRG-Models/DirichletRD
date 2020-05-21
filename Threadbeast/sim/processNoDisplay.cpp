@@ -91,6 +91,7 @@ int main (int argc, char **argv)
     vector<std::pair<double,double>> centroids;
     centroids = M.dissectBoundary(logpath); //dissect region boundary
 	M.setRadialSegments(); //set the radial segments for regions
+    const int max_comp = NUMPOINTS*6; //set the maximum number of random edge matches
 // include the analysis methods
     Analysis L;
 
@@ -116,6 +117,7 @@ int main (int argc, char **argv)
 	    } //end of code to set initial random field
     } //end of else on Lcontinue
     cout <<  "just after field creation" << endl;
+	M.random_correlate(logpath, max_comp, 0);
 
       for (int i=0;i<numsteps;i++) 
 	  {
@@ -463,6 +465,9 @@ int main (int argc, char **argv)
 		  tempArea = 0;
 		  tempPerimeter = 0;
 		  avAbsCorrelation = 0;
+		  cout << "just after renewcorrelate_edges morph1 " << endl;
+		  M.random_correlate(logpath, max_comp,1);
+		  cout << "just after randomcorrelate_edges morph1 " << endl;
           for (int j=0;j<NUMPOINTS;j++) {
 	        if (M.regArea(j) != 0)
 			{
@@ -472,7 +477,7 @@ int main (int argc, char **argv)
               tempArea = M.regArea(j)*(5.0/Dn);
               tempPerimeter = M.regPerimeter(j)*sqrt(5.0/Dn);
 
-              avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
+              avAbsCorrelation += M.renewcorrelate_edges(j,logpath,1);
               int radiusOffset = 0;
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, radiusOffset + 11);
               degreeAngle = L.find_zeroDAngle(angleDVector);
@@ -669,12 +674,15 @@ int main (int argc, char **argv)
     tempPerimeter = 0;
     tempArea = 0;
 	countRegions = 0;
+	cout << "just after renewcorrelate_edges morph2 " << endl;
+	M.random_correlate(logpath, max_comp, 2);
+	cout << "just after random correlate_edges morph2 " << endl;
     for (int j=0;j<NUMPOINTS;j++) 
 	{
 	   if (M.regArea(j) != 0)
 	   {
 	      countRegions++;
-          avAbsCorrelation += M.renewcorrelate_edges(j,logpath);
+          avAbsCorrelation += M.renewcorrelate_edges(j,logpath,2);
 	      gfile << " fraction of positive NN " << M.regNNfrac(j) << endl;
 		  occupancy += M.regNNfrac(j);
           tempArea = M.regArea(j)*(5.0/Dn);

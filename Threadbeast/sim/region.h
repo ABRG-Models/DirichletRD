@@ -27,14 +27,13 @@
 #include <hdf5.h>
 #include <unistd.h>
 #include <bits/stdc++.h>
-#include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
 //#define NUMPOINTS 5 //just the A-E rows.
-#define NUMPOINTS 79 //just the A-E rows.
+#define NUMPOINTS 41 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -101,7 +100,7 @@ public:
   vector<int> Creg; //for each count of regions it touches
   //vector<int> Cnbr; //for each hex count of neighbour hexes
   vector<double> NN, CC; //hold the field values for each hex
-  pair <float, float> centres[NUMPOINTS]; //seed points for regions
+  pair <double, double> centres[NUMPOINTS]; //seed points for regions
   vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
   morph::HexGrid* Hgrid;
   vector<morph::BezCurvePath<float>> curvedBoundary;
@@ -119,48 +118,26 @@ public:
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
   n = 0;
-  Hgrid = new HexGrid(this->ds, 2.0, 0.0, morph::HexDomainShape::Boundary);
+  Hgrid = new HexGrid(this->ds, 4.0, 0.0, morph::HexDomainShape::Boundary);
   n = Hgrid->num();
   cout << "after creating HexGrid"<<endl;
-  //double maxX = Hgrid->getXmax(0.0);
+  double maxX = Hgrid->getXmax(0.0);
+  afile << " the maximum value of x is is " << maxX << endl;
   //double minX = Hgrid->getXmin(0.0);
   cout << "before filling H " << Hgrid->num() << endl;
   hGeo = new hexGeometry();
 // now read in the boundary either as a header or as a morph read
-#include "bezRectangle.h"
-//  morph::ReadCurves r("./barrelAE.svg");
-//  Hgrid->setBoundary (r.getCorticalPath());
+// #include "bezRectangle.h"
+   morph::ReadCurves r("./rat.svg");
+   Hgrid->setBoundary (r.getCorticalPath());
 // this was the original call, I am trying out setBoundaryDregion for debugging 
-    Hgrid->setBoundaryDRegion(bound);
+   // Hgrid->setBoundaryDRegion(bound);
 //  Hgrid->setBoundary (bound);
   cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
   cout << "after  filling H " << " n = " << n <<endl;
-// now set the centres either read in or randomly generated
+// now set the centres either read in or randomly generated 
   #include "centres.h"
-  /*
-  for (int i=0;i<NUMPOINTS;i++) {
-      double choice = morph::Tools::randDouble();
-	  if ((0 < choice) && (choice <= 0.25)) {
-          centres[i].first = (morph::Tools::randDouble()) * maxX;
-          centres[i].second = (morph::Tools::randDouble()) * maxY  ;
-	  }	
-      else if ((0.25 < choice) && (choice <= 0.5))
-	  {
-          centres[i].first = (morph::Tools::randDouble()) * maxX;
-          centres[i].second = (morph::Tools::randDouble()) * minY  ;
-	  }
-	  else if ((0.5 < choice) && (choice  <= 0.75)) {
-          centres[i].first = (morph::Tools::randDouble()) * minX;
-          centres[i].second = (morph::Tools::randDouble()) * maxY  ;
-	  }	
-      else 
-	  {
-          centres[i].first = (morph::Tools::randDouble()) * minX;
-          centres[i].second = (morph::Tools::randDouble()) * minY;
-	  }
-   } //end of setting of random values
-*/
    cout << "after setting centres " << endl;
 //these are the vectors of vectors for the regions
   regionDist.resize(n);
@@ -709,6 +686,7 @@ double renewRegPerimeter (int regNum) {
         return result;
     }
 
+
 	// transform vector of pairs so its mean is (0,0)
 	vector<std::pair<double,double>> meanzero_vector(vector<std::pair<double,double>> invector) {
 		double sum1, sum2 = 0;
@@ -725,8 +703,9 @@ double renewRegPerimeter (int regNum) {
 		    result.push_back(tempPair);
 		}
 		return result;
+	}
 
-    }
+    
     // return the mean of the absolute values of a  vector
         double absmean_vector(vector<double> invector) {
         //ofstream meanzero ("meanzero.txt",ios::app);
