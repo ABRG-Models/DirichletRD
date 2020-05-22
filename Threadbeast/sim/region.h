@@ -1424,7 +1424,7 @@ double renewRegPerimeter (int regNum) {
 
     //sectorize over radius
     vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle) {
-        ofstream dfile ("logs/sectorRadius.txt",ios::app);
+        ofstream dfile ("logs/sectorRadius.txt");
         vector <double>  radiusNN;
         vector <double> normalNN;
 	    vector <int> radiusCount;
@@ -1478,7 +1478,7 @@ double renewRegPerimeter (int regNum) {
      //sectorize over radius
     //adapted for digital output
     vector <int> sectorize_reg_Dradius (int regNum, int numSectors, int beginAngle, int endAngle) {
-       ofstream dfile ( "logs/sectorRadius.txt",ios::app);
+       ofstream dfile ( "logs/sectorRadius.txt");
        vector <int>  radiusNN;
        radiusNN.resize(numSectors,0);
        vector <int> radiusCount;
@@ -1550,7 +1550,7 @@ double renewRegPerimeter (int regNum) {
  //function to count the hexes in sectors of a region via angular sectors
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginradius, int endradius) {
     //std::pair<double,double> diff; //difference between seed point and CoG of region
-        ofstream cfile ("logs/sectorAngle.txt",ios::app);
+        ofstream cfile ("logs/sectorAngle.txt");
         vector <double> angleNN; //average value of CC in each sector
         vector <double> normalNN;
         vector <int> angleCount; //number of hexes in each sector
@@ -1613,7 +1613,7 @@ double renewRegPerimeter (int regNum) {
 
  //function to count the hexes in sectors of a region via angular sectors
     vector <int> sectorize_reg_Dangle (int regNum, int numSectors, int beginradius, int endradius) {
-        ofstream cfile ("logs/sectorAngle.txt",ios::app);
+        ofstream cfile ("logs/sectorAngle.txt");
  //std::pair<double,double> diff; //difference between seed point and CoG of region
         vector <int> angleNN; //digitized value of NN in each sector
         vector <double> angleHold;
