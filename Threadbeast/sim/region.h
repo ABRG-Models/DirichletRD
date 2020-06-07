@@ -118,7 +118,7 @@ public:
     double s = pow(2.0, scale-1);
 	ds = 1.0/s;
   n = 0;
-  Hgrid = new HexGrid(this->ds, 4.0, 0.0, morph::HexDomainShape::Boundary);
+  Hgrid = new HexGrid(this->ds, 5.0, 0.0, morph::HexDomainShape::Boundary);
   n = Hgrid->num();
   cout << "after creating HexGrid"<<endl;
   double maxX = Hgrid->getXmax(0.0);
@@ -127,12 +127,12 @@ public:
   cout << "before filling H " << Hgrid->num() << endl;
   hGeo = new hexGeometry();
 // now read in the boundary either as a header or as a morph read
-// #include "bezRectangle.h"
-   morph::ReadCurves r("./rat.svg");
-   Hgrid->setBoundary (r.getCorticalPath());
+   #include "bezRectangle.h"
+//   morph::ReadCurves r("./rat.svg");
+//   Hgrid->setBoundary (r.getCorticalPath());
 // this was the original call, I am trying out setBoundaryDregion for debugging 
    // Hgrid->setBoundaryDRegion(bound);
-//  Hgrid->setBoundary (bound);
+  Hgrid->setBoundary (bound);
   cout << "after setting boundary on  H " << Hgrid->num() << endl;
   n = Hgrid->num();
   cout << "after  filling H " << " n = " << n <<endl;

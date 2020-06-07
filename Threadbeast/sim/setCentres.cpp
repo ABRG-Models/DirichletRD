@@ -18,7 +18,7 @@
 #include <cctype>
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-#define NUMPOINTS 79 //just the A-E rows.
+#define NUMPOINTS 41 //just the A-E rows.
 //#define NUMPOINTS 79 //just the A-E rows.
 
 using std::vector;

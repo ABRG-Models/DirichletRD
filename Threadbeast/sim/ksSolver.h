@@ -1,5 +1,5 @@
 /* 
- * ksSolver class
+  ksSolver class
  * Author: John Brooke
  *
  * Date 2019/10
@@ -73,7 +73,7 @@ public:
     double s = pow(2.0, scale-1);
 	this->ds = 1.0/s;
     n = 0;
-    Hgrid = new HexGrid(this->ds, 4.0, 0.0, morph::HexDomainShape::Boundary);
+    Hgrid = new HexGrid(this->ds, 5.0, 0.0, morph::HexDomainShape::Boundary);
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "before filling H " << Hgrid->num() << endl;
