@@ -68,13 +68,33 @@ using namespace std;
 
 #define NSW(hi) (this->Hgrid->d_nsw[hi])
 #define HAS_NSW(hi) (this->Hgrid->d_nsw[hi] == -1 ? false : true)
-  
+
+/*!
+ * This class is used to build a HexGrid and then to dissect it
+ * into Voroni regions based on a set of points centres currently
+ * incorporated as a header file. The class also contains 
+ * methods for identifying and dissecting the boundary into edges
+ * and creating structures to hold vertices and edges and to do 
+ * the bookeeping necessary to keep track of adjacency. It also 
+ * contains methods to sectorize regions by angular or radial 
+ * sections. It contains methods to derive the Pearson r coefficient
+ * for the vectors of values on edges. There are separate routines 
+ * for adjacent or randomly chosen edges. It contains Runge Kutta
+ * solvers for the Keller-Segel equations, though these should be 
+ * delegated to the ksSolver class. It contains routines to derive
+ * the area and perimeter of Voroni regions. It contains methods
+ * to round the corners of the original Voroni tessellation and also 
+ * subsequent morphed tessellations. 
+ */
+
 class DRegion
 {
 public:
     int scale;
     int n;
     double ds;
+	string logpath;
+	double xspan;
 	//double overds;
   struct point {
     double xval;
@@ -85,13 +105,13 @@ public:
   //vector<double> rad;
   vector<vector<int> > N; // hex neighbourhood 
   vector<vector<int> > region; //for each hex sorted list of regions
-  vector<list<Hex>> regionIndex; //for each region list of hexes it contains
+  vector<list<morph::Hex>> regionIndex; //for each region list of hexes it contains
   vector<vector<int>> hexRegionList; //for each hex neighbour regions
   vector<vector<int>> regionList; //for each region, regions that are its neighbours
   vector<vector<int>> regionVertex; //for each region, vertices that bound it
   vector<vector<int>> sortedBoundary; // indices of boundary hexes sorted by angle
   vector<int> edgeIndex; // vector of the keys for the integers representing the edge pairs
-  vector<list<Hex>> regionBound; //for each region, index of boundary vertices
+  vector<list<morph::Hex>> regionBound; //for each region, index of boundary vertices
   std::map<int,vector<int>> edges; //map of (i,j) edges, uses pair<->int converters
   vector<vector<double> > regionDist; //from each hexdistances to each seed point
   vector<vector<pair<double,double>>> vCoords;
@@ -109,25 +129,27 @@ public:
 
   int base = 1000;
   //class constructor
-  DRegion (int scale, string logpath) {
-  ofstream afile (logpath + "/debug.out" );
-  ofstream jfile (logpath + "/correlateVector.out");
-  cout << "before creating BezCurve" <<endl;;
-  srand(time(NULL));
+  DRegion (int scale, double xspan, string logpath) {
     this->scale = scale;
+	this->logpath = logpath;
+	this->xspan = xspan;
     double s = pow(2.0, scale-1);
-	ds = 1.0/s;
-  n = 0;
-  Hgrid = new HexGrid(this->ds, 5.0, 0.0, morph::HexDomainShape::Boundary);
-  n = Hgrid->num();
-  cout << "after creating HexGrid"<<endl;
-  double maxX = Hgrid->getXmax(0.0);
-  afile << " the maximum value of x is is " << maxX << endl;
-  //double minX = Hgrid->getXmin(0.0);
-  cout << "before filling H " << Hgrid->num() << endl;
-  hGeo = new hexGeometry();
+	this->ds = 1.0/s;
+    ofstream afile (this->logpath + "/debug.out" );
+    ofstream jfile (this->logpath + "/correlateVector.out");
+    cout << "before creating BezCurve" <<endl;
+    srand(time(NULL));
+    n = 0;
+    Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
+    this->n = Hgrid->num();
+    cout << "after creating HexGrid"<<endl;
+    double maxX = Hgrid->getXmax(0.0);
+    afile << " the maximum value of x is is " << maxX << endl;
+    //double minX = Hgrid->getXmin(0.0);
+    cout << "before filling H " << Hgrid->num() << endl;
+    hGeo = new hexGeometry();
 // now read in the boundary either as a header or as a morph read
-   #include "bezRectangle.h"
+    #include "bezRectangle.h"
 //   morph::ReadCurves r("./rat.svg");
 //   Hgrid->setBoundary (r.getCorticalPath());
 // this was the original call, I am trying out setBoundaryDregion for debugging 
@@ -277,7 +299,7 @@ cout << "after neighbour array" << endl;
                }
       //       } //end of if dealing with outer boundary
 	      */
-		  // processing of internal boundaries
+		  // processing of internal boundariethis->s
           int centralRegion = region[h.vi][0];
           int oldRegion = centralRegion;
           int newRegion = 0;
@@ -844,12 +866,12 @@ double renewRegPerimeter (int regNum) {
 
 
     //function to find all the edges and vertices of the internal boundary
-     vector <std::pair<double,double>> dissectBoundary(string logpath) {
-         ofstream hfile ( logpath + "/dissectDebug.out" );
-         ofstream ifile ( logpath + "/regionList.out" );
-         ofstream kfile ( logpath + "/edgesList.out" );
-         ofstream lfile ( logpath + "/verticesList.out" );
-		 ofstream ufile ( logpath + "/keysList.out" );
+     vector <std::pair<double,double>> dissectBoundary(void) {
+         ofstream hfile ( this->logpath + "/dissectDebug.out" );
+         ofstream ifile ( this->logpath + "/regionList.out" );
+         ofstream kfile ( this->logpath + "/edgesList.out" );
+         ofstream lfile ( this->logpath + "/verticesList.out" );
+		 ofstream ufile ( this->logpath + "/keysList.out" );
          hfile<<"just in dissectBoundary"<<endl;
          vector<std::pair<double,double>> result; 
          vector<int>  regionBoundary; //holding array for the hexes in each region boundary
@@ -1056,12 +1078,12 @@ double renewRegPerimeter (int regNum) {
     }//end of function dissectBoundary
 
     // function to correlate matching edges
-    double correlate_edges(string logpath)  
+    double correlate_edges(void)  
 	{
 	    double result = 0;     
-        ofstream edgefile(logpath + "/edgeCorrelations0.txt",ios::app);
-        ofstream edgerest(logpath + "/edgeRest.txt",ios::app);
-		ofstream correl(logpath + "/correlate0.data");
+        ofstream edgefile(this->logpath + "/edgeCorrelations0.txt",ios::app);
+        ofstream edgerest(this->logpath + "/edgeRest.txt",ios::app);
+		ofstream correl(this->logpath + "/correlate0.data");
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -1156,13 +1178,13 @@ double renewRegPerimeter (int regNum) {
     } //end of function correlate_edges
 
     // method to compare random pairs of edges
-	void random_correlate(string logpath, const int max_comp, const int morphNum) {
+	void random_correlate(const int max_comp, const int morphNum) {
 	    ofstream jfile; 
 	    ofstream kfile; 
 		int max_rand = edges.size();
 		string str = to_string(morphNum);
-		jfile.open(logpath + "/random_correlate" + str + ".txt");
-		kfile.open(logpath + "/random_correlate" + str + ".data");
+		jfile.open(this->logpath + "/random_correlate" + str + ".txt");
+		kfile.open(this->logpath + "/random_correlate" + str + ".data");
 		vector<double> dinterp, first, second;
 		double corr;
 		jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
@@ -1700,7 +1722,7 @@ double renewRegPerimeter (int regNum) {
 
 
   //method to renew a region after rounding
-  void renewRegion(int regNum, list<Hex> hexen)
+  void renewRegion(int regNum, list<morph::Hex> hexen)
   {
     //regionIndex[regNum].resize(0);
 	for (auto& h : hexen) //repopulate regionIndex
@@ -1710,7 +1732,7 @@ double renewRegPerimeter (int regNum) {
   }
    
   //method to renew polars and boundary
-  void renewBoundary(int regNum, list<Hex> hexen)
+  void renewBoundary(int regNum, list<morph::Hex> hexen)
   {
     //pair<double,double> diff;
 	for (auto h : hexen) 
@@ -1853,12 +1875,12 @@ double renewRegPerimeter (int regNum) {
    
 
     // function to renew correlate matching edges
-     double renewcorrelate_edges(int regNum, string logpath, const int morphNum)  
+     double renewcorrelate_edges(int regNum,  const int morphNum)  
 	  {
 	    double result = 0;     
 		string str = to_string(morphNum);
-		ofstream corrfile(logpath + "/correlate" + str + ".data",ios::app);
-        ofstream edgefile(logpath + "/edgeCorrelations" + str + ".txt",ios::app);
+		ofstream corrfile(this->logpath + "/correlate" + str + ".data",ios::app);
+        ofstream edgefile(this->logpath + "/edgeCorrelations" + str + ".txt",ios::app);
     	edgefile << " in morphed edge correlation routine "<<endl;
         vector<double> tempvect1;
         vector<double> tempvect2;

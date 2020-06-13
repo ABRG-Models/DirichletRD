@@ -51,29 +51,33 @@ using namespace std;
 class ksSolver
 {
 public:
+// list of objects visible to member functions
     int scale;
+	double xspan;
     int n;
     double ds;
 	double nnInitialOffset = 1.0;
 	double ccInitialOffset = 2.5;
 	double boundaryFalloffDist = 0.024;
-	//double overds;
-
-  // list of objects visible to member functions
-  pair<double,double> seedPoint;
-  vector<vector<int> > N; // hex neighbourhood 
-  vector<double> NN, CC; //hold the field values for each he
-  morph::HexGrid* Hgrid;
+    pair<double,double> seedPoint;
+	BezCurvePath<float> bound;
+	string logpath;
+    vector<vector<int> > N; // hex neighbourhood 
+    vector<double> NN, CC; //hold the field values for each he
+    morph::HexGrid* Hgrid;
   // Class constructor
     ksSolver(){};
-    ksSolver (int scale, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
-    ofstream afile (logpath + "/ksdebug.out",ios::app );
+    ksSolver (int scale, double xspan, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
     this->scale = scale;
+	this->xspan = xspan;
+	this->logpath = logpath;
+	this->bound = bound;
 	this->seedPoint = seedPoint;
-    double s = pow(2.0, scale-1);
+    ofstream afile (this->logpath + "/ksdebug.out",ios::app );
+    double s = pow(2.0, this->scale-1);
 	this->ds = 1.0/s;
     n = 0;
-    Hgrid = new HexGrid(this->ds, 5.0, 0.0, morph::HexDomainShape::Boundary);
+    Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
     n = Hgrid->num();
     afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
     afile << "before filling H " << Hgrid->num() << endl;
