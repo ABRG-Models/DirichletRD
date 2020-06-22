@@ -21,6 +21,7 @@
 #include "analysis.h"
 #include "ksSolver.h"
 #include <morph/display.h>
+#include <morph/Config.h>
 #include <cctype>
 #include <locale>
 #include <algorithm>
@@ -44,32 +45,58 @@ using namespace std;
 
 int main (int argc, char **argv)
 {
-    if (argc < 9) {
+    if (argc < 2) {
       std::cout << "not enough arguments" << argc << endl;
       return -1;
     }
-    //const char* logdir = "cd logs";
-   // system (logdir);
+    //string jsonfile = argv[1];
     string logpath = argv[1];
-    string commandStem;
-    bool overwrite_logs = true;
     double dt = stod(argv[2]); //timesetp passed to M.step
     double Dn = stod(argv[3]); //Dn diffusion passed to M.step
     double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
     double Dc = stod(argv[5]);
 	int scale = stoi(argv[6]);
 	double xspan = stod(argv[7]);
-    int numsteps = atoi(argv[8]); //length of integration 
+    int numsteps = atoi(argv[8]); //length of integration
     int numprint = atoi(argv[9]); //frequency of printing
     int Lcontinue = atoi(argv[10]); //logical to determine if coldstart
-	int numSectors = 10;
+	int numSectors = 12;
 	int numAdjust = 50000000;
 	double aNoiseGain = 0.1;
-	double nnInitialOffset = 1.0;
-	double ccInitialOffset = 2.5;
 	double boundaryFalloffDist = 0.0078;
-      /*
-     * Now create a log directory if necessary, and exit on any
+    /*
+     * open the confgig file and read in the parameters
+    morph::Config conf(jsonfile);
+    if (!conf.ready) {
+        cerr << "Error setting up JSON config: " << conf.emsg << endl;
+    }
+     */
+/*
+    double dt = conf.getDouble("dt",0.0001);
+    double Dn = conf.getDouble("Dn",5.0);
+    double Dchi = conf.getDouble("DChi",5.0);
+    double Dc = conf.getDouble("Dc",1.5);
+    int scale = conf.getInt("scale",8);
+    double xspan = conf.getDouble("xspan",5.0);
+    int numsteps = conf.getInt("numsteps",100);
+    int numAdjust = conf.getInt("numAdjust",1000000);
+    int numprint = conf.getInt("numprint",95);
+    string logpath = conf.getString("logpath","../logs");
+    //string svgpath = conf.getString("svgpath","./rat.svg");
+    double boundaryFalloffDist = conf.getDouble("boundaryFalloffDist",0.0078);
+    double aNoiseGain = conf.getDouble("aNoiseGain",0.1);
+    int numSectors = conf.getInt("numsectors",12);
+    bool Lcontinue = conf.getBool("Lcontinue",false);
+*/
+    double nnInitialOffset = 1.0;
+    double ccInitialOffset = 2.5;
+    bool overwrite_logs = true;
+    bool skipMorph  = true;
+    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
+
+
+    /*
+     * NOW create a log directory if necessary, and exit on any
      * failures.
      */
     if (morph::Tools::dirExists (logpath) == false) {
@@ -100,19 +127,6 @@ int main (int argc, char **argv)
 	ofstream degfile3 (logpath + "/degree3.data");
 
 
-    // DISPLAYS
-    //vector<morph::Gdisplay> displays;
-    //vector<double>fix(3,0.0);
-    //vector<double>eye(3,0.0);
-    //vector<double>rot(3,0.0);
-    //displays.push_back (morph::Gdisplay (600, "NN field", 0., 0., 0.));
-    //displays[0].resetDisplay(fix,eye,rot);
-    //displays[0].redrawDisplay();
-    //displays.push_back (morph::Gdisplay (600, "CC field", 0., 0., 0.));
-    //displays[1].resetDisplay(fix,eye,rot);
-    //displays[1].redrawDisplay();
-    //bfile << "just after displays" << endl;
-
 // initialise DRegion class setting scale
     DRegion M(8,5.0,logpath);
     cout << "before dissect_boundary " << endl;
@@ -126,7 +140,7 @@ int main (int argc, char **argv)
     Analysis L;
 
     string fname = logpath + "/first.h5";
-    cout<< "just before first data read"<< " lcontinue " << Lcontinue <<endl;
+    cout<< "just before first data read"<< " Lcontinue " << Lcontinue <<endl;
 // initialise with random field
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
@@ -146,7 +160,7 @@ int main (int argc, char **argv)
 			{
                 M.NN[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
                 M.CC[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
-			}	
+			}
 			else
 			{
                 M.NN[h.vi] = (morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
@@ -154,8 +168,8 @@ int main (int argc, char **argv)
 			}
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
-                M.NN[h.vi] = (M.NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset; 
-              //  M.CC[h.vi] = (M.CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset; 
+                M.NN[h.vi] = (M.NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
+              //  M.CC[h.vi] = (M.CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
 		    } //end of if on boundary distance
 	    }//end of loop over region
     } //end of else on Lcontinue
@@ -178,11 +192,11 @@ int main (int argc, char **argv)
         if (M.Creg[h.vi] ==  1 ) {
             isp.drawHex (h.position(), (h.d/2.0f), cl_a);
             boundaryCount++;
-		} 
+		}
 		else if (M.Creg[h.vi] > 1) {
             isp.drawHex (h.position(), (h.d/2.0f), cl_c);
-        } 
-		else 
+        }
+		else
 		{
             isp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
         }
@@ -198,7 +212,7 @@ int main (int argc, char **argv)
     isp.closeDisplay();
     float hexWidth = M.Hgrid->hexen.begin()->d/2.0;
     cerr << "d/2: " << hexWidth << endl;
-    for (int i=0;i<numsteps;i++) 
+    for (int i=0;i<numsteps;i++)
 	{
 //cout << " just before time step " << " i " << i << endl;
         M.step(dt, Dn, Dchi, Dc);
@@ -253,7 +267,7 @@ int main (int argc, char **argv)
 		         disp.saveImage(logpath + "/nnField.png");
                  disp.closeDisplay();
              } // end of print on numprint
-        } //end of numsteps loop 
+        } //end of numsteps loop
 //cout << " just after time step i = " << i << endl;
 
 //code run at end of timestepping
@@ -261,20 +275,21 @@ int main (int argc, char **argv)
         morph::HdfData data(fname);
         data.add_contained_vals("c",M.CC);
         data.add_contained_vals("n",M.NN);
-//data.add_contained_vals("X",M.X[0]);
-//data.add_contained_vals("Y",M.X[1]);
         data.add_val ("/Dchi", Dchi);
         data.add_val ("/Dn", Dn);
         data.add_val ("/Dc",Dc);
-     
-     cout << " just after writing data "  << endl;
+
+        cout << " just after writing data "  << endl;
      //post run analysis
 
-            cout << "before correlate_edges" << endl;
-	        double avAbsCorrelation = 0;
-            avAbsCorrelation = M.correlate_edges();
-            cout << "after correlate_edges" << endl;
-          //  cout<<"after correlate_edges" << endl;
+        cout << "before correlate_edges" << endl;
+	    double avAbsCorrelation = 0;
+        avAbsCorrelation = M.correlate_edges();
+// look at correlation between random edges
+         const int max_comp = NUMPOINTS*6;
+         M.random_correlate(max_comp,0);
+         cout << "after correlate_edges" << endl;
+//  cout<<"after correlate_edges" << endl;
         vector <int> radiusDVector;
         vector <int> angleDVector;
 	    vector <double> angleVector;
@@ -307,7 +322,7 @@ int main (int argc, char **argv)
                   radiusDVector = M.sectorize_reg_Dradius(j,numSectors, angleOffset, angleOffset + numSectors/2);
                   degreeRadius = L.find_zeroDRadius(radiusDVector);
                   gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl ;
-		  
+
                   ///radial degree
                   degreeRadius = -100;
                   int newdegreeRadius = 0;
@@ -324,7 +339,7 @@ int main (int argc, char **argv)
 
 
                   regionCount++;
-                  
+
 	      } //end of if on non-zero regions
 } //end of loop on NUMPOINTs
 //writing out of the image files
@@ -393,19 +408,17 @@ int main (int argc, char **argv)
                avDegreeRadius += degreeRadius;
 
                degfile1 << degreeAngle/2 << " " << degreeRadius << " " << M.regNNfrac(j) << " " << tempArea<< " "<< tempPerimeter<<endl<<flush;
-		  }	   
+		  }
 	    } //end of loop on NUMPOINTs
         avDegreeAngle = avDegreeAngle / (1.0 * countRegions);
         avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
 	    occupancy = occupancy / (1.0 * countRegions);
-	    jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl; 
-// look at correlation between random edges
-         const int max_comp = NUMPOINTS*6;
-		 M.random_correlate(max_comp,0);
+	    jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
 //end of integration on the original tesselation
+         if (skipMorph) return 0;
          cout << "just before setting curved boundaries" <<endl;
 // section for solving on the curved boundaries
-        vector<ksSolver> S;
+         vector<ksSolver> S;
 		//S.resize(NUMPOINTS);
 // now set the boundaries for the regions, stored in curvedBoundary
 		M.populateBoundVector(1);
@@ -414,14 +427,14 @@ int main (int argc, char **argv)
 		{
 		  S.push_back(ksSolver(scale, xspan, logpath, M.curvedBoundary[j], M.centres[j]));
 		  cout << "in the loop populating the ksVector"<< j <<endl;
-		}	
+		}
 		cout << "just after populating the ksVector"<<endl;
 		for (int j = 0;j<NUMPOINTS;j++) {
 		   for (auto h : S[j].Hgrid->hexen) {
 		      cout << "hexNumber in region " << j <<  " h.vi " << h.vi << endl;
 			}
 	     }
-// now draw the intial tesselation        
+// now draw the intial tesselation
         morph::Gdisplay mdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         mdisp.resetDisplay (fix, eye, rot);
 		for (int j=0;j<NUMPOINTS;j++)
@@ -431,14 +444,14 @@ int main (int argc, char **argv)
 		  int internalCount = 0;
 		  cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
           for (auto h : S[j].Hgrid->hexen) {
-            if (h.boundaryHex()) 
+            if (h.boundaryHex())
 			{
 		      cout << "h.boundaryHex in region " << j <<  " h.vi " << h.vi << endl;
 		     // cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
               mdisp.drawHex (h.position(), (h.d/2.0f), cl_a);
 			  boundaryCount++;
-			} 
-            else 
+			}
+            else
 			{
 		      cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
 		      //cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
@@ -449,7 +462,7 @@ int main (int argc, char **argv)
 		//cout << "boundaryCount 2 "<<boundaryCount<< " internalCount 2 "<< internalCount <<endl;
 
 
-      }//end of loop on NUMPOINTS to plot boundaries  
+      }//end of loop on NUMPOINTS to plot boundaries
       // red hex at zero
       //mdisp.drawHex (pos, 0.0005, cl_aa);
 
@@ -464,7 +477,7 @@ int main (int argc, char **argv)
     string gname = logpath + "/second.h5";
     cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
 // initialise with random field
-    if (Lcontinue) 
+    if (Lcontinue)
 	{
        morph::HdfData ginput(gname,1);
        cout << "just after trying to open ../logs/second.h5" << endl;
@@ -479,10 +492,10 @@ int main (int argc, char **argv)
 			std::strcpy(nst,nstr.c_str());
 			cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
 	        ginput.read_contained_vals(ccst,S[j].CC);
-	        ginput.read_contained_vals(nst,S[j].NN); 
+	        ginput.read_contained_vals(nst,S[j].NN);
 		}
 	  }
-      else 
+      else
 	  {
         for (unsigned int j=0;j<NUMPOINTS;j++)
 		{
@@ -503,12 +516,12 @@ int main (int argc, char **argv)
 				}
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
-                S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset; 
+                S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
                 S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
 		 } //end of if on boundary distance
 	    }//end of loop over region
 	   }//end of loop over all regions
-      } //end of else on Lcontinue 
+      } //end of else on Lcontinue
      cout <<  "just after field creation first morph" << endl;
 
     // begin second time stepping loop
@@ -519,7 +532,7 @@ int main (int argc, char **argv)
 	  {
 		  //cout << "just before morph 1 step i "<< i <<endl;
      	  S[j].step(dt, Dn, Dchi, Dc);
-		  if (i%100 == 0) 
+		  if (i%100 == 0)
 		     cout << "just after morph 1 octopus i "<< j << " NN[5] " << S[j].NN[5] << endl;
 	  }
 	  if (i%numprint == 0)
@@ -548,7 +561,7 @@ int main (int argc, char **argv)
 		    for (auto &h : S[j].Hgrid->hexen)
 		    //for (int k=0;k<regsize;k++)
 			{
-		      //if (!h.boundaryHex()) 
+		      //if (!h.boundaryHex())
 			    array<float,3> colour = morph::Tools::getJetColorF(regionNN[idx]);
 	            mmdisp.drawHex(h.position(),(h.d/2.0f),colour);
 		        cout << "just after drawHex 2 colour "<< " value " << regionNN[idx] << endl;
@@ -586,34 +599,27 @@ int main (int argc, char **argv)
         gdata.add_contained_vals(nst,S[j].NN);
         //data.add_contained_vals("X",M.X[0]);
         //data.add_contained_vals("Y",M.X[1]);
-     }	
+     }
      gdata.add_val ("/Dchi", Dchi);
      gdata.add_val ("/Dn", Dn);
      gdata.add_val ("/Dc",Dc);
-     
-     cout << " just after writing data "  << endl; 
+
+     cout << " just after writing data "  << endl;
 	 M.setRadialSegments();
 	  // repopulate the regions
 	 for (int j=0;j<NUMPOINTS;j++)
      {
 	    M.renewRegion(j,S[j].Hgrid->hexen);
-	 }	
+	 }
 	 for (int j=0;j<NUMPOINTS;j++)
 	 {
 	    M.renewBoundary(j,S[j].Hgrid->hexen);
-	 }	
+	 }
 	  // redissect the boundaries
 	 for (int j=0;j<NUMPOINTS;j++)
 	 {
 	    M.renewDissect(j);
      }
-	  /*
-	  for (int j=0;j<NUMPOINTS;j++)
-	  {
-	    double correlation = M.renewcorrelate_edges(j,logpath);
-		cout << " correlation region first morph " << j << " = " << correlation;
-	  }
-	  */
 
       gfile << endl << "analysis on first morphing iteration " << endl;
       for (int j=0;j<NUMPOINTS;j++) {
@@ -643,11 +649,11 @@ int main (int argc, char **argv)
 
                   degreeRadius = L.find_zeroDRadius(radiusDVector);
                   gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl ;
-		  
+
                   ///radial degree
                   degreeRadius = -100;
                   int newdegreeRadius = 0;
-                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3)  
+                  for (int angleOffset=0; angleOffset<numSectors -1; angleOffset += 3)
 				  {
 			          radiusVector = M.sectorize_reg_radius(j,numSectors, angleOffset, angleOffset + numSectors/2);
 			          newdegreeRadius = L.find_zeroRadius(radiusVector,3);
@@ -660,7 +666,7 @@ int main (int argc, char **argv)
 
 
                   regionCount++;
-                  
+
 	      } //end of if on non-zero regions
 } //end of loop on NUMPOINT
 
@@ -714,9 +720,9 @@ int main (int argc, char **argv)
 		{
 		  S.push_back(ksSolver(scale, xspan, logpath, M.curvedBoundary[j], M.centres[j]));
 		  cout << "in the loop populating the ksVector"<< j <<endl;
-		}	
+		}
 		cout << "just after populating the ksVector"<<endl;
-// now draw the intial tesselation        
+// now draw the intial tesselation
         morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         ndisp.resetDisplay (fix, eye, rot);
 		for (int j=0;j<NUMPOINTS;j++)
@@ -726,14 +732,14 @@ int main (int argc, char **argv)
 		  int internalCount = 0;
 		  cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
           for (auto h : S[j].Hgrid->hexen) {
-            if (h.boundaryHex()) 
+            if (h.boundaryHex())
 			{
 		      //cout << "h.boundaryHex in region " << j <<  " h.vi " << h.vi << endl;
 		     // cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
               ndisp.drawHex (h.position(), (h.d/2.0f), cl_a);
 			  boundaryCount++;
-			} 
-            else 
+			}
+            else
 			{
 		      //cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
 		      //cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
@@ -753,7 +759,7 @@ int main (int argc, char **argv)
         //ndisp.drawHex (c, offset, (S[j].Hgrid->hexen.begin()->d/2.0f), cl_a);
         cout << "boundaryCentroid x,y: " << c[0] << "," << c[1] << endl;
 
-      }//end of loop on NUMPOINTS to plot boundaries  
+      }//end of loop on NUMPOINTS to plot boundaries
       // red hex at zero
       //ndisp.drawHex (pos, 0.005, cl_aa);
 
@@ -786,7 +792,7 @@ int main (int argc, char **argv)
        //   input.close();
         }
 	 }
-     else 
+     else
 	 {
        for (int j=0;j<NUMPOINTS;j++)
 	   {
@@ -794,7 +800,7 @@ int main (int argc, char **argv)
 
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
             // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
-            // normal value. Close to boundary, noise is less. 
+            // normal value. Close to boundary, noise is less.
 			 double choice = morph::Tools::randDouble();
 		     if (choice > 0.5)
 			 {
@@ -806,11 +812,11 @@ int main (int argc, char **argv)
                   S[j].NN[h.vi] = (morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
                   S[j].CC[h.vi] = (morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
 			}
-			
+
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
-                S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset; 
-                S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset; 
+                S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
+                S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
 		 } //end of if on boundary distance
 	    }//end of loop over region
 	   }//end of loop over all regions
@@ -819,7 +825,7 @@ int main (int argc, char **argv)
 
      //morph::Gdisplay nndisp(600, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
      //nndisp.resetDisplay (fix, eye, rot);
-	 
+
      //begin second time stepping loop
     for (i=0;i<numsteps;i++)
 	{
@@ -854,9 +860,9 @@ int main (int argc, char **argv)
             regionNN = L.normalise(tempNN);
 		    cout << "total number of hexes counted " << countHex << endl;
 		      //cout << "just before drawHex 2 "<< h.vi << "normalNN " << normalNN[h.vi] << endl;
-		    for (auto h : S[j].Hgrid->hexen) 
+		    for (auto h : S[j].Hgrid->hexen)
 			{
-		      //if (!h.boundaryHex()) 
+		      //if (!h.boundaryHex())
 			  //{
 			    array<float,3> colour = morph::Tools::getJetColorF(regionNN[h.vi]);
 	            nndisp.drawHex(h.position(),(h.d/2.0f),colour);
@@ -899,19 +905,19 @@ int main (int argc, char **argv)
     // hdata.add_val ("/Dchi", Dchi);
     // hdata.add_val ("/Dn", Dn);
     // hdata.add_val ("/Dc",Dc);
-	 
-     
+
+
      cout << " just after writing data "  << endl;
 	 M.setRadialSegments();
 	 // repopulate the regions
 	 for (int j=0;j<NUMPOINTS;j++)
 	 {
 	    M.renewRegion(j,S[j].Hgrid->hexen);
-     }	
+     }
 	 for (int j=0;j<NUMPOINTS;j++)
 	 {
 	    M.renewBoundary(j,S[j].Hgrid->hexen);
-     }	
+     }
 	 // redissect the boundaries
 	 for (int j=0;j<NUMPOINTS;j++)
 	 {
@@ -926,7 +932,7 @@ int main (int argc, char **argv)
 	  */
 
       gfile << endl << "analysis on second morphing iteration " << endl;
-      for (int j=0;j<NUMPOINTS;j++) 
+      for (int j=0;j<NUMPOINTS;j++)
 	  {
 	      if (M.regArea(j) != 0)
 		  {
@@ -953,7 +959,7 @@ int main (int argc, char **argv)
               // radiusVector = M.meanzero_vector(radiusVector);
               degreeRadius = L.find_zeroDRadius(radiusDVector);
               gfile  << "region "<< j << " degreeDRadius "<< degreeRadius << "  " <<endl ;
-		  
+
                   ///radial degree
               degreeRadius = -100;
               int newdegreeRadius = 0;
@@ -965,7 +971,7 @@ int main (int argc, char **argv)
 				          degreeRadius = newdegreeRadius;
 		      }
                   gfile <<  " region "<< j << " degreeRadius  "<< degreeRadius << "  " <<endl << endl;
-                  regionCount++;                  
+                  regionCount++;
 	      } //end of if on non-zero regions
      } //end of loop on NUMPOINT
 
@@ -980,7 +986,7 @@ int main (int argc, char **argv)
 	  cout << "just after renewcorrelate_edges morph2 " << endl;
 	  M.random_correlate(max_comp, 2);
 	  cout << "just after random correlate_edges morph2 " << endl;
-      for (int j=0;j<NUMPOINTS;j++) 
+      for (int j=0;j<NUMPOINTS;j++)
 	  {
 	      if (M.regArea(j) != 0)
     	  {

@@ -40,6 +40,10 @@ int main (int argc, char **argv)
       std::cout << "not enough arguments" << argc << endl;
       return -1;
     }
+    if (argc > 10) {
+      std::cout << "too many arguments" << argc << endl;
+      return -1;
+    }
     //const char* logdir = "cd logs";
    // system (logdir);
     string logpath = argv[1];
@@ -53,6 +57,8 @@ int main (int argc, char **argv)
 	double xspan = stod(argv[7]); //span of HexGrid in x direction
     int numsteps = atoi(argv[8]); //length of integration
     int Lcontinue = atoi(argv[9]); //logical to determine if coldstart
+    bool skipMorph  = true;
+    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
       /*
      * Now create a log directory if necessary, and exit on any
      * failures.
@@ -115,7 +121,6 @@ int main (int argc, char **argv)
 	    } //end of code to set initial random field
     } //end of else on Lcontinue
     cout <<  "just after field creation" << endl;
-	M.random_correlate(max_comp, 0);
 
       for (int i=0;i<numsteps;i++)
 	  {
@@ -139,7 +144,7 @@ int main (int argc, char **argv)
      cout << "before correlate_edges" << endl;
 	 double avAbsCorrelation = 0;
      avAbsCorrelation = M.correlate_edges();
-     cout << "after correlate_edges" << endl;
+	 M.random_correlate(max_comp, 0);
      cout<<"after correlate_edges" << endl;
      int regionCount = 0;
      int numSectors = 12;
@@ -286,6 +291,9 @@ int main (int argc, char **argv)
 	occupancy = occupancy / (1.0 * countRegions);
 	// jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
 	jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
+    if (skipMorph) return 0;
+//end of integration on original tessellation
+
     cout << "just before setting curved boundaries" <<endl;
     // section for solving on the curved boundaries
     // first create the vector of ksSolver classes
