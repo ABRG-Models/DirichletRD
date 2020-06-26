@@ -1,10 +1,10 @@
-/* 
+/*
   ksSolver class
  * Author: John Brooke
  *
  * Date 2019/10
  *
- * creates a hexGrid given a boundary curve and solves 
+ * creates a hexGrid given a boundary curve and solves
  * the KS equations
  *
  */
@@ -62,7 +62,7 @@ public:
     pair<double,double> seedPoint;
 	BezCurvePath<float> bound;
 	string logpath;
-    vector<vector<int> > N; // hex neighbourhood 
+    vector<vector<int> > N; // hex neighbourhood
     vector<double> NN, CC; //hold the field values for each he
     morph::HexGrid* Hgrid;
   // Class constructor
@@ -79,13 +79,13 @@ public:
     n = 0;
     Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
     n = Hgrid->num();
-    afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
+    afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
     afile << "before filling H " << Hgrid->num() << endl;
     afile << "after creating HexGrid"<<endl;
-    Hgrid->setBoundaryDRegion (bound);
+    Hgrid->setBoundary(bound,false);
     afile << "after setting boundary on  H " << Hgrid->num() << endl;
     n = Hgrid->num();
-    afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl; 
+    afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
     afile << "after  filling H " << " n = " << n <<endl;
     N.resize(n);
     Hgrid->computeDistanceToBoundary();
@@ -103,7 +103,7 @@ public:
      N[idx][3] = Hgrid->d_nw[idx];
      N[idx][4] = Hgrid->d_nsw[idx];
      N[idx][5] = Hgrid->d_nse[idx];
-  } 
+  }
  */
   // this determines the type of hex
       for (auto &h : Hgrid->hexen){
@@ -111,15 +111,15 @@ public:
         if (!HAS_NE(h.vi)) {
 		  h.setBoundaryHex();
 		  N[h.vi][0] = h.vi;
-        } 
+        }
         else {
           N[h.vi][0] = Hgrid->d_ne[h.vi];
         }
-                  
+
         if (!HAS_NNE(h.vi)) {
 		  h.setBoundaryHex();
 		  N[h.vi][1] = h.vi;
-        } 
+        }
         else {
            N[h.vi][1] = Hgrid->d_nne[h.vi];
         }
@@ -127,7 +127,7 @@ public:
         if (!HAS_NNW(h.vi)) {
 		  h.setBoundaryHex();
 		  N[h.vi][2] = h.vi;
-        } 
+        }
         else {
           N[h.vi][2] = Hgrid->d_nnw[h.vi];
         }
@@ -135,7 +135,7 @@ public:
         if (!HAS_NW(h.vi)) {
 		  h.setBoundaryHex();
 	      N[h.vi][3] = h.vi;
-         } 
+         }
          else {
            N[h.vi][3] = Hgrid->d_nw[h.vi];
          }
@@ -143,7 +143,7 @@ public:
          if (!HAS_NSW(h.vi)) {
 		   h.setBoundaryHex();
 		   N[h.vi][4] = h.vi;
-         } 
+         }
          else {
            N[h.vi][4] = Hgrid->d_nsw[h.vi];
          }
@@ -151,19 +151,19 @@ public:
          if (!HAS_NSE(h.vi)) {
 		   h.setBoundaryHex();
 		   N[h.vi][5] = h.vi;
-          } 
+          }
           else {
             N[h.vi][5] = Hgrid->d_nse[h.vi];
           }
 		}
-	
+
     NN.resize(n);
     CC.resize(n);
 	afile << "after alloc NN and CC" <<endl;
 	pair<double, double> centroid = set_kS_polars(this->seedPoint);
 	cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
 	cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
- } // end of ksSolver constructor 
+ } // end of ksSolver constructor
 
 
     vector<double> getLaplacian(vector<double> Q, double dx) {
@@ -175,7 +175,7 @@ public:
         }
         return L;
     }
-        
+
 		vector<double> chemoTaxis(vector<double> Q, vector<double> P, double dx) {
 		vector<double> cT(n,0.);
           double overds = 1./(1.5*29.0*29.0*dx*dx);
@@ -239,9 +239,9 @@ public:
     void step(double dt, double Dn, double Dchi, double Dc)
 	{
         dt = dt * 2.5 / Dn;
-       
+
         // cout  << "value of NN[5] start Runge " << this->NN[5] << endl;
-	
+
 
         // Set up boundary conditions with ghost points
         //cout << " in time step before ghost points" << endl;
@@ -254,7 +254,7 @@ public:
 				{
 		            int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
-                    if(N[h.vi][j] == i) 
+                    if(N[h.vi][j] == i)
 					{
        	                NN[N[h.vi][j]] = NN[h.vi];
 			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
@@ -279,11 +279,10 @@ public:
 
             /*
              * Stage 1
-             */ 
+             */
 			 //cout << "in ksSolver before compute_dNNdt" << endl;
             this->compute_dNNdt (this->NN, dNdt, Dn, Dchi);
 			 //cout << "in ksSolver after compute_dNNdt" << endl;
-#pragma omp parallel for
             for (int h=0; h< this->n; ++h) {
                 K1[h] = dNdt[h] * dt;
                 Ntst[h] = this->NN[h] + K1[h] * 0.5 ;
@@ -293,7 +292,6 @@ public:
              * Stage 2
              */
             this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-#pragma omp parallel for
             for (int h=0; h< this->n; ++h) {
                 K2[h] = dNdt[h] * dt;
                 Ntst[h] = this->NN[h] + K2[h] * 0.5;
@@ -303,7 +301,6 @@ public:
              * Stage 3
              */
             this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 K3[h] = dNdt[h] * dt;
                 Ntst[h] = this->NN[h] + K3[h];
@@ -313,7 +310,6 @@ public:
              * Stage 4
              */
             this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 K4[h] = dNdt[h] * dt;
             }
@@ -323,7 +319,6 @@ public:
              * for loop for Stage 4, but I've separated it out for
              * pedagogy.
              */
-#pragma omp parallel for
             for (int h=0;h<this->n;h++) {
                 this->NN[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
 				//this->NN[i] = i * 1.0;
@@ -344,7 +339,6 @@ public:
              * Stage 1
              */
             this->compute_dCCdt (this->CC, dCdt, Dc);
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 K1[h] = dCdt[h] * dt;
                 Ctst[h] = this->CC[h] + K1[h] * 0.5 ;
@@ -354,7 +348,6 @@ public:
              * Stage 2
              */
 		    this->compute_dCCdt (Ctst, dCdt, Dc);
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 K2[h] = dCdt[h] * dt;
                 Ctst[h] = this->CC[h] + K2[h] * 0.5;
@@ -364,7 +357,6 @@ public:
              * Stage 3
              */
             this->compute_dCCdt (Ctst, dCdt, Dc);
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 K3[h] = dCdt[h] * dt;
                 Ctst[h] = this->CC[h] + K3[h];
@@ -374,7 +366,6 @@ public:
              * Stage 4
              */
             this->compute_dCCdt (Ctst, dCdt, Dc);
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 K4[h] = dCdt[h] * dt;
             }
@@ -384,7 +375,6 @@ public:
              * for loop for Stage 4, but I've separated it out for
              * pedagogy.
              */
-#pragma omp parallel for
             for (int h=0; h < this->n; ++h) {
                 this->CC[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
             }
@@ -399,20 +389,20 @@ public:
 
 
       if ((steps%numAdjust == 0) && (steps/numAdjust != 0))
-	  { 
+	  {
 	     cout << "in numAdjust if step " << steps << endl;
-	     for (auto &h : this->Hgrid->hexen) 
+	     for (auto &h : this->Hgrid->hexen)
 	     {
 		     //cout << "dist to bdry" << h.distToBoundary << endl;
-	         if (h.distToBoundary > -0.5) 
+	         if (h.distToBoundary > -0.5)
 		     { // It's possible that distToBoundary is set to -1.0
                 double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- this->boundaryFalloffDist)) );
 				//cout << "bSig " << bSig << " for hex " << h.vi << endl;
-                this->NN[h.vi] = (this->NN[h.vi] - this->nnInitialOffset) * bSig + this->nnInitialOffset; 
-                this->CC[h.vi] = (this->CC[h.vi] - this->ccInitialOffset) * bSig + this->ccInitialOffset; 
+                this->NN[h.vi] = (this->NN[h.vi] - this->nnInitialOffset) * bSig + this->nnInitialOffset;
+                this->CC[h.vi] = (this->CC[h.vi] - this->ccInitialOffset) * bSig + this->ccInitialOffset;
 		     } //end of if on boundary distance
 	     }//end of loop over hexGrid
-	  } //end of code applied to keep boundary conditions static  
+	  } //end of code applied to keep boundary conditions static
 
         // Set up boundary conditions with ghost points
         //cout << " in time step before ghost points" << endl;
@@ -425,7 +415,7 @@ public:
 				{
 		            int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
-                    if(N[h.vi][j] == i) 
+                    if(N[h.vi][j] == i)
 					{
        	                NN[N[h.vi][j]] = NN[h.vi];
 			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
@@ -436,7 +426,7 @@ public:
           }
           void step(double dt, double Dn, double Dchi, double Dc);
     }//end step
- 
+
     void reverse_y ()
 	{
 	  for (auto &h : this->Hgrid->hexen)
@@ -485,7 +475,7 @@ public:
 			double dy = this->Hgrid->d_y[index];
 			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
 			cout << "d_x " << dx << " dy " << dy <<endl;
-            h.r = sqrt((dx - centre.first)*(dx - centre.first) 
+            h.r = sqrt((dx - centre.first)*(dx - centre.first)
 			+ (dy - centre.second)*(dy - centre.second));
             if (dy >= centre.second) {
               angle =   atan2((dy - centre.second), (dx - centre.first));
