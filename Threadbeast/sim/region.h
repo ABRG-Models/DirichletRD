@@ -327,8 +327,6 @@ cout << "after neighbour array" << endl;
 		this->regionIndex.resize(NUMPOINTS);
 		for (int j=0;j<NUMPOINTS;j++){
         for (auto h : Hgrid->hexen) {
-           //count++;
-           //cout << "hex " << count << endl;
 	       if (region[h.vi][0] == j) {
            cout << "hex " << h.vi << " region " << region[h.vi][0] << " j " << j<< endl;
       	   this->regionIndex[j].push_back(h);
@@ -653,16 +651,31 @@ vector<int> sort_indexes(const vector<T> &v) {
     return area;
   } //end of funtion regArea
 
+  //function to return mean value of NN in the region
+  double meanNN (int regNum) {
+    double mean = 0;
+    int size = (int) this->regionIndex[regNum].size();
+    for (auto h : regionIndex[regNum]){
+	    mean += NN[h.vi];
+	}
+    if (size != 0) {
+        return mean / (1.0 * size);
+    }
+    else {
+         return -999.999;
+    }
+  } //end of function meanNN
 
   //function to return perimeter of a region
   double regPerimeter (int regNum) {
     // cout << "in regPerimeter " << endl;
     double perimeter = 0;
-    for (auto h : this->regionIndex[regNum])
-      if (Creg[h.vi] > 0)
-	perimeter += 1.0;
+    for (auto h : this->regionIndex[regNum]){
+        if (Creg[h.vi] > 0)
+	        perimeter += 1.0;
+    }
     return perimeter;
-  } //end of function regPephieter
+  } //end of function regPerimeter
 
 
 //function to return perimeter of a morphed region
@@ -699,6 +712,18 @@ double renewRegPerimeter (int regNum) {
         return result;
     }
 
+    // transform vector by subtracting centval
+    vector<double> meanzero_vector(vector<double> invector, double centval) {
+        //ofstream meanzero ("meanzero.txt",ios::app);
+        vector <double> result;
+        int size = invector.size();
+        //subtract centval from the vector
+        for (int i=0; i < size; i++) {
+            result.push_back(invector[i] - centval);
+            //meanzero << " i " << result[i] << endl;
+        }
+        return result;
+    }
 
 	// transform vector of pairs so its mean is (0,0)
 	vector<std::pair<double,double>> meanzero_vector(vector<std::pair<double,double>> invector) {
@@ -764,6 +789,19 @@ double renewRegPerimeter (int regNum) {
             }
             return result;
     }
+
+//function to print a vector
+    void printDoubleVect (std::string path, vector<double> invect) {
+        ofstream Vout (path ,ios::app);
+        for (auto j = invect.begin(); j != invect.end();j++) {
+           Vout << invect[*j] << "  ";
+        }
+        Vout << endl << "end of Vector " << endl;
+    }
+
+
+
+
   //function to return fraction of area with NN positive
   double regNNfrac (int regNum) {
     double area = 0;
@@ -813,11 +851,9 @@ double renewRegPerimeter (int regNum) {
    */
         for (auto h : this->regionIndex[regNum]) {
             hexcount++;
-		//	cout << " in set centres hex " << this->regionIndex[regNum][i]<< " i " << i << endl;
             xav += this->Hgrid->d_x[h.vi];
             yav += this->Hgrid->d_y[h.vi];
         }
-		//cout << "after set centres " << endl;
 		if (hexcount != 0) {
         xav = xav / (hexcount*1.0);
         yav = yav / (hexcount*1.0);
@@ -868,7 +904,7 @@ double renewRegPerimeter (int regNum) {
          vector<int>  regionBoundary; //holding array for the hexes in each region boundary
 		 this->edgeIndex.resize(0); //reset edgeIndex
 	     int sideCount = 0;
-         for (int i=0; i < NUMPOINTS; i++) {
+         for (int i=0; i < NUMPOINTS; i++) { //loop over regions
              cout << " region index " << i << " size "  <<this->regionIndex[i].size() << endl;
 		     vector<double> psi;
 		     psi.resize(0);
@@ -903,7 +939,7 @@ double renewRegPerimeter (int regNum) {
 		 } //debugging loop for dissectdebug
          unsigned int irBSize = irB.size();
          if (irBSize == 0) {
-             cout << "region i " << region[i][0] << " irB size " << irBSize << endl;
+             cout << "WARNING: region i " << region[i][0] << " irB size " << irBSize << endl;
              continue;
           } // catches empty boundaries.
 
@@ -948,12 +984,12 @@ double renewRegPerimeter (int regNum) {
                    ihE.push_back(regionBoundary[irB[(idissect + offset)%irBSize]]);
                    Ecount++;
 				   idissect++;
-                 }
+              }
               ihE.insert(ihE.begin(),newVertex);
               Ecount++;
               cout << "after edge loop Ecount " << Ecount << " Vcount " << Vcount <<endl;
               if (Ecount == 0) {
-                  cout<<"Oops - empty edge=========================================="<<endl;
+                  cout<<"WARNING - empty edge=========================================="<<endl;
                   continue;
               } //loop to catch empty edge
               cout<<"ihE Size "<<ihE.size() <<endl;
@@ -993,10 +1029,10 @@ double renewRegPerimeter (int regNum) {
                   std::pair <int, vector<int>> p1(keyint,ihE);
                   hfile <<"after pair set keyint " << keyint << " edgeOuter " << edgeOuter << endl;
                   this->edges.insert(p1);
-				  if (ihE.size() > 0) {
+				  //MARK: if (ihE.size() > 0) { dont need this since zero length edge caught earlier
 				  this->edgeIndex.push_back(keyint);
 				  sideCount++;
-				  }
+				 //MARK }
                   hfile << "after edges insert" << endl;
                   hfile <<"=================================================="<<endl;
                   this->regionList[i].push_back(edgeOuter);
@@ -1008,9 +1044,10 @@ double renewRegPerimeter (int regNum) {
           } // end of idissect loop
 		  cout << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<  endl;
 		  if (regionList[i].size() != Vcount) {
-		      cout << "AyAyAy duplicate region" << endl;
+		      cout << "WARNING: duplicate region in regionList for region " << i <<  endl;
 		  }
 		  if (regionList[i].size() == 0) {
+              cout << "WARNING: region  " << i << " has no neighbouring regions" << endl;
 			  continue;
 		  }
 //write out to  regionList file the neighbouring regions to this one
@@ -1035,7 +1072,7 @@ double renewRegPerimeter (int regNum) {
         } //end of loop on regions
 		cout << " after loop on regions edgeIndex size " << edgeIndex.size() << " edges size " << edges.size() << " sideCount " << sideCount << endl;
         int difference = 0;
-// loops to fill the edges map structure
+// loops to print out the edges map structure
         int countIndex = 0;
 		int halfway = int(edgeIndex.size()) / 2;
         for (int irlook = 0; irlook < NUMPOINTS; irlook++) {
@@ -1050,7 +1087,7 @@ double renewRegPerimeter (int regNum) {
                     int sizeij = edges[k].size();
                     int sizeji = edges[k1].size();
                     difference = (sizeij - sizeji)*(sizeij - sizeji);
-                    if ((sizeij*sizeji != 0) && (difference < 1000)) { // just to check that the edge size hasnt run away
+                    if ((sizeij*sizeji != 0) && (difference < 100000000)) { // just to check that the edge size hasnt run away
                         kfile << irlook << " " << jrlook << " sizeij " << sizeij << " "<< jrlook << " " << irlook << " sizeji " << sizeji << endl;
 				        hfile << " k = " << k << " k1 = " << k1 << " countIndex = " << countIndex << " edge Indexij = " << edgeIndex[countIndex] << " edgeIndexji " <<  edgeIndex[countIndex + halfway] <<  endl;
 		                countIndex++;
@@ -1073,8 +1110,8 @@ double renewRegPerimeter (int regNum) {
 	{
 	    double result = 0;
         ofstream edgefile(this->logpath + "/edgeCorrelations0.txt",ios::app);
-        ofstream edgerest(this->logpath + "/edgeRest.txt",ios::app);
-		ofstream correl(this->logpath + "/correlate0.data");
+        ofstream edgerest(this->logpath + "/edgeRest.txt");
+		ofstream correl(this->logpath + "/correlate0.data",ios::app);
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -1086,23 +1123,18 @@ double renewRegPerimeter (int regNum) {
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
         int countResult = 0;
+        int printInt = 15;
+        std::string filei = logpath + "/ival.Vect";
+        std::string filej = logpath + "/jval.Vect";
+        ofstream iout (filei,ios::app);
+        ofstream jout (filej,ios::app);
         for (int i = 0; i <NUMPOINTS; i++)
 		{
 
 		    vector<double> normalNN;
 		    double NNmean;
-		    int size = (int) this->regionIndex[i].size();
-			int cnt = 0;
-		    // create a vector of the NN values in the region
-		    for (auto h : this->regionIndex[i])
-			{
-			    //edgefile << "create normalNN j " << j <<endl;
-		       	normalNN.push_back(NN[h.vi]);
-				cnt++;
-		    }
-	       	NNmean = this->mean_vector(normalNN);
+	       	NNmean = this->meanNN(i); //find the mean of NN in the region
 		    edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
-            edgefile << " size of region " << size << " size of normalNN " << normalNN.size() << " cnt " << cnt << endl;
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++)
 			{
                 //edgefile << " j iteration " << *j << endl;
@@ -1115,27 +1147,30 @@ double renewRegPerimeter (int regNum) {
                 int edgeIndex2 = this->pair2int(edgePair2,this->base);
                 int count1 = 0;
                 int count2 = 0;
-//change JMB 24/06/2020 now not subtracting region mean, vectors will zero meaned by function call
+                double correlationValue = 0;
+// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
                 for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
 				{
-                    tempvect1.push_back(this->NN[*itr]);
+                    tempvect1.push_back(this->NN[*itr] - NNmean);
                     count1++;
                 }
                 for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++)
 				{
-                     tempvect2.push_back(this->NN[*itr]);
+                     tempvect2.push_back(this->NN[*itr] - NNmean);
                      count2++;
                 }
                 std::reverse(tempvect2.begin(),tempvect2.end()); //vectors are indexed in opposite directions either side
-                tempvect1 = meanzero_vector(tempvect1);
-                tempvect2 = meanzero_vector(tempvect2);
-                // edgefile << " after filling tempvector2 " << endl;
-                //int correlationValue = this->correlate_vector(tempvect1,tempvect2);
-                //edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
                 if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 				{
-                    double correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
 		            result += fabs(correlationValue);
+                    if (countResult%printInt == 0) {
+                        iout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filei,tempvect1);
+                        jout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filej,tempvect2);
+                    }
+
                     countResult++;
                     edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
 				    correl << correlationValue << endl;
@@ -1144,28 +1179,53 @@ double renewRegPerimeter (int regNum) {
                 else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 				{
                     tempvect3 = this->equalize_vector(tempvect2,tempvect1);
-                    if (tempvect3.size() == 0)
+                    if (tempvect3.size() == 0) {
                         edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
-                    double correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
-		    result += fabs(correlationValue);
-                    countResult++;
-                    edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-				    correl << correlationValue << endl;
+                    }
+                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+                    if (correlationValue > -2) {
+                        result += fabs(correlationValue);
+                    if (countResult%printInt == 0) {
+                        iout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filei,tempvect1);
+                        jout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filej,tempvect3);
+                    }
+                        countResult++;
+                        edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				        correl << correlationValue << endl;
+                    }
+                    else {
+                        edgefile << "ERROR: edges " << i << " and " << *j << " have not been equalised" << endl;
+                    }
+
                 }
                 else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 				{
                     tempvect3 = this->equalize_vector(tempvect1,tempvect2);
-                    if (tempvect3.size() == 0)
+                    if (tempvect3.size() == 0){
                         edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
-                    double correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
-		    result += fabs(correlationValue);
-                    countResult++;
-                    edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-				    correl << correlationValue << endl;
+                    }
+                    correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+                    if (correlationValue > -2) {
+                        result += fabs(correlationValue);
+                    if (countResult%printInt == 0) {
+                        iout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filei,tempvect3);
+                        jout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filej,tempvect2);
+                    }
+                        countResult++;
+                        edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				        correl << correlationValue << endl;
+                    }
+                    else {
+                        edgefile << "ERROR: edges " << i << " and " << *j << " have not been equalised" << endl;
+                    }
                 }
                 else
                 {
-                    edgefile << "error zero size for one of the edges " << tempvect1.size() << " second " << tempvect2.size() << endl;
+                    edgefile << "error zero size for one of the edges " << i << " size " << tempvect1.size() << " second " << *j << " size " << tempvect2.size() << endl;
                 }
             } //end of single edge comparison
         } // end of loop on regions
@@ -1179,43 +1239,66 @@ double renewRegPerimeter (int regNum) {
 	void random_correlate(const int max_comp, const int morphNum) {
 	    ofstream jfile;
 	    ofstream kfile;
-		int max_rand = edges.size();
+		int max_rand = edgeIndex.size();
 		string str = to_string(morphNum);
-		jfile.open(this->logpath + "/random_correlate" + str + ".txt");
-		kfile.open(this->logpath + "/random_correlate" + str + ".data");
+		jfile.open(this->logpath + "/random_correlate" + str + ".txt",ios::app);
+		kfile.open(this->logpath + "/random_correlate" + str + ".data",ios::app);
 		vector<double> dinterp, first, second;
 		double corr;
 		jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
-		for (int i=0;i<max_comp;i++) {
+        /*
+         * extract the region and neighbour region of the edge
+         */
+        int count = 0;
+		while (count <max_comp) {
 		   int r1 = rand() % max_rand;
 		   int r2 = rand() % max_rand;
-		   int rr1 = edgeIndex[r1];
-		   int rr2 = edgeIndex[r2];
+		   int rr1 = this->edgeIndex[r1]; //edgeIndex is a vector of the integer keys of edges
+		   int rr2 = this->edgeIndex[r2];
+           jfile << " r1 " << r1  << " r2 " << r2 << " rr1 " << rr1 << " rr2 " << rr2 << endl;
 		   int s3 = 0;
 		   first.resize(0);
 		   second.resize(0);
-		   int s1 = edges[rr1].size();
+		   int s1 = edges[rr1].size(); //edge value is integer array of the hex identifiers of the edge
 		   int s2 = edges[rr2].size();
-		   if ((s1 != 0) && (s2 != 0))
+           int reg1 = rr1 / 1000;
+           int reg2 = rr2 / 1000;
+           int out1 = rr1 % 1000;
+           int out2 = rr2/1000;
+           jfile << "In random_correlate region 1 " << reg1 << " rr1 " << rr1 << " region 2 " << reg2 << " rr2 " << rr2 << endl;
+           if ((reg1 == reg2) || (reg1 == out2) || (reg2 == out1)) {
+              jfile << "in random_correlate neighbour detected reg 1 " << reg1 << " reg 2  " << reg2 << endl;
+              continue;
+           }
+           //need the mean to normalise the boundary vectors
+           double NNmean1 = this->meanNN(reg1);
+           double NNmean2 = this->meanNN(reg2);
+		   if ((s1 != 0) && (s2 != 0)) //neither edge is empty
 		   {
 			   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
                for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
                    first.push_back(this->NN[*itr]);
                }
+               first = this->meanzero_vector(first, NNmean1);
                for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
                    second.push_back(this->NN[*itr]);
                }
-			   first = meanzero_vector(first);
-			   second = meanzero_vector(second);
+               second = this->meanzero_vector(second,NNmean2);
 			   if (s1 < s2) {
 			       dinterp = equalize_vector(first , second);
 				   s3 = dinterp.size();
 				   corr = correlate_Eqvector(dinterp, second);
+                   if (corr == -2) {
+                       continue;
+                   }
 			   }
 			   else if (s1 > s2) {
 			       dinterp = equalize_vector(second, first);
 				   s3 = dinterp.size();
 				   corr = correlate_Eqvector(dinterp, first);
+                   if (corr == -2) {
+                       continue;
+                   }
 			   }
                else {
 			       corr = correlate_Eqvector(first, second);
@@ -1223,8 +1306,9 @@ double renewRegPerimeter (int regNum) {
 			   }
                jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl;
 		       kfile << corr << endl;
-		   }
-        }
+		   } // end of if test for empty edge
+        count++;
+        } // end of while loop
 	}
 
     //function to return the correlation of two vectors
@@ -1256,7 +1340,7 @@ double renewRegPerimeter (int regNum) {
 
     vector <double> equalize_vector (vector<double> svector, vector<double> lvector) {
         ofstream kfile;
-        kfile.open("eqVector.out",ios::app);
+        kfile.open(logpath + "/eqVector.out",ios::app);
         vector <double> result;
         int sSize, lSize = 0;
         double sStep, lStep = 0;
@@ -1269,28 +1353,27 @@ double renewRegPerimeter (int regNum) {
         double start = 0;
         double finish = 0;
         double value = 0;
-        int count = 1;
-		double delta = 0.00000001;
-        result.push_back(svector[0]);
-        for (int i = 0; i < sSize-1; i++) { // walk along the short vector
+		double delta = 0.0000001;
+        int marker = 0;
+        for (int i=0; i<sSize-1; i++) { // walk along the short vector
             start = i*sStep;
-            finish = (i+1)*sStep;
-            for (int j = 0; j < lSize; j++) { //walk along the long
-                if ((j*lStep > start) && (j*lStep) <= finish+delta) {
+            finish = (i+1)*sStep + delta;
+            while ((marker  < lSize) && (marker*lStep < finish)) { //walk along the long
+               // if (j*lStep >= start) {
                     //value = svector[i]*(j*lStep - start) + svector[i+1]*((j+1)*(finish - j*lStep));
-                    value = (svector[i]*(j*lStep - start) + svector[i+1]*(finish - j*lStep))/sStep;
+                    value = (svector[i]*(marker*lStep - start) + svector[i+1]*(finish - marker*lStep))/sStep;
                     result.push_back(value);
-                    count++;
-                }
+                    marker++;
+                //}
             }
         }
-        if (count != lSize){
-           kfile << " count " << count << " lSize " << lSize << " sSize " << sSize << " count " << count <<  " not filled" << endl;
+        if (marker != lSize){
+           kfile <<  " lSize " << lSize << " sSize " << sSize << " count " << marker <<  " not filled" << endl;
             //  result.resize(0);
             return result;
         }
         else {
-             kfile << " count " << count << " l size " << lSize << " sSize " << sSize << " count " << count << " filled" << endl;
+             kfile << " l size " << lSize << " sSize " << sSize << "resSize" << result.size() << endl;
             // result.push_back(svector[sSize - 1]);
             return result;
         }
@@ -1891,16 +1974,8 @@ double renewRegPerimeter (int regNum) {
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
         int countResult = 0;
-		vector<double> normalNN;
 		double NNmean;
-		int size = (int) this->regionIndex[regNum].size();
-		// create a vector of the NN values in the region
-		for (auto h : this->regionIndex[regNum])
-		{
-			//edgefile << "create normalNN j " << j <<endl;
-		  normalNN.push_back(NN[h.vi]);
-		}
-	    NNmean = this->mean_vector(normalNN);
+	    NNmean = this->meanNN(regNum);
 		cout << " mean of NN in region " << regNum << "is " <<NNmean << endl;
         //edgefile << " i iteration " << i << endl;
         for (auto j = this->regionList[regNum].begin(); j != this->regionList[regNum].end();j++)  {
@@ -1914,6 +1989,8 @@ double renewRegPerimeter (int regNum) {
           int edgeIndex2 = this->pair2int(edgePair2,this->base);
           int count1 = 0;
           int count2 = 0;
+          double correlationValue = -2;
+          edgefile << " meann of NN in region " << regNum << " is " << NNmean << endl;
           for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
 		  {
             tempvect1.push_back(this->NN[*itr] - NNmean);
@@ -1932,7 +2009,7 @@ double renewRegPerimeter (int regNum) {
           //edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
           if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 		  {
-            double correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+            correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
 		    result += fabs(correlationValue);
             countResult++;
             edgefile << " regNum = " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
@@ -1945,7 +2022,7 @@ double renewRegPerimeter (int regNum) {
 			  {
                 edgefile  << " regNum " << regNum << " count1 " << tempvect1.size() << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
 			   }
-              double correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+              correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
 		      result += fabs(correlationValue);
               countResult++;
               edgefile << " regNum " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
@@ -1957,7 +2034,7 @@ double renewRegPerimeter (int regNum) {
 			  {
                 edgefile << " regNum is " << regNum << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
 		      }
-              double correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+              correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
 		      result += fabs(correlationValue);
               countResult++;
               edgefile << " regNum = " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;

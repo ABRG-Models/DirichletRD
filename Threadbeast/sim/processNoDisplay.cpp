@@ -2,6 +2,7 @@
 #include <morph/tools.h>
 #include <morph/HexGrid.h>
 #include <morph/HdfData.h>
+#include <morph/Random.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -22,6 +23,7 @@
 #include "ksSolver.h"
 #include <morph/display.h>
 #include <morph/Config.h>
+#include <morph/Random.h>
 #include <cctype>
 #include <locale>
 #include <algorithm>
@@ -61,7 +63,6 @@ int main (int argc, char **argv)
     int Lcontinue = atoi(argv[9]); //logical to determine if coldstart
 
 	int numSectors = 12;
-	int numAdjust = 50000000;
 	double aNoiseGain = 0.1;
 	double boundaryFalloffDist = 0.0078;
     /*
@@ -94,6 +95,10 @@ int main (int argc, char **argv)
     bool skipMorph  = true;
     cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
 
+    unsigned int seed = time(NULL);
+
+    // A rando2yym uniform generator returning real/floating point types
+    morph::RandUniform<double> ruf(seed);
 
     /*
      * NOW create a log directory if necessary, and exit on any
@@ -121,8 +126,8 @@ int main (int argc, char **argv)
         }
     }
     ofstream gfile ( logpath + "/edges.out");
-    ofstream jfile ( logpath + "/results.txt");
-	ofstream degfile1 (logpath + "/degree1.data");
+    ofstream jfile ( logpath + "/results.txt",ios::app);
+	ofstream degfile1 (logpath + "/degree1.data",ios::app);
 	ofstream degfile2 (logpath + "/degree2.data");
 	ofstream degfile3 (logpath + "/degree3.data");
 
@@ -152,19 +157,19 @@ int main (int argc, char **argv)
     }
     else {
 		for (auto h : M.Hgrid->hexen) {
-		    double choice = morph::Tools::randDouble();
+		    double choice = ruf.get();
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
             // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
             // normal value. Close to boundary, noise is less.
 		    if (choice > 0.5)
 			{
-                M.NN[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
-                M.CC[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
+                M.NN[h.vi] = - ruf.get() * aNoiseGain +nnInitialOffset;
+                M.CC[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
 			}
 			else
 			{
-                M.NN[h.vi] = (morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
-                M.CC[h.vi] = (morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
+                M.NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
+                M.CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
 			}
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
@@ -204,7 +209,7 @@ int main (int argc, char **argv)
 	    double avAbsCorrelation = 0;
         avAbsCorrelation = M.correlate_edges();
 // look at correlation between random edges
-         const int max_comp = NUMPOINTS*6;
+         const int max_comp = NUMPOINTS*5;
          M.random_correlate(max_comp,0);
          cout << "after correlate_edges" << endl;
 //  cout<<"after correlate_edges" << endl;
@@ -342,16 +347,16 @@ int main (int argc, char **argv)
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
             // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
             // normal value. Close to boundary, noise is less.
-		        double choice = morph::Tools::randDouble();
+		        double choice = ruf.get ();
 		        if (choice > 0.5)
 				{
-                    S[j].NN[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
-                    S[j].CC[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
+                    S[j].NN[h.vi] = - ruf.get() * aNoiseGain +nnInitialOffset;
+                    S[j].CC[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
 				}
 		        else
 				{
-                    S[j].NN[h.vi] = (morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
-                    S[j].CC[h.vi] = (morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
+                    S[j].NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
+                    S[j].CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
 				}
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
@@ -366,7 +371,6 @@ int main (int argc, char **argv)
     // begin second time stepping loop
     for (int i=0;i<numsteps;i++)
     {
-	  int countHex = 0;
    	  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	  {
 		  //cout << "just before morph 1 step i "<< i <<endl;
@@ -547,16 +551,16 @@ int main (int argc, char **argv)
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
             // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
             // normal value. Close to boundary, noise is less.
-			 double choice = morph::Tools::randDouble();
+			 double choice = ruf.get();
 		     if (choice > 0.5)
 			 {
-                  S[j].NN[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
-                  S[j].CC[h.vi] = -(morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
+                  S[j].NN[h.vi] = - ruf.get() * aNoiseGain +nnInitialOffset;
+                  S[j].CC[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
 			 }
 		     else
 		   	 {
-                  S[j].NN[h.vi] = (morph::Tools::randDouble()) * aNoiseGain +nnInitialOffset;
-                  S[j].CC[h.vi] = (morph::Tools::randDouble()) * aNoiseGain + ccInitialOffset;
+                  S[j].NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
+                  S[j].CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
 			}
 
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
