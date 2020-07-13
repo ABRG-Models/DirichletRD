@@ -1,5 +1,6 @@
 #include <morph/tools.h>
 #include <morph/HdfData.h>
+#include <morph/Random.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -37,42 +38,79 @@ using namespace std;
 
 int main (int argc, char **argv)
 {
-    pair <float, float> centres[NUMPOINTS]; //seed points for regions
-    if (argc < 5) {
+    vector <pair <float, float>> centres; //seed points for regions
+    centres.resize(NUMPOINTS);
+    if (argc < 2) {
       std::cout << "not enough arguments " << argc << endl;
       return -1;
     }
-    double maxX = stod(argv[1]); 
-    double minX = stod(argv[2]); 
-    double maxY = stod(argv[3]);
-	double minY = stod(argv[4]);
+    double maxX = stod(argv[1]);
+    double minX = -maxX;
+    double maxY = maxX;
+	double minY = -maxY;
 
     ofstream afile ( "./centres.h");
 
-    cout << "numpoints" << NUMPOINTS << " maxX " << maxX << " minX " << minX << " maxY " << maxY << " minY " << minY << endl;
+    unsigned int seed = time(NULL);
 
+    cout << "numpoints " << NUMPOINTS << " maxX " << maxX << " minX " << minX << " maxY " << maxY << " minY " << minY << endl;
+    // A rando2yym uniform generator returning real/floating point types
+    morph::RandUniform<double> ruf(seed);
+    cout << "Random float number is " << ruf.get() << endl;
+    // You can find the min and max:
+    cout << "That float RNG has min and max: " << ruf.min() << "/" << ruf.max() << endl;
 
-   for (int i=0;i<NUMPOINTS;i++) {
-       double choice = morph::Tools::randDouble();
+    int count = 0;
+    while (count < NUMPOINTS) {
+       double choice = ruf.get();
        if ((0 < choice) && (choice <= 0.25)) {
-           centres[i].first = (morph::Tools::randDouble()) * maxX;
-           centres[i].second = (morph::Tools::randDouble()) * maxY  ;
-	   }	
-       else if ((0.25 < choice) && (choice <= 0.5))
-	   {
-           centres[i].first = (morph::Tools::randDouble()) * maxX;
-           centres[i].second = (morph::Tools::randDouble()) * minY  ;
-	   }
-	   else if ((0.5 < choice) && (choice  <= 0.75)) {
-           centres[i].first = (morph::Tools::randDouble()) * minX;
-           centres[i].second = (morph::Tools::randDouble()) * maxY  ;
-	   }	
-       else 
-	   {
-           centres[i].first = (morph::Tools::randDouble()) * minX;
-           centres[i].second = (morph::Tools::randDouble()) * minY;
-	   }
+           double x = ruf.get() * maxX;
+           double y  = ruf.get() * maxY;
+           cout << " radius " << x*x + y*y << endl;
+           if (x*x + y*y < maxX*maxX) {
+               centres[count].first = x;
+               centres[count].second = y  ;
+               cout << " if 1 " << endl;
+               count++;
+	       }
+       }
+       if ((0.25 < choice) && (choice <= 0.5)) {
+           double x = -ruf.get() * maxX;
+           double y  = ruf.get() * maxY;
+           cout << " radius " << x*x + y*y << endl;
+           if (x*x + y*y < maxX*maxX) {
+               centres[count].first = x;
+               centres[count].second = y;
+               cout << " if 2 " << endl;
+               count++;
+	       }
+       }
+	   if ((0.5 < choice) && (choice  <= 0.75)) {
+           double x = -ruf.get() * maxX;
+           double y  = -ruf.get() * maxY;
+           cout << " radius " << x*x + y*y << endl;
+           if (x*x + y*y < maxX*maxX) {
+               centres[count].first = x;
+               centres[count].second = y  ;
+               cout << " if 3 " << endl;
+               count++;
+	       }
+       }
+	   if ((0.75 < choice) && (choice  <= 1.0)) {
+           double x = ruf.get() * maxX;
+           double y  = -ruf.get() * maxY;
+
+           cout << " radius " << x*x + y*y << endl;
+           if (x*x + y*y < maxX*maxX){
+               centres[count].first = x;
+               centres[count].second = y;
+               cout << " if 4 " << endl;
+               count++;
+	       }
+       }
     } //end of setting of random value
+
+    std::sort(centres.begin(),centres.end());
 
     for (int i=0; i < NUMPOINTS; i++) {
 	  string sindex = to_string(i);

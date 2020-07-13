@@ -360,7 +360,7 @@ cout << "after neighbour array" << endl;
 	      cout << "after set_polars" << endl
 	;
    cout<<"at end of constructor" << " hexes counted " << totalHex << " n " << n << endl;
-  } //end of constructor
+  } //end of DRegion constructor
 
   //function, gets distance between points now supseded by morphologica function
   //float distanceFrom (const pair<float, float> cartesianPoint) const
@@ -793,8 +793,9 @@ double renewRegPerimeter (int regNum) {
 //function to print a vector
     void printDoubleVect (std::string path, vector<double> invect) {
         ofstream Vout (path ,ios::app);
-        for (auto j = invect.begin(); j != invect.end();j++) {
-           Vout << invect[*j] << "  ";
+        vector<double>::iterator ptr;
+        for (ptr = invect.begin(); ptr < invect.end(); ptr++) {
+           Vout << *ptr << "  ";
         }
         Vout << endl << "end of Vector " << endl;
     }
@@ -1235,6 +1236,161 @@ double renewRegPerimeter (int regNum) {
 	return result;
     } //end of function correlate_edges
 
+
+    // function to correlate matching edges
+    double adjacent_cosines(void)
+	{
+	    double result = 0;
+        ofstream edgefile(this->logpath + "/edgeCorrelations0.txt",ios::app);
+        ofstream edgerest(this->logpath + "/edgeRest.txt");
+		ofstream correl(this->logpath + "/correlate0.data",ios::app);
+        vector<double> tempvect1;
+        vector<double> tempvect2;
+        vector<double> tempvect3;
+        edgefile << " In correlate_edges " << endl;
+        // iterate over regions
+        //for each region iterate over region edges
+        // for each edge pair (i,j), (j,i) call correlate_vectors
+        // write the i,j and correlation to a file
+        // what happens if there are multiple entries in regionList at the start and the end?
+        // there are some regions that have this
+        int countResult = 0;
+        int printInt = 15;
+        std::string filei = logpath + "/ival.Vect";
+        std::string filej = logpath + "/jval.Vect";
+        std::string filek = logpath + "/adjacent.Vect";
+        ofstream iout (filei,ios::app);
+        ofstream jout (filej,ios::app);
+        for (int i = 0; i <NUMPOINTS; i++)
+		{
+
+            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++)
+			{
+                //edgefile << " j iteration " << *j << endl;
+                tempvect1.resize(0);
+                tempvect2.resize(0);
+                tempvect3.resize(0);
+                std::pair<int,int> edgePair1(i,*j);
+                int edgeIndex1 = this->pair2int(edgePair1,this->base);
+                std::pair<int,int>  edgePair2(*j,i);
+                int edgeIndex2 = this->pair2int(edgePair2,this->base);
+                int s1 = this->edges[edgeIndex1].size();
+                int s2 = this->edges[edgeIndex2].size();
+                if ((s1 < 5) || (s2 < 5)) {
+                    continue;
+                }
+                int count1 = 0;
+                int count2 = 0;
+                double correlationValue = 0;
+// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
+                double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
+                double xval = 0;
+                int xcount = 0;
+                for (auto itr = this->edges[edgeIndex1].begin(); itr < this->edges[edgeIndex1].end();itr++)
+				{
+                    xval = xcount * xstep;
+                    double val = cos (xval);
+                    tempvect1.push_back(val);
+                    count1++;
+                    xcount++;
+                }
+                xcount--;
+                edgefile << "size of edge 1 is " << s1 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+                xcount = 0;
+                xval = 0;
+                xstep = (PI * 1.0) / (1.0 * (s2 - 1));
+                for (auto itr = this->edges[edgeIndex2].begin(); itr < this->edges[edgeIndex2].end();itr++)
+				{
+                    xval = xcount * xstep;
+                    double val = cos(xval);
+                    tempvect2.push_back(val);
+                    count2++;
+                    xcount++;
+                }
+                xcount--;
+                edgefile << "size of edge 2 is " << s2 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+                if (edges[edgeIndex1].size() != 0) {
+                    printDoubleVect(filek,tempvect1);
+                }
+                if (edges[edgeIndex2].size() != 0) {
+                    printDoubleVect(filek, tempvect2);
+                }
+                std::reverse(tempvect2.begin(),tempvect2.end()); //vectors are indexed in opposite directions either side
+                if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+				{
+                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+		            result += fabs(correlationValue);
+                    if (countResult%printInt == 0) {
+                        iout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filei,tempvect1);
+                        jout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filej,tempvect2);
+                    }
+
+                    countResult++;
+                    edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				    correl << correlationValue << endl;
+                    //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
+                } //end of code if both edges are equal
+                else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+				{
+                    tempvect3 = this->equalize_vector(tempvect2,tempvect1);
+                    if (tempvect3.size() == 0) {
+                        edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    }
+                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+                    if (correlationValue > -2) {
+                        result += fabs(correlationValue);
+                    if (countResult%printInt == 0) {
+                        iout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filei,tempvect1);
+                        jout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filej,tempvect3);
+                    }
+                        countResult++;
+                        edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				        correl << correlationValue << endl;
+                    }
+                    else {
+                        edgefile << "ERROR: edges " << i << " and " << *j << " have not been equalised" << endl;
+                    }
+
+                }
+                else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+				{
+                    tempvect3 = this->equalize_vector(tempvect1,tempvect2);
+                    if (tempvect3.size() == 0){
+                        edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    }
+                    correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+                    if (correlationValue > -2) {
+                        result += fabs(correlationValue);
+                    if (countResult%printInt == 0) {
+                        iout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filei,tempvect3);
+                        jout << " Correlation Value = " << correlationValue << endl;
+                        printDoubleVect(filej,tempvect2);
+                    }
+                        countResult++;
+                        edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+				        correl << correlationValue << endl;
+                    }
+                    else {
+                        edgefile << "ERROR: edges " << i << " and " << *j << " have not been equalised" << endl;
+                    }
+                }
+                else
+                {
+                    edgefile << "error zero size for one of the edges " << i << " size " << tempvect1.size() << " second " << *j << " size " << tempvect2.size() << endl;
+                }
+            } //end of single edge comparison
+        } // end of loop on regions
+    edgefile << " countResult "<<countResult<<endl;
+	result = result / (countResult * 1.0);
+	edgefile.close();
+	return result;
+    } //end of function adjacent_cosines
+
     // method to compare random pairs of edges
 	void random_correlate(const int max_comp, const int morphNum) {
 	    ofstream jfile;
@@ -1311,6 +1467,102 @@ double renewRegPerimeter (int regNum) {
         } // end of while loop
 	}
 
+
+    // method to compare random pairs of edges
+	void random_cosines(const int max_comp, const int morphNum) {
+	    ofstream jfile;
+	    ofstream kfile;
+		int max_rand = edgeIndex.size();
+		string str = to_string(morphNum);
+		jfile.open(this->logpath + "/random_correlate" + str + ".txt",ios::app);
+		kfile.open(this->logpath + "/random_correlate" + str + ".data",ios::app);
+        string vectfile = logpath + "/random.Vect";
+		vector<double> dinterp, first, second;
+		double corr;
+		jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
+        /*
+         * extract the region and neighbour region of the edge
+         */
+        int count = 0;
+		while (count <max_comp) {
+		   int r1 = rand() % max_rand;
+		   int r2 = rand() % max_rand;
+		   int rr1 = this->edgeIndex[r1]; //edgeIndex is a vector of the integer keys of edges
+		   int rr2 = this->edgeIndex[r2];
+           jfile << " r1 " << r1  << " r2 " << r2 << " rr1 " << rr1 << " rr2 " << rr2 << endl;
+		   int s3 = 0;
+		   first.resize(0);
+		   second.resize(0);
+		   int s1 = edges[rr1].size(); //edge value is integer array of the hex identifiers of the edge
+		   int s2 = edges[rr2].size();
+           if ((s1<5) || (s2<5)) {
+               continue;
+           }
+           int reg1 = rr1 / 1000;
+           int reg2 = rr2 / 1000;
+           int out1 = rr1 % 1000;
+           int out2 = rr2/1000;
+           jfile << "In random_correlate region 1 " << reg1 << " rr1 " << rr1 << " region 2 " << reg2 << " rr2 " << rr2 << endl;
+           if ((reg1 == reg2) || (reg1 == out2) || (reg2 == out1)) {
+              jfile << "in random_correlate neighbour detected reg 1 " << reg1 << " reg 2  " << reg2 << endl;
+              continue;
+           }
+		   if ((s1 != 0) && (s2 != 0)) //neither edge is empty
+		   {
+			   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
+               double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
+               jfile << "size of edge 1 is " << s1 << " xstep is " << xstep << endl;
+               int xcount = 0;
+               double xval = 0;
+               for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
+                   xval = xcount * xstep;
+                   double val = cos(xval);
+                   first.push_back(val);
+                   xcount++;
+               }
+               xcount--;
+               jfile << "size of edge 1 is " << s1 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+               xcount = 0;
+               xval = 0;
+               xstep = (PI * 1.0) / (1.0 * (s2 - 1));
+               for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
+                   xval = xcount * xstep;
+                   double val = cos(xval);
+                   second.push_back(val);
+                   xcount++;
+               }
+               xcount--;
+               jfile << "size of edge 2 is " << s2 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+               std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
+               printDoubleVect(vectfile,first);
+               printDoubleVect(vectfile,second);
+			   if (s1 < s2) {
+			       dinterp = equalize_vector(first , second);
+				   s3 = dinterp.size();
+				   corr = correlate_Eqvector(dinterp, second);
+                   if (corr == -2) {
+                       continue;
+                   }
+			   }
+			   else if (s1 > s2) {
+			       dinterp = equalize_vector(second, first);
+				   s3 = dinterp.size();
+				   corr = correlate_Eqvector(dinterp, first);
+                   if (corr == -2) {
+                       continue;
+                   }
+			   }
+               else {
+			       corr = correlate_Eqvector(first, second);
+				   s3 = 0;
+			   }
+               jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl;
+		       kfile << corr << endl;
+		   } // end of if test for empty edge
+        count++;
+        } // end of while loop
+	}
+
     //function to return the correlation of two vectors
     double correlate_Eqvector(vector<double> vector1, vector<double> vector2) {
         ofstream jfile;
@@ -1321,13 +1573,21 @@ double renewRegPerimeter (int regNum) {
             jfile << "error: vectors must be same length" << endl;
             return -2;
         }
+        vector1 = this->meanzero_vector(vector1);
+        vector2 = this->meanzero_vector(vector2);
         double vector1Norm = 0;
         double vector2Norm = 0;
         double vector12Product = 0;
         unsigned int vectSize = vector1.size();
         for (unsigned int  i = 0; i != vectSize; i++) {
             vector1Norm +=  vector1[i]*vector1[i];
+            if (vector1Norm == 0) {
+               return -3;
+            }
             vector2Norm += vector2[i]*vector2[i];
+            if (vector2Norm == 0) {
+               return -4;
+            }
             vector12Product += vector1[i]*vector2[i];
         }
             vector1Norm = sqrt(vector1Norm);
