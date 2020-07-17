@@ -1,23 +1,7 @@
 /*
-#include <morph/tools.h>
-#include <morph/HexGrid.h>
-#include <morph/HdfData.h>
-#include <morph/Random.h>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <iomanip>
-#include <math.h>
-#include <random>
-#include <algorithm>
-#include <hdf5.h>
-#include <unistd.h>
-#include <bits/stdc++.h>
-#include <iostream>
-#include <sys/stat.h>
-#include <sys/types.h>
-*/
+ * computes evolution of Keller-Segel equations on a hexagonal grid
+ * in a domain which is tessellated into different regions
+ */
 #include "region.h"
 #include "analysis.h"
 #include "ksSolver.h"
