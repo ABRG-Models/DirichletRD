@@ -60,11 +60,11 @@ int main (int argc, char **argv)
 	int scale = stoi(argv[6]);
 	double xspan = stod(argv[7]);
     int numsteps = atoi(argv[8]); //length of integration
-    int Lcontinue = atoi(argv[9]); //logical to determine if coldstart
-
-	int numSectors = 12;
-	double aNoiseGain = 0.1;
-	double boundaryFalloffDist = 0.0078;
+    bool Lcontinue = atoi(argv[9]); //logical to determine if coldstart
+    bool LfixedSeed = atoi(argv[10]);
+    int numSectors = 12;
+    double aNoiseGain = 0.1;
+    double boundaryFalloffDist = 0.0078;
     /*
      * open the confgig file and read in the parameters
     morph::Config conf(jsonfile);
@@ -94,8 +94,13 @@ int main (int argc, char **argv)
     bool overwrite_logs = true;
     bool skipMorph  = true;
     cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
-
-    unsigned int seed = time(NULL);
+    
+    if (LfixedSeed) {
+        unsigned int seed = 1;
+    }
+    else {    
+        unsigned int seed = time(NULL);
+    }
 
     // A rando2yym uniform generator returning real/floating point types
     morph::RandUniform<double> ruf(seed);
