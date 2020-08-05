@@ -32,14 +32,14 @@ if (APPLE)
   # in that post, as I don't use any of the runtime library OpenMP
   # features. However, the code did not compile without it, so we've moved the links to omp to the later apple if case.
   #
-  set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -g -Xpreprocessor -fopenmp")
+  set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -g -Xpreprocessor ")
 
 else()
   # To use Intel compiler, call cmake as: cmake -DCMAKE_CXX_COMPILER=icpc ..
   if (CMAKE_CXX_COMPILER_ID MATCHES Intel)
-    set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -g -std=c++17 -xHOST -O3 -qopenmp -D__ICC__")
+    set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -g -std=c++17 -xHOST -O3  -D__ICC__")
   else() # GCC or Clang
-    set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -Wfatal-errors -g -Wno-unused-result -Wno-unknown-pragmas -march=native -O3 -fopenmp")
+    set(CMAKE_CXX_FLAGS "${MORPH_HOST_DEFINITION} -Wall -Wfatal-errors -g -Wno-unused-result -Wno-unknown-pragmas -march=native -O3 ")
   endif()
 endif()
 
@@ -171,10 +171,26 @@ add_executable(processNoDisplay processNoDisplay.cpp)
 target_compile_definitions(processNoDisplay PUBLIC FLT=double)
 target_link_libraries(processNoDisplay ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${ARMADILLO_LIBRARIES})
 
+#create a file of the difference between solutions with parameter steps
+add_executable(fieldDiff fieldDiff.cpp)
+target_compile_definitions(fieldDiff PUBLIC FLT=double)
+target_link_libraries(fieldDiff ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${ARMADILLO_LIBRARIES})
+
+#run to test cosine edge interpolation
+add_executable(processCosines processCosines.cpp)
+target_compile_definitions(processCosines PUBLIC FLT=double)
+target_link_libraries(processCosines ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${ARMADILLO_LIBRARIES})
+
 #run just to create display from noDisplay run
 add_executable(processField processField.cpp)
 target_compile_definitions(processField PUBLIC FLT=double COMPILE_PLOTTING)
-target_link_libraries(processField ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} morphdisplay0 armadillo)
+target_link_libraries(processField ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} morphdisplay0 armadillo)
+
+
+#run to execute a morph to circles and solve on them
+add_executable(processCircles processCircles.cpp)
+target_compile_definitions(processCircles PUBLIC FLT=double COMPILE_PLOTTING)
+target_link_libraries(processCircles ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} morphdisplay0 armadillo)
 
 
 #use json for parameters
@@ -186,6 +202,11 @@ target_link_libraries(processJson ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK}
 add_executable(setCentres setCentres.cpp)
 target_compile_definitions(setCentres PUBLIC FLT=double COMPILE_PLOTTING)
 target_link_libraries(setCentres ${MORPH_LDFLAGS} ${HDF5LIBLINK})
+
+#to sort centres
+add_executable(sortCentres sortCentres.cpp)
+target_compile_definitions(sortCentres PUBLIC FLT=double COMPILE_PLOTTING)
+target_link_libraries(sortCentres ${MORPH_LDFLAGS} ${HDF5LIBLINK})
 
 #to create random centres
 add_executable(testCorrelateVector testCorrelateVector.cpp)
@@ -201,6 +222,14 @@ add_executable(honda honda.cpp)
 target_compile_definitions(honda PUBLIC FLT=float)
 target_link_libraries(honda ${MORPH_LDFLAGS})
 
+add_executable(driverHexGeometry driverHexGeometry.cpp)
+target_compile_definitions(driverHexGeometry PUBLIC FLT=float)
+target_link_libraries(driverHexGeometry ${MORPH_LDFLAGS})
+
+add_executable(testConfig testConfig.cpp)
+target_compile_definitions(testConfig PUBLIC FLT=float)
+target_link_libraries(testConfig ${MORPH_LDFLAGS})
+
 #to resize centres
 add_executable(transform110 transform110.cpp)
 target_compile_definitions(transform110 PUBLIC FLT=double COMPILE_PLOTTING)
@@ -210,9 +239,12 @@ target_link_libraries(transform110 ${MORPH_LDFLAGS})
 #to test Visual
 add_executable(testVisual testVisual.cpp)
 target_compile_definitions(testVisual PUBLIC FLT=double COMPILE_PLOTTING)
-#target_link_libraries(testVisual ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} GL GLU glut morphologica armadillo glfw3)
 target_link_libraries(testVisual ${MORPH_LDFLAGS} ${OPENGL_LIBRARIES} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES}  morphologica armadillo glfw3)
 
+#to test Visual
+add_executable(testDisplay testDisplay.cpp)
+target_compile_definitions(testDisplay PUBLIC FLT=double COMPILE_PLOTTING)
+target_link_libraries(testDisplay ${MORPH_LDFLAGS} ${OPENGL_LIBRARIES} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES}  morphologica armadillo glfw3)
 # For debugging of variables:
 set(DEBUG_VARIABLES ON)
 if(DEBUG_VARIABLES)

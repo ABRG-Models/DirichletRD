@@ -65,107 +65,185 @@ public:
     vector<vector<int> > N; // hex neighbourhood
     vector<double> NN, CC; //hold the field values for each he
     morph::HexGrid* Hgrid;
-  // Class constructor
-    ksSolver(){};
+// empty constructor
+    ksSolver(){}
+// Constructor with boundary passed in
     ksSolver (int scale, double xspan, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
-    this->scale = scale;
-	this->xspan = xspan;
-	this->logpath = logpath;
-	this->bound = bound;
-	this->seedPoint = seedPoint;
-    ofstream afile (this->logpath + "/ksdebug.out",ios::app );
-    double s = pow(2.0, this->scale-1);
-	this->ds = 1.0/s;
-    n = 0;
-    Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
-    n = Hgrid->num();
-    afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
-    afile << "before filling H " << Hgrid->num() << endl;
-    afile << "after creating HexGrid"<<endl;
-    Hgrid->setBoundary(bound,false);
-    afile << "after setting boundary on  H " << Hgrid->num() << endl;
-    n = Hgrid->num();
-    afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
-    afile << "after  filling H " << " n = " << n <<endl;
-    N.resize(n);
-    Hgrid->computeDistanceToBoundary();
-    for (auto &h : Hgrid->hexen)
-	{
-	  afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
-	}
-// making a neighbour array for convenience
-/*
-   for (int idx = 0; idx < n; idx++) {
-     N[idx].resize(6);
-     N[idx][0] = Hgrid->d_ne[idx];
-     N[idx][1] = Hgrid->d_nne[idx];
-     N[idx][2] = Hgrid->d_nnw[idx];
-     N[idx][3] = Hgrid->d_nw[idx];
-     N[idx][4] = Hgrid->d_nsw[idx];
-     N[idx][5] = Hgrid->d_nse[idx];
-  }
- */
-  // this determines the type of hex
-      for (auto &h : Hgrid->hexen){
-        N[h.vi].resize(6);
-        if (!HAS_NE(h.vi)) {
-		  h.setBoundaryHex();
-		  N[h.vi][0] = h.vi;
+        this->scale = scale;
+        this->xspan = xspan;
+        this->logpath = logpath;
+        this->bound = bound;
+        this->seedPoint = seedPoint;
+        ofstream afile (this->logpath + "/ksdebug.out",ios::app );
+        double s = pow(2.0, this->scale-1);
+        this->ds = 1.0/s;
+        n = 0;
+        Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
+        n = Hgrid->num();
+        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        afile << "before filling H " << Hgrid->num() << endl;
+        afile << "after creating HexGrid"<<endl;
+        Hgrid->setBoundary(bound,false);
+        afile << "after setting boundary on  H " << Hgrid->num() << endl;
+        n = Hgrid->num();
+        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        afile << "after  filling H in boundary constructor" << " n = " << n <<endl;
+        N.resize(n);
+        this->setHexType();
+        Hgrid->computeDistanceToBoundary();
+        for (auto &h : Hgrid->hexen) {
+            afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
         }
-        else {
-          N[h.vi][0] = Hgrid->d_ne[h.vi];
+        NN.resize(n);
+        CC.resize(n);
+        afile << "after alloc NN and CC" <<endl;
+        pair<double, double> centroid = set_kS_polars(this->seedPoint);
+        cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+        cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
+    } // end of ksSolver constructor
+
+// constructor with radius passed in for solving on radial boundaries
+    ksSolver (int scale, double xspan, string logpath, float radius, pair<float, float> seedPoint) {
+        this->scale = scale;
+        this->xspan = xspan;
+        this->logpath = logpath;
+        this->bound = bound;
+        this->seedPoint = seedPoint;
+        ofstream afile (this->logpath + "/ksdebug.out",ios::app );
+        double s = pow(2.0, this->scale-1);
+        this->ds = 1.0/s;
+        n = 0;
+        Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
+        n = Hgrid->num();
+        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        afile << "before filling H " << Hgrid->num() << endl;
+        afile << "after creating HexGrid with radius "<< radius << endl;
+        Hgrid->setCircularBoundary(radius, seedPoint, false);
+        afile << "after setting boundary on  H " << Hgrid->num() << endl;
+        n = Hgrid->num();
+        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        afile << "after  filling H in circular constructor" << " n = " << n <<endl;
+        N.resize(n);
+         for (auto &h : this->Hgrid->hexen){
+            this->N[h.vi].resize(6);
+            if (!HAS_NE(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][0] = h.vi;
+            }
+            else {
+                this->N[h.vi][0] = Hgrid->d_ne[h.vi];
+            }
+
+            if (!HAS_NNE(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][1] = h.vi;
+            }
+            else {
+                this->N[h.vi][1] = Hgrid->d_nne[h.vi];
+            }
+
+            if (!HAS_NNW(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][2] = h.vi;
+            }
+            else {
+                this->N[h.vi][2] = Hgrid->d_nnw[h.vi];
+            }
+
+            if (!HAS_NW(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][3] = h.vi;
+            }
+            else {
+                this->N[h.vi][3] = Hgrid->d_nw[h.vi];
+            }
+
+            if (!HAS_NSW(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][4] = h.vi;
+            }
+            else {
+                this->N[h.vi][4] = Hgrid->d_nsw[h.vi];
+            }
+
+            if (!HAS_NSE(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][5] = h.vi;
+            }
+            else {
+                this->N[h.vi][5] = Hgrid->d_nse[h.vi];
+            }
+        } //end of loop over HexGri this->setHexType();
+        /*
+        Hgrid->computeDistanceToBoundary();
+        for (auto &h : Hgrid->hexen) {
+            afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
         }
-
-        if (!HAS_NNE(h.vi)) {
-		  h.setBoundaryHex();
-		  N[h.vi][1] = h.vi;
-        }
-        else {
-           N[h.vi][1] = Hgrid->d_nne[h.vi];
-        }
-
-        if (!HAS_NNW(h.vi)) {
-		  h.setBoundaryHex();
-		  N[h.vi][2] = h.vi;
-        }
-        else {
-          N[h.vi][2] = Hgrid->d_nnw[h.vi];
-        }
-
-        if (!HAS_NW(h.vi)) {
-		  h.setBoundaryHex();
-	      N[h.vi][3] = h.vi;
-         }
-         else {
-           N[h.vi][3] = Hgrid->d_nw[h.vi];
-         }
-
-         if (!HAS_NSW(h.vi)) {
-		   h.setBoundaryHex();
-		   N[h.vi][4] = h.vi;
-         }
-         else {
-           N[h.vi][4] = Hgrid->d_nsw[h.vi];
-         }
-
-         if (!HAS_NSE(h.vi)) {
-		   h.setBoundaryHex();
-		   N[h.vi][5] = h.vi;
-          }
-          else {
-            N[h.vi][5] = Hgrid->d_nse[h.vi];
-          }
-		}
-
-    NN.resize(n);
-    CC.resize(n);
-	afile << "after alloc NN and CC" <<endl;
-	pair<double, double> centroid = set_kS_polars(this->seedPoint);
-	cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
-	cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
- } // end of ksSolver constructor
+        */
+        NN.resize(n);
+        CC.resize(n);
+        afile << "after alloc NN and CC" <<endl;
+        pair<double, double> centroid = set_kS_polars(this->seedPoint);
+        cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+        cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
+    } // end of ksSolver constructor
 
 
+// this determines the type of hex
+    void setHexType() {
+        for (auto &h : this->Hgrid->hexen){
+            this->N[h.vi].resize(6);
+            if (!HAS_NE(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][0] = h.vi;
+            }
+            else {
+                this->N[h.vi][0] = Hgrid->d_ne[h.vi];
+            }
+
+            if (!HAS_NNE(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][1] = h.vi;
+            }
+            else {
+                this->N[h.vi][1] = Hgrid->d_nne[h.vi];
+            }
+
+            if (!HAS_NNW(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][2] = h.vi;
+            }
+            else {
+                this->N[h.vi][2] = Hgrid->d_nnw[h.vi];
+            }
+
+            if (!HAS_NW(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][3] = h.vi;
+            }
+            else {
+                this->N[h.vi][3] = Hgrid->d_nw[h.vi];
+            }
+
+            if (!HAS_NSW(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][4] = h.vi;
+            }
+            else {
+                this->N[h.vi][4] = Hgrid->d_nsw[h.vi];
+            }
+
+            if (!HAS_NSE(h.vi)) {
+                h.setBoundaryHex();
+                this->N[h.vi][5] = h.vi;
+            }
+            else {
+                this->N[h.vi][5] = Hgrid->d_nse[h.vi];
+            }
+        } //end of loop over HexGrid
+    } //end of method setHexType
+
+// method to calculate the Laplacian
     vector<double> getLaplacian(vector<double> Q, double dx) {
         double overds = 1./(1.5*29.0*29.0*dx*dx);
         vector<double> L(n,0.);

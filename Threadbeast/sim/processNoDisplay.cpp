@@ -78,15 +78,15 @@ int main (int argc, char **argv)
     bool overwrite_logs = true;
     bool skipMorph  = true;
     cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
-    
+    unsigned int seed;
     if (LfixedSeed) {
-        unsigned int seed = 1;
+        seed = 1;
     }
-    else {    
-        unsigned int seed = time(NULL);
+    else {
+        seed = time(NULL);
     }
 
-    // A rando2yym uniform generator returning real/floating point types
+    // A ra2yyndo2yym uniform generator returning real/floating point types
     morph::RandUniform<double> ruf(seed);
 
     /*
@@ -122,7 +122,7 @@ int main (int argc, char **argv)
 
 
 // initialise DRegion class setting scale
-    DRegion M(8,5.0,logpath);
+    DRegion M(scale, xspan, logpath);
     cout << "before dissect_boundary " << endl;
 	for (auto h : M.Hgrid->hexen) {
 	   cout << " first h.vi output " << h.vi << endl;
@@ -292,7 +292,7 @@ int main (int argc, char **argv)
          vector<ksSolver> S;
 		//S.resize(NUMPOINTS);
 // now set the boundaries for the regions, stored in curvedBoundary
-		M.populateBoundVector(1);
+		M.populateBoundPolygon(1);
          cout << "just after setting curved boundaries " << M.curvedBoundary.size()<<endl;
 		for (int j = 0;j<NUMPOINTS;j++)
 		{
@@ -499,7 +499,7 @@ int main (int argc, char **argv)
 //end of integration after first morphing
 //begin second morphing
 // now set the boundaries for the regions, stored in curvedBoundary
-		M.populateBoundVector(0);
+		M.populateBoundPolygon(0);
 		S.resize(0);
          cout << "just after setting curved boundaries second iteration" << M.curvedBoundary.size()<<endl;
 		for (int j = 0;j<NUMPOINTS;j++)
@@ -571,7 +571,6 @@ int main (int argc, char **argv)
    	  for (int j = 0;j<NUMPOINTS;j++) //loop over regions
 	  {
      	   S[j].step(dt, Dn, Dchi, Dc);
-     	 //  S[j].step(dt, Dn, Dchi, Dc);
 	  }
 
      } // end of second time stepping

@@ -1,15 +1,16 @@
-/* 
+/*
  * hexGeometry class
  * Author: John Brooke
  *
  * Date 2019/10
  *
- * Helper class for HexGrid and Dregion 
- * to be included from Dregion 
+ * Helper class for HexGrid and Dregion
+ * to be included from Dregion
  * (maybe change to HexGrid later)
  */
 using morph::HexGrid;
 using namespace std;
+#define PI 3.1415926535897932
 
 #define NE(hi) (this->Hgrid->d_ne[hi])
 #define HAS_NE(hi) (this->Hgrid->d_ne[hi] == -1 ? false : true)
@@ -28,96 +29,156 @@ using namespace std;
 
 #define NSW(hi) (this->Hgrid->d_nsw[hi])
 #define HAS_NSW(hi) (this->Hgrid->d_nsw[hi] == -1 ? false : true)
- 
-class hexGeometry 
+
+class hexGeometry
 {
 public:
-  double tol = 0.00001;
+    double tol = 0.00001;
 
-  struct point {
-    double first;
-	double second;
+    struct point {
+        double first;
+        double second;
+    };
 
- };
+
+    struct  lineSegment {
+        point start;
+        point end;
+    };
+
+    struct line {
+        double slope;
+        double intercept;
+    };
+
+    /*
+     * a directed line, angle is angle to x axis
+     * intercept is cut on y axis if slope not infinite
+     * intercept is cut on x axis if angle = +- pi/2
+     */
+    struct dLine {
+        double angle;
+        double intercept;
+    };
 
 
-  struct  lineSegment {
-    point start;
-	point end;
-  };
-
-  struct line {
-    double slope;
-	double intercept;
-  };
-
-  struct horzLine {
-    double slope = 0;
-	double intercept;
+    struct horzLine {
+        double slope = 0;
+        double intercept;
 	};
 
-  struct vertLine {
-    double slope = 999.999;
-	double xintercept;
+    struct vertLine {
+        double slope = 999.999;
+        double xintercept;
+    };
+
+    struct cIntersect {
+        bool intersect;
+        point p;
+    };
+
+    struct segDist {
+        bool inside = false;
+        double dist = 999.999;
 	};
 
-  struct cIntersect {
-  bool intersect;
-  point p;
-  };
+    int value;
 
-  struct segDist {
-    bool inside = false;
-	double dist = 999.999;
-	};
-
-  int value;
-
-  hexGeometry() {
+    hexGeometry() {
    //int value = 0;
    //point start;
    //start.first = 0.0;
    //start.second = 0.0;
-   }
-  
-  //returns line from lineSegment
-  unsigned int  segmentLineType(lineSegment s) {
-    unsigned int  result;
-	double denominator = s.end.first - s.start.first;
-	double numerator = s.end.first - s.start.first;
-	if (denominator == 0)
-	{
-	  return result == 0;
-	}
-	else if ( numerator == 0)  
-	{
-	  return result = 1;
-	}
-	else 
-	{
-	  return result = 2;
-	}
+    }
 
-  }	
+    point pair2point(std::pair<double,double> inpair) {
+        point result;
+        result.first = inpair.first;
+        result.second = inpair.second;
+        return result;
+    }
+
+    std::pair<double, double> point2pair(point inPoint) {
+        std::pair<double, double> result;
+        result.first = inPoint.first;
+        result.second = inPoint.second;
+        return result;
+    }
+
+    /*!
+     * Euclidean distance between two points
+     */
+    double distance(point a, point b) {
+        double result;
+        result = sqrt((a.first-b.first)*(a.first-b.first) + (a.second-b.second)*(a.second-b.second));
+        return result;
+    }
+
+  //returns linetype from lineSegment
+    unsigned int  segmentLineType(lineSegment s) {
+        unsigned int  result;
+        double denominator = s.end.first - s.start.first;
+        double numerator = s.end.first - s.start.first;
+        if (denominator == 0)
+        {
+            return result == 0;
+        }
+        else if ( numerator == 0)
+        {
+            return result = 1;
+        }
+        else
+        {
+            return result = 2;
+        }
+
+    }
 
   // returns line from lineSegment, assumes have tested for verticality
     line segment2line(lineSegment s)
 	{
-      line result;
-	  double denominator = s.end.first - s.start.first;
-	  double numerator = s.end.first - s.start.first;
-	  result.slope = numerator / denominator;
-	  result.intercept = (s.end.first * s.start.second - s.end.second * s.start.first)/denominator;
-	  return result;
-	}
+        line result;
+        double denominator = s.end.first - s.start.first;
+        double numerator = s.end.second - s.start.second;
+        result.slope = numerator / denominator;
+        result.intercept = (s.end.first * s.start.second - s.end.second * s.start.first)/denominator;
+        return result;
+    }
+
+    dLine segment2dLine (lineSegment s) {
+        dLine result;
+        double angle, intercept;
+        double denominator = s.end.first - s.start.first;
+        double numerator = s.end.second - s.start.second;
+        if (numerator >= 0) {
+            angle = atan2(numerator, denominator);
+        }
+        else {
+            angle = atan2(numerator, denominator) + 2.0 * PI;
+        }
+
+        if (denominator == 0.0) {
+            intercept = s.end.first;
+        }
+        else if (numerator >= 0.0) {
+            intercept = s.end.second - s.end.first * tan(angle);
+        }
+        else {
+            intercept = s.start.first + s.start.first * tan(angle);
+        }
+        result.angle = angle;
+        result.intercept = intercept;
+        return result;
+    }
+
 
 // returns a vertLine from a line segment
- vertLine segment2vert(lineSegment s) 
- {
-   vertLine result;
-   result.xintercept = s.end.first;
-   return result;
- }
+    vertLine segment2vert(lineSegment s)
+    {
+        vertLine result;
+        result.xintercept = s.end.first;
+        return result;
+    }
 
  horzLine segment2horz(lineSegment s) {
    horzLine result;
@@ -126,65 +187,71 @@ public:
  }
 
 	//returns lineSegment from two points
-	lineSegment createLineSegment(point a, point b)
-	{ 
-	  lineSegment result;
-	  result.start = a;
-	  result.end = b;
-	  return result;
+    lineSegment createLineSegment(point a, point b)
+	{
+        lineSegment result;
+        result.start = a;
+        result.end = b;
+        return result;
+	}
+    //returns a signed angle between 2 lines
+    double subtendLines( dLine start , dLine end) {
+        return start.angle - end.angle;
+    }
+
+//returns a bool if point is on line or not
+    bool pointOnLine(point p, line l) {
+        bool result;
+        double residual = p.second - p.first * l.slope - l.intercept;
+        if (residual < tol)
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+        return result;
+    }
+
+    bool pointOnhorzLine(point p, horzLine h)
+	{
+        bool result;
+        if ( (p.second - h.intercept) < tol)
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+        return result;
 	}
 
-	bool pointOnLine(point p, line l) {
-	  bool result;
-	  double residual = p.second - p.first * l.slope - l.intercept;
-	  if (residual < tol)
-	  {
-	    result = 1;
-	  }
-	  else 
-	  {
-	    result = 0;
-	  }
-	  return result;
-	}
-
-	bool pointOnhorzLine(point p, horzLine h) 
+    bool pointOnvertLine(point p, vertLine h)
 	{
-	  bool result;
-	  if ( (p.second - h.intercept) < tol)
-	  {
-	    result = 1;
-	  }
-	  else 
-	  {
-	    result = 0;
-	  }
-	  return result;
-	}  
-	
-	bool pointOnvertLine(point p, vertLine h) 
-	{
-	  bool result;
-	  if ( (p.first - h.xintercept) < tol)
-	  {
-	    result = 1;
-	  }
-	  else 
-	  {
-	    result = 0;
-	  }
-	  return result;
-	}  
+        bool result;
+        if ( (p.first - h.xintercept) < tol)
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+        return result;
+    }
 
 
 
 //returns line through point p perpendicular to line l
-   line perpPoint2Line (point p, line l) {
-     line result;
-	   result.slope = - 1.0 / l.slope;
-	   result.intercept = p.second - result.slope * p.first;
-	  return result;
+    line perpPoint2Line (point p, line l) {
+        line result;
+        result.slope = - 1.0 / l.slope;
+        result.intercept = p.second - result.slope * p.first;
+        return result;
 	}
+
 
 // returns horizontal line through point perpendicular to vertLine
   horzLine perpPoint2vertLine( point p, vertLine h) {
@@ -194,7 +261,7 @@ public:
   }
 
 // returns a vertLine through a point perpendicular to horzLine
-  vertLine perpPoint2horzLine(point p, horzLine h) 
+  vertLine perpPoint2horzLine(point p, horzLine h)
   {
     vertLine result;
 	result.xintercept = p.first;
@@ -236,7 +303,7 @@ public:
 	return result;
   }
 
-//gives the distance of a point from a line. 
+//gives the distance of a point from a line.
 	 double pointLineDist (point p1, line l1) {
 	   double result;
 	   line l2 = perpPoint2Line(p1,l1);
@@ -260,7 +327,7 @@ public:
 	 return result;
    }
 
-// returns a structure that determines distance of the point from the line derived from a 
+// returns a structure that determines distance of the point from the line derived from a
 // segment and if the point is within the rectangle defined by the segment
 	 segDist point2Seg (point p, lineSegment s) {
 	   segDist result;
@@ -270,21 +337,21 @@ public:
 	   //double pY = fmax(fabs(p.second - s.end.second),fabs(p.second - s.start.second));
 	   double pX = (p.first - s.end.first)*(p.first - s.start.first);
 	   double pY = (p.second - s.end.second)*(p.second - s.start.second);
-	     
+
 	   line l1 = segment2line(s);
 	   //if ((pX <= segX) || (pY <= segY)) {
 	   if (segX < this->tol) {
-		 if (pY < 0.0) 
+		 if (pY < 0.0)
 		   result.inside = 1;
-		 else 
+		 else
 		   result.inside = 0;
 	     vertLine h1 = segment2vert(s);
 		 result.dist = pointVertDist(p,h1);
 	   }
 	   else if (segY < this->tol) {
-		 if (pX < 0.0) 
+		 if (pX < 0.0)
 		   result.inside = 1;
-		 else 
+		 else
 		   result.inside = 0;
 	     horzLine h1 = segment2horz(s);
 		 result.dist = pointHorzDist(p,h1);
@@ -313,19 +380,19 @@ public:
 */
 
 //private:
- 
+
 //distance between two points
 double  getdist(point p1, point p2) {
    double result;
    result = sqrt((p1.first - p2.first)*(p1.first - p2.first) + (p1.second-p2.second)*(p1.second-p2.second));
    return result;
    }
-	 
 
-	 
 
- 
-	 
+
+
+
+
 };
 
 
