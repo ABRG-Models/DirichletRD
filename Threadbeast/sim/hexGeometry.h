@@ -35,6 +35,10 @@ class hexGeometry
 public:
     double tol = 0.00001;
 
+    enum lineType  {VERTICAL, HORIZONTAL, SLANTED};
+
+    const double INFINITE = 9999999.9999999;
+
     struct point {
         double first;
         double second;
@@ -84,12 +88,11 @@ public:
 
     int value;
 
+
+    //constructor
     hexGeometry() {
-   //int value = 0;
-   //point start;
-   //start.first = 0.0;
-   //start.second = 0.0;
     }
+
 
     point pair2point(std::pair<double,double> inpair) {
         point result;
@@ -115,34 +118,56 @@ public:
     }
 
   //returns linetype from lineSegment
-    unsigned int  segmentLineType(lineSegment s) {
-        unsigned int  result;
+    lineType segmentLineType(lineSegment s) {
+        lineType  result;
         double denominator = s.end.first - s.start.first;
         double numerator = s.end.first - s.start.first;
         if (denominator == 0)
         {
-            return result == 0;
+            return result = VERTICAL;
         }
         else if ( numerator == 0)
         {
-            return result = 1;
+            return result = HORIZONTAL;
         }
         else
         {
-            return result = 2;
+            return result = SLANTED;
         }
 
     }
 
-  // returns line from lineSegment, assumes have tested for verticality
+    lineType lineLineType (line l) {
+        lineType result;
+        if (l.slope = INFINITE) {
+            result = VERTICAL;
+        }
+        else if (l.slope = 0) {
+            result = HORIZONTAL;
+        }
+        else {
+            result = SLANTED;
+        }
+        return result;
+   }
+
+  // returns line from lineSegment, tests for verticality and horizontality
     line segment2line(lineSegment s)
 	{
         line result;
         double denominator = s.end.first - s.start.first;
         double numerator = s.end.second - s.start.second;
-        result.slope = numerator / denominator;
-        result.intercept = (s.end.first * s.start.second - s.end.second * s.start.first)/denominator;
-        return result;
+        bool reverse = false;
+        if (denominator == 0.0) {
+           result.slope = INFINITE;
+           result.intercept = s.end.first;
+           return result;
+        }
+        else {
+            result.slope = numerator / denominator;
+            result.intercept =  (s.end.first * s.start.second - s.end.second * s.start.first)/denominator;
+            return result;
+        }
     }
 
     dLine segment2dLine (lineSegment s) {
@@ -270,20 +295,83 @@ public:
 
 
 //returns a structure giving the result of the intersection of two lines.
-	cIntersect lineIntersect (line l1, line l2) {
-	  cIntersect result;
-	  if (l1.slope == l2.slope) {
-	    result.intersect = 0;
-		result.p.first = -999.999;
-		result.p.second = -999.999;
+    cIntersect lineIntersect (line l1, line l2) {
+        cIntersect result;
+        if ((l1.slope == l2.slope) && (l1.intercept == l2.intercept)) {
+            result.intersect = true;
+            result.p.first = INFINITE;
+            result.p.second = INFINITE;
 		}
-	   else {
-	     result.intersect = 1;
-		 result.p.first = (l2.intercept - l1.intercept) / (l1.slope - l2.slope);
-		 result.p.second = (l1.slope*l2.intercept - l1.intercept*l2.slope) / (l1.slope - l2.slope);
+        else if ((l1.slope == l2.slope) && (l1.intercept != l2.intercept)) {
+            result.intersect = false;
+            result.p.first = INFINITE;
+            result.p.second = INFINITE;
+        }
+        else if (lineLineType(l1) == VERTICAL) {
+            result.intersect = true;
+            result.p.first = l1.intercept;
+            result.p.second = l2.slope * l1.intercept + l2.intercept;
+        }
+        else if (lineLineType(l2) == VERTICAL) {
+            result.intersect = true;
+            result.p.first = l2.intercept;
+            result.p.second = l1.slope * l2.intercept + l1.intercept;
+        }
+        else {
+            result.intersect = true;
+            result.p.first = (l2.intercept - l1.intercept) / (l1.slope - l2.slope);
+            result.p.second = (l1.slope*l2.intercept - l1.intercept*l2.slope) / (l1.slope - l2.slope);
         }
 		return result;
-     }
+    }
+
+    /*!
+     * returns true if point is within the box defined by a line segment
+     */
+    bool pointInLineSegmentBox(point p, lineSegment s) {
+        bool result = false;
+        double tol = 0.1;
+        double xsign = (p.first - s.start.first) * (p.first - s.end.first);
+        double ysign = (p.second - s.start.second) * (p.second - s.end.second);
+        if (s.start.first > s.end.first - tol && s.start.first < s.end.first + tol) {
+            xsign = 0.0;
+            ysign = (p.second - s.start.second) * (p.second - s.end.second);
+        }
+        else if (s.start.second > s.end.second + tol && s.start.second < s.end.second + tol) {
+            xsign = (p.first - s.start.first) * (p.first - s.end.first);
+            ysign = 0.0;
+        }
+        else {
+            xsign = (p.first - s.start.first) * (p.first - s.end.first);
+            ysign = (p.second - s.start.second) * (p.second - s.end.second);
+        }
+        if ((xsign <= 0.0) && (ysign <= 0.0)) {
+            result = true;
+        }
+        return result;
+    }
+
+    /*!
+     * returns with bool member of cIntersect true if line segments intersect with their
+     * point of intersection inside both bounding boxes. Point member given by the
+     * line intersection.
+     */
+    cIntersect lineSegmentIntersect (lineSegment s1, lineSegment s2) {
+        cIntersect result;
+        line l1 =  segment2line(s1);
+        line l2 = segment2line(s2);
+        result = lineIntersect(l1, l2);
+        //return result;
+        //if (result.intersect == true && pointInLineSegmentBox(result.p,s1) && pointInLineSegmentBox(result.p,s2)) {
+       if (pointInLineSegmentBox(result.p,s1) && pointInLineSegmentBox(result.p,s2)) {
+            return result;
+        }
+        else {
+            result.intersect = false;
+            return result;
+        }
+    }
+
 
 // returns a structure giving the result of the intersection of a line and a horzLine
   cIntersect horzIntersect (horzLine h, line l) {
@@ -367,6 +455,112 @@ public:
 	   }
 	   return result;
 	  }
+
+     std::vector<lineSegment> hexSides(morph::Hex h) {
+        vector<lineSegment> result;
+        result.resize(6);
+        double lr = static_cast<double> (h.getLR());
+        double sr = static_cast<double> (h.getSR());
+        point point1, point2;
+        point1.first = h.x + sr; point1.second = h.y + lr/2.0;
+        point2.first = h.x; point2.second = h.y + lr;
+        result[0] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = h.x - sr; point2.second = h.y + lr/2.0;
+        result[1] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = h.x - sr; point2.second = h.y - lr/2.0;
+        result[2] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = h.x; point2.second = h.y - lr;
+        result[3] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = h.x + sr; point2.second = h.y - lr/2.0;
+        result[4] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = h.x + sr; point2.second = h.y + lr/2.0;
+        result[5] = createLineSegment(point1, point2);
+        //now return the vector of line segments
+        return result;
+    }
+
+
+     std::vector<lineSegment> hexSides(point p, double d) {
+        vector<lineSegment> result;
+        result.resize(6);
+        double lr = 2.0 * d / sqrt(3.0);
+        double sr = d;
+        point point1, point2;
+        point1.first = p.first + sr; point1.second = p.second + lr/2.0;
+        point2.first = p.first; point2.second = p.second + lr;
+        result[0] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = p.first - sr; point2.second = p.second + lr/2.0;
+        result[1] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = p.first - sr; point2.second = p.second - lr/2.0;
+        result[2] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = p.first; point2.second = p.second - lr;
+        result[3] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = p.first + sr; point2.second = p.second - lr/2.0;
+        result[4] = createLineSegment(point1, point2);
+        point1 = point2;
+        point2.first = p.first + sr; point2.second = p.second + lr/2.0;
+        result[5] = createLineSegment(point1, point2);
+        //now return the vector of line segments
+        return result;
+    }
+
+    bool pointInHexBox (point p, morph::Hex h) {
+        bool result;
+        double upperx = h.x + h.getSR();
+        double lowerx = h.x - h.getSR();
+        double uppery = h.y + h.getLR();
+        double lowery = h.y - h.getLR();
+        result = (p.first >= lowerx && p.first <= upperx && p.second >= lowery && p.second <= uppery);
+        return result;
+    }
+
+
+
+    bool hexIntersectLineSegment(lineSegment s, point p, double d) {
+        bool result = false;
+        vector<lineSegment> hexSides = this->hexSides(p, d);
+        for (int i=0; i<6; i++) {
+            if (lineSegmentIntersect(hexSides[i], s).intersect) {
+                result = true;
+                break;
+            }
+        }
+        return result;
+    }
+
+    bool hexIntersectLineSegment(lineSegment s, morph::Hex h) {
+        bool result = false;
+        point pt;
+        pt.first = 0.0;
+        pt.second = 0.0;
+        vector<lineSegment> hexSides = this->hexSides(h);
+        int intersected = 0;
+        for (int i=0; i<6; i++) {
+            pt = lineSegmentIntersect(hexSides[i], s).p;
+                if (lineSegmentIntersect(hexSides[i],s).intersect) {
+                    result = true;
+                    intersected++;
+            }
+        }
+        if (intersected > 0) {
+            cout << " fish result " << result << " intersected " << intersected << endl;
+        }
+        return result;
+    }
+
+
+
+
+
 /* now moved to DRegion
 	 bool lineIntersectHex(lineSegment s, Hex h, HexGrid hGrid) {
 	   bool result;

@@ -136,6 +136,8 @@ int main (int argc, char **argv)
 	   }
     vector<std::pair<double,double>> centroids;
     centroids = M.dissectBoundary(); //dissect region boundary
+    M.setRadialSegments();
+    double hexWidth = M.Hgrid->hexen.begin()->d/2.0;
 // include the analysis methods
     Analysis L;
 
@@ -191,23 +193,48 @@ int main (int argc, char **argv)
      morph::Gdisplay isp(900, 900, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
      cout << "after setting display" << endl;
      isp.resetDisplay (fix, eye, rot);
-     cout << "after setting display" << endl;
+    cout << "after setting display" << endl;
+    for (int j=0; j<NUMPOINTS;j++) {
+        vector<hexGeometry::lineSegment> regionLineSegments;
+        regionLineSegments = M.polygonSides(j, true);
+        unsigned int sideSize = regionLineSegments.size();
+        cout << "sideSize " << sideSize << " region " << j << endl;
+        for (auto& h : M.Hgrid->hexen) {
+            for (unsigned int i=0; i<sideSize; i++) {
+                hexGeometry::point p;
+                //p.first = M.Hgrid->d_x[h.vi];
+                p.first = h.position()[0];
+                p.second = h.position()[1];
+               // p.second = M.Hgrid->d_y[h.vi];
+               // if (M.hGeo->hexIntersectLineSegment(regionLineSegments[i], p, hexWidth)) {
+               if (M.hGeo->hexIntersectLineSegment(regionLineSegments[i],h)){
+                        h.setFlags(HEX_IS_REGION_BOUNDARY);
+                }
+            }
+        }
+    }
+
     //plot stuff here.
      int boundaryCount = 0;
      for (auto h : M.Hgrid->hexen) {
-         if (M.Creg[h.vi] ==  1 ) {
+         //if (M.Creg[h.vi] ==  1 ) {
+         if (h.testFlags(HEX_IS_REGION_BOUNDARY) == true) {
              isp.drawHex (h.position(), (h.d/2.0f), cl_a);
              boundaryCount++;
          }
          else if (M.Creg[h.vi] > 1) {
               isp.drawHex (h.position(), (h.d/2.0f), cl_c);
          }
+         else if (M.Creg[h.vi] == 1) {
+              isp.drawHex (h.position(), (h.d/2.0f), cl_b);
+         }
+
+
        //  else
         // {
           //   isp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
          //}
      }
-     float hexWidth = M.Hgrid->hexen.begin()->d/2.0;
      for (int regcnt = 0; regcnt < NUMPOINTS;regcnt++) {
          std::array<float,3> pos = {M.centres[regcnt].first, M.centres[regcnt].second, 0};
          cout << " drawing centre of region x " << M.centres[regcnt].first << " y " << M.centres[regcnt].second << endl;
@@ -510,32 +537,28 @@ int main (int argc, char **argv)
 // begin second time stepping loop
     for (int i=0;i<numsteps;i++)
     {
-        int countHex = 0;
         for (int j = 0;j<NUMPOINTS;j++) //loop over regions
         {
             S[j].step(dt, Dn, Dchi, Dc);
         }
-        if (i%numprint == 0)
-	    {
-          //set up display
-            morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-            mmdisp.resetDisplay (fix, eye, rot);
-            for (int j = 0;j<NUMPOINTS;j++) //loop over regions
-            {
-                cout << "in print routine"<<endl;
-                unsigned int regsize = S[j].Hgrid->num();
-                cout << "in loop over regions " << " size is " << regsize << endl;
-                countHex += regsize;
-                vector<double> regionNN;
-                vector<double> tempNN;
-			for (unsigned int k=0;k<regsize;k++)
-			{
-                tempNN.push_back(S[j].NN[k]);
-                cout << "tempNN " << S[j].NN[k] << " k " << k  << endl;
+    }
+
+    //set up display
+    morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+    mmdisp.resetDisplay (fix, eye, rot);
+    for (int j = 0;j<NUMPOINTS;j++) //loop over regions
+        {
+            cout << "in print routine"<<endl;
+            unsigned int regsize = S[j].Hgrid->num();
+            cout << "in loop over regions " << " size is " << regsize << endl;
+            vector<double> tempNN;
+            vector<double> regionNN;
+			for (auto h : S[j].Hgrid->hexen) {
+                tempNN.push_back(S[j].NN[h.vi]);
+                cout << "tempNN " << S[j].NN[h.vi] << " h.vi " << h.vi  << endl;
 			}
 //normalise over the region then write normalised values to normalised NN over hexGrid
             regionNN = L.normalise(tempNN);
-		    cout << "total number of hexes counted " << countHex << endl;
             int idx = 0;
 		    for (auto &h : S[j].Hgrid->hexen)
 			{
@@ -559,18 +582,14 @@ int main (int argc, char **argv)
                 idx++;
             }
         }//end of loop over regions
-		cout << "just before redraw display 1" << endl;
-        mmdisp.redrawDisplay();
-		cout << "just after redraw display 1" << endl;
-		cout << "just after to_string"<<endl;
-		mmdisp.saveImage(logpath + "/nnField2.png");
-        usleep (1000000); // one hundred seconds
-		cout << "just after saveImage 1" << endl;
-		mmdisp.closeDisplay();
-		cout << "just after close display 1 i " << i << endl;
-		}//end of loop on numprint drawing fields
-		 //cout << "iteration " << i << " of morph 1 time step" << endl;
-    } // end of second time stepping
+    cout << "just before redraw display 1" << endl;
+    mmdisp.redrawDisplay();
+    cout << "just after redraw display 1" << endl;
+    cout << "just after to_string"<<endl;
+    mmdisp.saveImage(logpath + "/nnField2.png");
+    usleep (1000000); // one hundred seconds
+    cout << "just after saveImage 1" << endl;
+    mmdisp.closeDisplay();
 
     //code run at end of timestepping
     //first save the  ofstream outFile;
@@ -703,41 +722,67 @@ int main (int argc, char **argv)
 //       if (skipMorph) return 0;
 //begin second morphing
 // now set the boundaries for the regions, stored in curvedBoundary
-
-        M.populateBoundPolygon(1);
-        cout << "just after setting curved boundaries second iteration" << M.curvedBoundary.size()<<endl;
-		for (int j = 0;j<NUMPOINTS;j++)
-		{
-		  S[j].Hgrid->setBoundary(M.curvedBoundary[j], false);
-		  cout << "in the loop setting the polygonal boundary "<< j <<endl;
-		}
-		cout << "just after setting the polygonal boundary"<<endl;
-// now draw the intial tesselation
-            morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-            ndisp.resetDisplay (fix, eye, rot);
-    		for (int j=0;j<NUMPOINTS;j++)
-    		{
-              // plot stuff here.
-    		  int boundaryCount = 0;
-    		  int internalCount = 0;
-    		  cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
-              for (auto h : S[j].Hgrid->hexen) {
-                if (h.boundaryHex())
-    			{
-    		      //cout << "h.boundaryHex in region " << j <<  " h.vi " << h.vi << endl;
-    		     // cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
-                  ndisp.drawHex (h.position(), (h.d/2.0f), cl_a);
-    			  boundaryCount++;
-    			}
-                else
-    			{
-    		      //cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
-    		      //cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
-                    ndisp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
-    				internalCount++;
+    for (int j=0; j<NUMPOINTS;j++) {
+        vector<hexGeometry::lineSegment> regionLineSegments;
+        regionLineSegments = M.polygonSides(j, true);
+        unsigned int sideSize = regionLineSegments.size();
+        for (auto& h : S[j].Hgrid->hexen) {
+            for (unsigned int i=0; i<sideSize; i++) {
+                if (M.hGeo->hexIntersectLineSegment(regionLineSegments[i], h)) {
+                        h.setFlags(HEX_IS_REGION_BOUNDARY);
                 }
             }
-    		//cout << "boundaryCount 2 "<<boundaryCount<< " internalCount 2 "<< internalCount <<endl;
+        }
+    }
+    M.populateBoundPolygon(1);
+    std::vector<std::vector<std::list<morph::Hex>::iterator>> regionpHexList; //vector of vectors of pHexes (iterators)
+    regionpHexList.resize(NUMPOINTS);
+    cout << "just after setting curved boundaries second iteration " << M.curvedBoundary.size()<<endl;
+    std::pair<float,float> regionCentroid[NUMPOINTS];
+    for (int j = 0;j<7;j++) {
+        morph::BezCurvePath<float> bound = M.curvedBoundary[j];
+        cout << "after assigning BexCurvePath bound j " << j << endl;
+        //regionpHexList[j] = S[j].Hgrid->getRegion(M.curvedBoundary[j], regionCentroid[j], true);
+        S[j].Hgrid->setBoundaryOnly(bound, false);
+        cout << " after setting BoundaryOnly j " << j << endl;
+    }
+    for (int j = 8;j<NUMPOINTS;j++) {
+        morph::BezCurvePath<float> bound = M.curvedBoundary[j];
+        cout << "after assigning BexCurvePath bound j " << j << endl;
+        //regionpHexList[j] = S[j].Hgrid->getRegion(M.curvedBoundary[j], regionCentroid[j], true);
+        S[j].Hgrid->setBoundaryOnly(bound, false);
+        cout << " after setting BoundaryOnly j " << j << endl;
+    }
+    cout << "just after setting the polygonal boundary"<<endl;
+// now draw the intial tesselation
+    morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+    ndisp.resetDisplay (fix, eye, rot);
+    for (int j=0;j<NUMPOINTS;j++)
+    {
+        // plot stuff here.
+        int boundaryCount = 0;
+        int internalCount = 0;
+        int totalCount = 0;
+        cout << "size of region j "<< j << " is " << M.regionpHexList[j].size() << " size of Hexgrid " << S[j].Hgrid->num() << endl;
+        //cout << "size of region j "<< j << " is " << S[j].Hgrid->num() << " size of Hexgrid " << S[j].Hgrid->num() << endl;
+        //for (auto h : regionpHexList[j]) {
+        for (auto h : S[j].Hgrid->hexen) {
+            totalCount++;
+            if (h.testFlags(HEX_IS_REGION_BOUNDARY) == true)
+        //   if (h.boundaryHex())
+            {
+                ndisp.drawHex (h.position(), (h.d/2.0f), cl_a);
+                boundaryCount++;
+            }
+            else
+            {
+                //cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
+    		    //cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
+               // ndisp.drawHex (h->position(), offset, (h->d/2.0f), cl_b);
+                internalCount++;
+            }
+            }
+    		cout << "boundaryCount 2 "<<boundaryCount<< " internalCount 2 "<< internalCount << " totalCount 2 = " << totalCount << "  region size " << regionpHexList[j].size() << endl;
 
 
             // Draw small hex at boundary centroid
@@ -748,17 +793,19 @@ int main (int argc, char **argv)
             cout << "d/2: " << S[j].Hgrid->hexen.begin()->d/4.0f << endl;
             //ndisp.drawHex (c, offset, (S[j].Hgrid->hexen.begin()->d/2.0f), cl_a);
             cout << "boundaryCentroid x,y: " << c[0] << "," << c[1] << endl;
+            cout << "Region centroid x "<< regionCentroid[j].first << " y " << regionCentroid[j].second <<endl;
+    }//end of loop on NUMPOINTS to plot boundaries
+    usleep (1000000);
+    cout << "before redrawDisplay 2 " << endl;
+    ndisp.redrawDisplay();
+    cout << "after redrawDisplay 2" << endl;
+    usleep (1000000); // one hundred seconds
+    ndisp.saveImage(logpath + "/Tesselation3.png");
+    ndisp.closeDisplay();
 
-          }//end of loop on NUMPOINTS to plot boundaries
-          usleep (100000);
-    	  cout << "before redrawDisplay 2 " << endl;
-          ndisp.redrawDisplay();
-    	  cout << "after redrawDisplay 2" << endl;
-          usleep (100000); // one hundred seconds
-          ndisp.saveImage(logpath + "/Tesselation3.png");
-          ndisp.closeDisplay();
-
-
+      if (skipMorph) {
+          return 0;
+      }
      //begin second time stepping loop
 	/*
     for (int i=0;i<numsteps;i++)
