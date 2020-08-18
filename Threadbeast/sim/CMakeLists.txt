@@ -188,9 +188,14 @@ target_link_libraries(processField ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK
 
 
 #run to execute a morph to circles and solve on them
-add_executable(processCircles processCircles.cpp)
-target_compile_definitions(processCircles PUBLIC FLT=double COMPILE_PLOTTING)
-target_link_libraries(processCircles ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} morphdisplay0 armadillo)
+add_executable(displayCircles displayCircles.cpp)
+target_compile_definitions(displayCircles PUBLIC FLT=double COMPILE_PLOTTING)
+target_link_libraries(displayCircles ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} morphdisplay0 armadillo)
+
+#run to execute a morph to circles and solve on them
+add_executable(nodisplayCircles nodisplayCircles.cpp)
+target_compile_definitions(nodisplayCircles PUBLIC FLT=double COMPILE_PLOTTING)
+target_link_libraries(nodisplayCircles ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} armadillo)
 
 
 #use json for parameters
@@ -224,7 +229,7 @@ target_link_libraries(honda ${MORPH_LDFLAGS})
 
 add_executable(driverHexGeometry driverHexGeometry.cpp)
 target_compile_definitions(driverHexGeometry PUBLIC FLT=float)
-target_link_libraries(driverHexGeometry ${MORPH_LDFLAGS})
+target_link_libraries(driverHexGeometry ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} morphdisplay0 armadillo)
 
 add_executable(testConfig testConfig.cpp)
 target_compile_definitions(testConfig PUBLIC FLT=float)
@@ -241,10 +246,16 @@ add_executable(testVisual testVisual.cpp)
 target_compile_definitions(testVisual PUBLIC FLT=double COMPILE_PLOTTING)
 target_link_libraries(testVisual ${MORPH_LDFLAGS} ${OPENGL_LIBRARIES} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES}  morphologica armadillo glfw3)
 
-#to test Visual
+#to test morphologica region functionality
+add_executable(testSebRegion testSebRegion.cpp)
+target_compile_definitions(testSebRegion PUBLIC FLT=double COMPILE_PLOTTING)
+target_link_libraries(testSebRegion ${MORPH_LDFLAGS} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES} morphdisplay0 armadillo)
+
+#to test Display classs
 add_executable(testDisplay testDisplay.cpp)
 target_compile_definitions(testDisplay PUBLIC FLT=double COMPILE_PLOTTING)
 target_link_libraries(testDisplay ${MORPH_LDFLAGS} ${OPENGL_LIBRARIES} ${HDF5LIBLINK} ${JSONLIBLINK} ${X11_LIBRARIES}  morphologica armadillo glfw3)
+
 # For debugging of variables:
 set(DEBUG_VARIABLES ON)
 if(DEBUG_VARIABLES)
