@@ -130,12 +130,13 @@ public:
  //class constructor
     DRegion (int scale, double xspan, string logpath) {
         this->scale = scale;
-   	 this->logpath = logpath;
-   	 this->xspan = xspan;
+        this->logpath = logpath;
+        this->xspan = xspan;
         double s = pow(2.0, scale-1);
-   	 this->ds = 1.0/s;
+        this->ds = 1.0/s;
         ofstream afile (this->logpath + "/debug.out" );
         ofstream jfile (this->logpath + "/correlateVector.out");
+        ifstream bfile("./centres0.data");
         cout << "before creating BezCurve" <<endl;
         srand(time(NULL)); //reseed random number generator
         n = 0;
@@ -145,19 +146,21 @@ public:
         double maxX = Hgrid->getXmax(0.0);
         afile << " the maximum value of x is is " << maxX << endl;
         hGeo = new hexGeometry();
-   // now read in the boundary either as a header or as a morph read
-   //   #include "bez5side.h"
-
-   // morph::ReadCurves r("./rat.svg");
-   // Hgrid->setBoundary (r.getCorticalPath(),true);
-   // this was the original call, I am trying out setBoundaryDregion for debugging
-   //    Hgrid->setBoundary(bound,false);
-       Hgrid->setEllipticalBoundary (1.0, 1.0);
-       cout << "after setting boundary on  H " << Hgrid->num() << endl;
-       n = Hgrid->num();
-       cout << "after  boundary set HexGrid has " <<  n << " hexes" << endl;
-   // now set the centres either read in or randomly generated
-       #include "centres.h"
+        // now read in the boundary either as a header or as a morph read
+        //   #include "bez5side.h"
+        // morph::ReadCurves r("./rat.svg");
+        // Hgrid->setBoundary (r.getCorticalPath(),true);
+        // this was the original call, I am trying out setBoundaryDregion for debugging
+        //    Hgrid->setBoundary(bound,false);
+        Hgrid->setEllipticalBoundary (1.0, 1.0);
+        cout << "after setting boundary on  H " << Hgrid->num() << endl;
+        n = Hgrid->num();
+        cout << "after  boundary set HexGrid has " <<  n << " hexes" << endl;
+        // now set the centres either read in or randomly generated
+        //    #include "centres.h"
+        for (unsigned int i=0; i<NUMPOINTS; i++) {
+            bfile >> centres[i].first >> centres[i].second;
+        }
        cout << "after setting centres " << endl;
    //these are the vectors of vectors for the regions
        regionDist.resize(n);
@@ -700,7 +703,7 @@ double renewRegPerimeter (int regNum) {
 // method to produes intermediate points in a region boundary
     vector <hexGeometry::point> divideRegionBoundary(int regNum, int ticks) {
         vector <hexGeometry::point> vertices;
-        int size = vCoords[regNum].size();
+        unsigned int size = vCoords[regNum].size();
         cout << "In divideRegionBoundary size " << size << endl;
         for (unsigned int i=0; i < size; i++) {
             double xstart = this->vCoords[regNum][i].first;
@@ -725,7 +728,7 @@ double renewRegPerimeter (int regNum) {
     bool inRegion(int regNum, std::pair<double, double> inPoint, vector<hexGeometry::point> cutter, double tol) {
         cout << " in inRegion  region " <<  regNum  << endl;
         bool result;
-        int size = cutter.size();
+        unsigned int size = cutter.size();
         cout << "size " << size << " point.x " << inPoint.first << " point.y " << inPoint.second << endl;
         hexGeometry::point testPoint;
         testPoint.first = inPoint.first;
@@ -774,17 +777,15 @@ double renewRegPerimeter (int regNum) {
     bool testRegionVertices(int regNum) {
         bool result;
         ofstream outfile ("./logs/testVertices.txt",ios::app);
-        int size = vCoords[regNum].size();
+        unsigned int size = vCoords[regNum].size();
         hexGeometry::point testPoint;
         std::pair inPoint = this->baryCentre(regNum);
-        //std::pair inPoint = this->centres[regNum];
         testPoint.first = inPoint.first;
         testPoint.second = inPoint.second;
         outfile << " barycentre " << inPoint.first << " , " << inPoint.second <<endl;
         vector<hexGeometry::point>::iterator ptr;
         vector<hexGeometry::point> vertices;
         vector<double> angles;
-        double windingNumber = 0;
         for (ptr = vCoords[regNum].begin(); ptr < vCoords[regNum].end(); ptr++) {
             outfile << " ( " << (*ptr).first << " , "  << (*ptr).second << " ) " ;
             vertices.push_back(*ptr);
@@ -823,16 +824,6 @@ double renewRegPerimeter (int regNum) {
             }
         }
         outfile << " region " << regNum << " after windingNumber loopBool  " << result << endl;
-        /*
-        windingNumber = windingNumber / (2.0 * PI);
-        if (((1.0 - tol) < windingNumber) && (windingNumber < (1.0 + tol))) {
-            result = true;
-        }
-        else {
-            result = false;
-        }
-        cout << " Winding Number for region " << regNum << " is " << windingNumber << " in region bool " << result << endl;
-        */
         return result;
     }
 
@@ -844,11 +835,11 @@ double renewRegPerimeter (int regNum) {
     vector<double> meanzero_vector(vector<double> invector) {
         //ofstream meanzero ("meanzero.txt",ios::app);
         vector <double> result;
-        int size = invector.size();
+        unsigned int size = invector.size();
         //meanzero << "size " << size << endl;
         double sum = 0;
         double absSum = 0;
-        for (int i=0; i <size; i++) {
+        for (unsigned int i=0; i <size; i++) {
             sum += invector[i];
             absSum += fabs(invector[i]);
         }
@@ -856,7 +847,7 @@ double renewRegPerimeter (int regNum) {
         absSum = absSum / (1.0 * size);
         //meanzero << " mean  " << sum << endl;
         //meanzero << " absolute mean  " << absSum << endl;
-        for (int i=0; i < size; i++) {
+        for (unsigned int i=0; i < size; i++) {
             result.push_back(invector[i] - sum);
             //meanzero << " i " << result[i] << endl;
         }

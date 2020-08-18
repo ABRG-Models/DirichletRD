@@ -33,7 +33,7 @@ using namespace std;
 class hexGeometry
 {
 public:
-    double tol = 0.00001;
+    double tol = 0.0001;
 
     enum lineType  {VERTICAL, HORIZONTAL, SLANTED};
 
@@ -139,29 +139,33 @@ public:
 
     lineType lineLineType (line l) {
         lineType result;
-        if (l.slope = INFINITE) {
+        if (l.slope == INFINITE) {
             result = VERTICAL;
         }
-        else if (l.slope = 0) {
+        else if (l.slope == 0) {
             result = HORIZONTAL;
         }
         else {
             result = SLANTED;
         }
         return result;
-   }
 
+    }
   // returns line from lineSegment, tests for verticality and horizontality
     line segment2line(lineSegment s)
 	{
         line result;
         double denominator = s.end.first - s.start.first;
         double numerator = s.end.second - s.start.second;
-        bool reverse = false;
-        if (denominator == 0.0) {
+        if (fabs(denominator) <= this->tol) {
            result.slope = INFINITE;
            result.intercept = s.end.first;
            return result;
+        }
+        else if (fabs(numerator) < this->tol) {
+            result.slope = 0.0;
+            result.intercept = s.end.second;
+            return result;
         }
         else {
             result.slope = numerator / denominator;
@@ -226,23 +230,23 @@ public:
 
 //returns a bool if point is on line or not
     bool pointOnLine(point p, line l) {
-        bool result;
+        bool result = false;
         double residual = p.second - p.first * l.slope - l.intercept;
-        if (residual < tol)
-        {
-            result = 1;
+        if (lineLineType(l) == VERTICAL && (fabs(p.first - l.intercept) < this->tol)) {
+                result = true;
+                return result;
         }
-        else
+        if (residual < this->tol)
         {
-            result = 0;
+           result = true;
         }
-        return result;
-    }
+       return result;
+    } //end of pointOnLine
 
     bool pointOnhorzLine(point p, horzLine h)
 	{
         bool result;
-        if ( (p.second - h.intercept) < tol)
+        if ( (p.second - h.intercept) < this->tol)
         {
             result = 1;
         }
@@ -256,7 +260,7 @@ public:
     bool pointOnvertLine(point p, vertLine h)
 	{
         bool result;
-        if ( (p.first - h.xintercept) < tol)
+        if ( fabs((p.first - h.xintercept)) < this->tol)
         {
             result = 1;
         }
@@ -297,32 +301,47 @@ public:
 //returns a structure giving the result of the intersection of two lines.
     cIntersect lineIntersect (line l1, line l2) {
         cIntersect result;
+        lineType lt1 = lineLineType(l1);
+        lineType lt2 = lineLineType(l2);
         if ((l1.slope == l2.slope) && (l1.intercept == l2.intercept)) {
+            if (lt2 == VERTICAL && lt1 == VERTICAL) {
+                std::cout << " lines vertical same intercept " << endl;
+            }
             result.intersect = true;
             result.p.first = INFINITE;
             result.p.second = INFINITE;
+            return result;
 		}
         else if ((l1.slope == l2.slope) && (l1.intercept != l2.intercept)) {
+            if (lt2 == VERTICAL && lt1 == VERTICAL) {
+                std::cout << " lines vertical different intercept " << endl;
+            }
             result.intersect = false;
             result.p.first = INFINITE;
             result.p.second = INFINITE;
+            return result;
         }
-        else if (lineLineType(l1) == VERTICAL) {
+        else if (lt1 == VERTICAL && lt2 != VERTICAL) {
             result.intersect = true;
             result.p.first = l1.intercept;
+            std::cout << " hex side is vertical " << l1.intercept << endl;
             result.p.second = l2.slope * l1.intercept + l2.intercept;
+            return result;
         }
-        else if (lineLineType(l2) == VERTICAL) {
+        else if (lt1 != VERTICAL && lt2 == VERTICAL) {
             result.intersect = true;
             result.p.first = l2.intercept;
+            std::cout << " hexagon side is vertical " << l2.intercept << endl;
             result.p.second = l1.slope * l2.intercept + l1.intercept;
+            return result;
         }
         else {
             result.intersect = true;
             result.p.first = (l2.intercept - l1.intercept) / (l1.slope - l2.slope);
             result.p.second = (l1.slope*l2.intercept - l1.intercept*l2.slope) / (l1.slope - l2.slope);
+            //std::cout << " neither side  is vertical " << l2.intercept << endl;
+            return result;
         }
-		return result;
     }
 
     /*!
@@ -330,14 +349,13 @@ public:
      */
     bool pointInLineSegmentBox(point p, lineSegment s) {
         bool result = false;
-        double tol = 0.1;
         double xsign = (p.first - s.start.first) * (p.first - s.end.first);
         double ysign = (p.second - s.start.second) * (p.second - s.end.second);
-        if (s.start.first > s.end.first - tol && s.start.first < s.end.first + tol) {
+        if (s.start.first > s.end.first - this->tol && s.start.first < s.end.first + this->tol) {
             xsign = 0.0;
             ysign = (p.second - s.start.second) * (p.second - s.end.second);
         }
-        else if (s.start.second > s.end.second + tol && s.start.second < s.end.second + tol) {
+        else if (s.start.second > s.end.second - this->tol && s.start.second < s.end.second + this->tol) {
             xsign = (p.first - s.start.first) * (p.first - s.end.first);
             ysign = 0.0;
         }
@@ -362,8 +380,8 @@ public:
         line l2 = segment2line(s2);
         result = lineIntersect(l1, l2);
         //return result;
-        //if (result.intersect == true && pointInLineSegmentBox(result.p,s1) && pointInLineSegmentBox(result.p,s2)) {
-       if (pointInLineSegmentBox(result.p,s1) && pointInLineSegmentBox(result.p,s2)) {
+        if (result.intersect == true && pointOnLine(result.p,l1) && pointOnLine(result.p,l2)) {
+       // if (result.intersect == true) {
             return result;
         }
         else {
@@ -515,10 +533,10 @@ public:
 
     bool pointInHexBox (point p, morph::Hex h) {
         bool result;
-        double upperx = h.x + h.getSR();
-        double lowerx = h.x - h.getSR();
-        double uppery = h.y + h.getLR();
-        double lowery = h.y - h.getLR();
+        double upperx = h.x + h.getSR() + this->tol;
+        double lowerx = h.x - h.getSR() - this->tol;
+        double uppery = h.y + h.getLR() + this->tol;
+        double lowery = h.y - h.getLR() - this->tol;
         result = (p.first >= lowerx && p.first <= upperx && p.second >= lowery && p.second <= uppery);
         return result;
     }
@@ -540,19 +558,24 @@ public:
     bool hexIntersectLineSegment(lineSegment s, morph::Hex h) {
         bool result = false;
         point pt;
-        pt.first = 0.0;
-        pt.second = 0.0;
-        vector<lineSegment> hexSides = this->hexSides(h);
+        pt.first = h.x;
+        pt.second = h.y;
+        vector<line> hexLines;
+        for (int i=0; i<6; i++) {
+            hexLines.push_back(this->segment2line(this->hexSides(h)[i]));
+        }
+        line l = this->segment2line(s);
         int intersected = 0;
         for (int i=0; i<6; i++) {
-            pt = lineSegmentIntersect(hexSides[i], s).p;
-                if (lineSegmentIntersect(hexSides[i],s).intersect) {
-                    result = true;
-                    intersected++;
+            pt = lineIntersect(hexLines[i], l).p;
+            if (lineIntersect(hexLines[i],l).intersect && pointInHexBox(pt, h) && pointInLineSegmentBox(pt, s)) {
+                intersected++;
+                cout << " line intersectd side i " << i <<  endl;
             }
         }
         if (intersected > 0) {
-            cout << " fish result " << result << " intersected " << intersected << endl;
+           cout << "no of sides intersected " << intersected << endl;
+           result = true;
         }
         return result;
     }

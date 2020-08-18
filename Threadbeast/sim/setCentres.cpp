@@ -40,16 +40,21 @@ int main (int argc, char **argv)
 {
     vector <pair <float, float>> centres; //seed points for regions
     centres.resize(NUMPOINTS);
-    if (argc < 2) {
-      std::cout << "not enough arguments " << argc << endl;
-      return -1;
+    std::string num;
+    if (argc > 2) {
+        num =  (argv[2]);
     }
+    else {
+        num = "";
+    }
+
     double maxX = stod(argv[1]);
     double minX = -maxX;
     double maxY = maxX;
 	double minY = -maxY;
 
     ofstream afile ( "./centres.h");
+    ofstream bfile ( "./centres" + num + ".data");
 
     unsigned int seed = time(NULL);
 
@@ -117,6 +122,7 @@ int main (int argc, char **argv)
 	  string centres1 = " centres[" + sindex + "].first = ";
 	  string  centres2 = " centres[" + sindex + "].second = ";
       afile << centres1 << centres[i].first << " ; " << centres2 << centres[i].second << " ; " << endl;
+      bfile << centres[i].first << " " << centres[i].second << endl;
     }
 
     return 0;
