@@ -108,6 +108,7 @@ public:
         return result;
     }
 
+
     /*!
      * Euclidean distance between two points
      */
@@ -223,10 +224,53 @@ public:
         result.end = b;
         return result;
 	}
+
+    //returns the point that is the start of a lineSegment
+    point startSegment(lineSegment s) {
+        return s.start;
+    }
+
+    //returns the point that is the end of a lineSegment
+    point endSegment(lineSegment s) {
+        return s.end;
+    }
+
     //returns a signed angle between 2 lines
     double subtendLines( dLine start , dLine end) {
         return start.angle - end.angle;
     }
+
+    //returns signed angle between two segments
+    double subtendSegments(lineSegment s1, lineSegment s2) {
+        dLine dL1 = segment2dLine(s1);
+        dLine dL2 = segment2dLine(s2);
+        return subtendLines(dL1,dL2);
+    }
+
+    //true if point is left of a lineSegment
+    bool pointLeftSegment(point p, lineSegment s) {
+        double phi, psi;
+        lineSegment sp = createLineSegment(startSegment(s), p);
+        psi = segment2dLine(s).angle;
+        phi = segment2dLine(sp).angle;
+        if (phi <= PI) {
+            if ((phi <= psi) && (psi <= phi + PI)) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        else {
+            if ((phi <= psi && psi <= 2*PI) || (psi <= phi - PI)) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+
 
 //returns a bool if point is on line or not
     bool pointOnLine(point p, line l) {
@@ -305,7 +349,7 @@ public:
         lineType lt2 = lineLineType(l2);
         if ((l1.slope == l2.slope) && (l1.intercept == l2.intercept)) {
             if (lt2 == VERTICAL && lt1 == VERTICAL) {
-                std::cout << " lines vertical same intercept " << endl;
+            //    std::cout << " lines vertical same intercept " << endl;
             }
             result.intersect = true;
             result.p.first = INFINITE;
@@ -314,7 +358,7 @@ public:
 		}
         else if ((l1.slope == l2.slope) && (l1.intercept != l2.intercept)) {
             if (lt2 == VERTICAL && lt1 == VERTICAL) {
-                std::cout << " lines vertical different intercept " << endl;
+            //    std::cout << " lines vertical different intercept " << endl;
             }
             result.intersect = false;
             result.p.first = INFINITE;
@@ -324,14 +368,14 @@ public:
         else if (lt1 == VERTICAL && lt2 != VERTICAL) {
             result.intersect = true;
             result.p.first = l1.intercept;
-            std::cout << " hex side is vertical " << l1.intercept << endl;
+            // std::cout << " hex side is vertical " << l1.intercept << endl;
             result.p.second = l2.slope * l1.intercept + l2.intercept;
             return result;
         }
         else if (lt1 != VERTICAL && lt2 == VERTICAL) {
             result.intersect = true;
             result.p.first = l2.intercept;
-            std::cout << " hexagon side is vertical " << l2.intercept << endl;
+            // std::cout << " hexagon side is vertical " << l2.intercept << endl;
             result.p.second = l1.slope * l2.intercept + l1.intercept;
             return result;
         }
@@ -381,7 +425,6 @@ public:
         result = lineIntersect(l1, l2);
         //return result;
         if (result.intersect == true && pointOnLine(result.p,l1) && pointOnLine(result.p,l2)) {
-       // if (result.intersect == true) {
             return result;
         }
         else {
@@ -432,47 +475,6 @@ public:
 	 result = fabs(p1.second - h1.intercept);
 	 return result;
    }
-
-// returns a structure that determines distance of the point from the line derived from a
-// segment and if the point is within the rectangle defined by the segment
-	 segDist point2Seg (point p, lineSegment s) {
-	   segDist result;
-	   double segX = fabs(s.start.first - s.end.first);
-	   double segY = fabs(s.start.second - s.end.second);
-	   //double pX = fmax(fabs(p.first - s.end.first),fabs(p.first - s.start.first));
-	   //double pY = fmax(fabs(p.second - s.end.second),fabs(p.second - s.start.second));
-	   double pX = (p.first - s.end.first)*(p.first - s.start.first);
-	   double pY = (p.second - s.end.second)*(p.second - s.start.second);
-
-	   line l1 = segment2line(s);
-	   //if ((pX <= segX) || (pY <= segY)) {
-	   if (segX < this->tol) {
-		 if (pY < 0.0)
-		   result.inside = 1;
-		 else
-		   result.inside = 0;
-	     vertLine h1 = segment2vert(s);
-		 result.dist = pointVertDist(p,h1);
-	   }
-	   else if (segY < this->tol) {
-		 if (pX < 0.0)
-		   result.inside = 1;
-		 else
-		   result.inside = 0;
-	     horzLine h1 = segment2horz(s);
-		 result.dist = pointHorzDist(p,h1);
-	   }
-	   else {
-	   if ((pX <= 0.0 ) || (pY <= 0.0)) {
-	     result.inside = 1;
-		 }
-	   else {
-	     result.inside = 0;
-		 }
-	   result.dist = pointLineDist(p,l1);
-	   }
-	   return result;
-	  }
 
      std::vector<lineSegment> hexSides(morph::Hex h) {
         vector<lineSegment> result;
@@ -570,11 +572,11 @@ public:
             pt = lineIntersect(hexLines[i], l).p;
             if (lineIntersect(hexLines[i],l).intersect && pointInHexBox(pt, h) && pointInLineSegmentBox(pt, s)) {
                 intersected++;
-                cout << " line intersectd side i " << i <<  endl;
+                //cout << " line intersectd side i " << i <<  endl;
             }
         }
         if (intersected > 0) {
-           cout << "no of sides intersected " << intersected << endl;
+           //cout << "no of sides intersected " << intersected << endl;
            result = true;
         }
         return result;
@@ -584,18 +586,6 @@ public:
 
 
 
-/* now moved to DRegion
-	 bool lineIntersectHex(lineSegment s, Hex h, HexGrid hGrid) {
-	   bool result;
-	   double d = h.getD();
-	   point hexCentre;
-	   hexCentre.first = hGrid->d_x(h.vi);
-	   hexCentre.second = hGrid->d_y(h.vi);
-	   result = point2Seg(hexCentre,s).inside;
-	   return result;
-	   }
-*/
-
 //private:
 
 //distance between two points
@@ -604,10 +594,6 @@ double  getdist(point p1, point p2) {
    result = sqrt((p1.first - p2.first)*(p1.first - p2.first) + (p1.second-p2.second)*(p1.second-p2.second));
    return result;
    }
-
-
-
-
 
 
 };

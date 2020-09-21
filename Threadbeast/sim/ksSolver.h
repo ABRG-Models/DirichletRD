@@ -509,14 +509,14 @@ public:
 	{
 	  for (auto &h : this->Hgrid->hexen)
 	    {
-	      cout << " in reverse_y " << h.vi << endl;
+	      //cout << " in reverse_y " << h.vi << endl;
 	      //int index = h.vi;
-	      cout << " in y reversing loop " << h.vi << endl;
+	      //cout << " in y reversing loop " << h.vi << endl;
 	      double temp = double(this->Hgrid->d_y[h.vi]);
-	      cout << " after getting y " << temp << endl;
+	     // cout << " after getting y " << temp << endl;
 		  if (temp != 0.0)
 		  {
-	          cout << " in y reversing loop " << endl;
+	         // cout << " in y reversing loop " << endl;
 	          this->Hgrid->d_y[h.vi] = -temp;
 		  }
 		}
@@ -530,6 +530,8 @@ public:
         double xav=0;
         double yav = 0;
         int hexcount = 0;
+        double maxPhi = -10.0;
+        double minPhi = 10.0;
 	    this->reverse_y();
 	    cout <<"in set polars ksSolver xcentre" << centre.first << " y_centre  " << centre.second <<endl;
         for (auto &h : this->Hgrid->hexen) {
@@ -549,27 +551,34 @@ public:
         for (auto&  h : this->Hgrid->hexen) {
             int index = h.vi;
 			double angle = 0;
+            /*
 			double dx = this->Hgrid->d_x[index];
 			double dy = this->Hgrid->d_y[index];
+            */
+            double dx = h.x;
+            double dy = h.y;
 			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
-			cout << "d_x " << dx << " dy " << dy <<endl;
+			//cout << "d_x " << dx << " dy " << dy <<endl;
             h.r = sqrt((dx - centre.first)*(dx - centre.first)
 			+ (dy - centre.second)*(dy - centre.second));
             if (dy >= centre.second) {
               angle =   atan2((dy - centre.second), (dx - centre.first));
 			  h.phi = angle;
-			  cout<< " setPhi if 1 " << h.phi<<  " index " << h.vi << endl;
+			 // cout<< " setPhi if 1 " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
               angle =  2*PI + atan2((dy - centre.second), (dx - centre.first));
 			  h.phi = angle;
-			  cout<< " setPhi if 2 " << h.phi<<  " index " << h.vi << endl;
+			 // cout<< " setPhi if 2 " << h.phi<<  " index " << h.vi << endl;
 			  }
+            if (angle < minPhi) {
+                minPhi = angle;
+            }
+            if (angle > maxPhi) {
+                maxPhi = angle;
+            }
         }
-/*
-        result.first = centre.first - xcentre; //diff between seed point and barycentre
-        result.second = centre.second - ycentre;
-*/
+        cout << " set_kS_polars max phi " << maxPhi << " minPhi " << minPhi << endl;
         result.first = xav - centre.first ; // barycentre
         result.second = yav - centre.second ;
 		cout << "centre x "<< centre.first << " centre y " << centre.second << " result.first " << result.first << " result.second " << result.second <<endl;
