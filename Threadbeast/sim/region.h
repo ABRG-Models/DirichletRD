@@ -100,10 +100,13 @@ public:
     string logpath; //where the analysis and restart files live
     double xspan; //width of the HexGrid
     const int base = 1000; //for hashing of (i,j) pairs for each edge
+    const double tan30 = 0.5773502692;
+    double hexArea;
     /*
      * list of containers at public scope
      */
     vector<vector<int> > N; // hex neighbourhood
+    vector<morph::Hex> vHexInGrid; // hexen for the original HexGrid as a vector rather than a list
     vector<vector<int> > region; //for each hex sorted list of regions
     vector<list<morph::Hex>> regionIndex; //for each region list of hexes it contains
     vector<vector<int>> hexRegionList; //for each hex neighbour regions
@@ -136,6 +139,7 @@ public:
         this->xspan = xspan;
         double s = pow(2.0, scale-1);
         this->ds = 1.0/s;
+        this->hexArea = 3.0*tan30*this->ds*this->ds;
         ofstream afile (this->logpath + "/debug.out" );
         ofstream jfile (this->logpath + "/correlateVector.out");
         ifstream bfile("./centres0.data");
@@ -148,7 +152,7 @@ public:
         double maxX = Hgrid->getXmax(0.0);
         afile << " the maximum value of x is is " << maxX << endl;
         hGeo = new hexGeometry();
-        // now read in the boundary either as a header or as a morph read
+        // now read in the boundary either as a header or as a morph  d
         //   #include "bez5side.h"
         // morph::ReadCurves r("./rat.svg");
         // Hgrid->setBoundary (r.getCorticalPath(),true);
@@ -334,7 +338,7 @@ public:
                    }
                }
            }
-   		    cout << "end of creg loop" << endl;
+   		   cout << "end of creg loop" << endl;
        } //end of logic determining hex types
 
            /*!
@@ -367,7 +371,12 @@ public:
            afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
        }
        cout << "after set_polars" << endl;
+       //writing hexen as a vector
+       for (auto h : Hgrid->hexen) {
+           vHexInGrid.push_back(h);
+       }
        cout<<"at end of constructor" << " hexes counted " << totalHex << " n " << n << endl;
+
    } //end of DRegion constructor
 
 
@@ -427,28 +436,93 @@ public:
      */
     void setRadialSegments() {
         hexGeometry::point a,b;
-            for (unsigned int j=0;j<NUMPOINTS;j++) {
-                a.first = this->centroids[j].first;
-                a.second = this->centroids[j].second;
-                for (unsigned int i=0;i<regionVertex[j].size();i++) {
-                    hexGeometry::lineSegment temp;
-                    b.first = this->Hgrid->d_x[regionVertex[j][i]];
-                    b.second = this->Hgrid->d_y[regionVertex[j][i]];
-                    temp = hGeo->createLineSegment(a,b);
-                    this->vCoords[j].push_back(b);
-                    this->mCoords[j].push_back(a);
-                    radialSegments[j].push_back(temp);
-                    if (b.second >= a.second)
-                    {
-                        radialAngles[j].push_back(atan2((b.second - a.second) , (b.first - a.first)));
-                    }
-                    else
-                    {
-                        radialAngles[j].push_back(2*PI + atan2((b.second - a.second) , (b.first - a.first)));
-                    }
+        ofstream zfile ("./vertexAngles.txt",ios::app);
+        for (unsigned int j=0;j<NUMPOINTS;j++) {
+            this->radialAngles[j].clear();
+            a.first = this->centroids[j].first;
+            a.second = this->centroids[j].second;
+            unsigned int size = regionVertex[j].size();
+            for (unsigned int i=0; i<size; i++) {
+
+                hexGeometry::lineSegment temp;
+                b.first = this->Hgrid->d_x[regionVertex[j][i]];
+                b.second = this->Hgrid->d_y[regionVertex[j][i]];
+                temp = hGeo->createLineSegment(a,b);
+                this->vCoords[j].push_back(b);
+                radialSegments[j].push_back(temp);
+                if (b.second >= a.second)
+                {
+                     radialAngles[j].push_back(atan2((b.second - a.second) , (b.first - a.first)));
+                }
+                else
+                {
+                     radialAngles[j].push_back(2*PI + atan2((b.second - a.second) , (b.first - a.first)));
                 }
             }
+	  // code for all iterations to round corners
+	       for (unsigned int i=0; i<size; i++)
+           {
+               double x = (vCoords[j][i].first + vCoords[j][(i+1)%size].first)/2.0;
+               double y = (vCoords[j][i].second + vCoords[j][(i+1)%size].second)/2.0;
+               hexGeometry::point p;
+               p.first = x;
+               p.second = y;
+               mCoords[j].push_back(p);
+           }
+        } //end of loop over regions
+        //write out the angles
+        for (unsigned int j=0; j<NUMPOINTS; j++) {
+            for (unsigned int i=0; i<regionVertex[j].size(); i++) {
+                zfile << "vertex angle region " << j << " vertex " << i << " = " << radialAngles[j][i] << endl;
+            }
+        }
+        zfile.close();
+
     }//end of method setRadialSegments
+
+
+    /*!
+     * swap the radialSegments for all regions
+     * if lvCoords = true take vCoords as the vertices
+     * else take mCoords
+     */
+    void swapRadialSegments(bool lvCoords) {
+        hexGeometry::point a,b;
+        ofstream zfile ("./vertexAngles.txt",ios::app);
+        for (unsigned int j=0;j<NUMPOINTS;j++) {
+            this->radialAngles[j].clear();
+            a.first = this->centroids[j].first;
+            a.second = this->centroids[j].second;
+            unsigned int size = regionVertex[j].size();
+            for (unsigned int i=0; i<size; i++) {
+
+                hexGeometry::lineSegment temp;
+                if (lvCoords) {
+                    b = vCoords[j][i];
+                }
+                else {
+                    b = mCoords[j][i];
+                }
+                temp = hGeo->createLineSegment(a,b);
+                radialSegments[j].push_back(temp);
+                if (b.second >= a.second)
+                {
+                     radialAngles[j].push_back(atan2((b.second - a.second) , (b.first - a.first)));
+                }
+                else
+                {
+                     radialAngles[j].push_back(2*PI + atan2((b.second - a.second) , (b.first - a.first)));
+                }
+            }
+        } //end of loop over regions
+        //write out the angles
+        for (unsigned int j=0; j<NUMPOINTS; j++) {
+            for (unsigned int i=0; i<regionVertex[j].size(); i++) {
+                zfile << "vertex angle region " << j << " vertex " << i << " = " << radialAngles[j][i] << endl;
+            }
+        }
+        zfile.close();
+    }
 
     /*!
      * Laplacian for solver
@@ -672,7 +746,7 @@ public:
   //function to return area of a region
   double regArea (int regNum) {
     double area = 0;
-    for (int i=0;i < (int) this->regionIndex[regNum].size();i++){
+    for (unsigned int i=0;i <  this->regionIndex[regNum].size();i++){
 	  area += 1.;
 	}
     return area;
@@ -951,6 +1025,15 @@ double renewRegPerimeter (int regNum) {
         Vout << endl << "end of Vector " << endl;
     }
 
+//function to print a vector
+    void printIntVect (ofstream Vout, vector<int> invect) {
+        //ofstream Vout (path ,ios::app);
+        vector<int>::iterator ptr;
+        for (ptr = invect.begin(); ptr < invect.end(); ptr++) {
+           Vout << *ptr << "  ";
+        }
+        Vout << endl << "end of vector " << endl;
+    }
 
 
 
@@ -1027,175 +1110,185 @@ double renewRegPerimeter (int regNum) {
         return result;
     } //end of function set_polars
 
-    void shift_polars (vector<double> hexVector, double angle) {
-        for (auto i = hexVector.begin(); i != hexVector.end();++i)
-            hexVector[*i] += angle;
+    void shift_polars (int regNum, double angle) {
+        for (auto& h : this->regionIndex[regNum]) {
+            if (h.phi + angle > 2.0 * PI) {
+                h.phi = h.phi + angle - 2*PI;
+            }
+            else if (h.phi + angle < 0.0) {
+                h.phi = h.phi + 2.0 * PI + angle;
+            }
+            else {
+                h.phi = h.phi + angle;
+            }
+        }
     }
 
 
     //function to find all the edges and vertices of the internal boundary
-     vector <std::pair<double,double>> dissectBoundary(void) {
-         ofstream hfile ( this->logpath + "/dissectDebug.out" );
-         ofstream ifile ( this->logpath + "/regionList.out" );
-         ofstream kfile ( this->logpath + "/edgesList.out" );
-         ofstream lfile ( this->logpath + "/verticesList.out" );
-		 ofstream ufile ( this->logpath + "/keysList.out" );
-         hfile<<"just in dissectBoundary"<<endl;
-         vector<std::pair<double,double>> result;
-         vector<int>  regionBoundary; //holding array for the hexes in each region boundary
-		 this->edgeIndex.resize(0); //reset edgeIndex
-	     int sideCount = 0;
-         for (int i=0; i < NUMPOINTS; i++) { //loop over regions
-             cout << " region index " << i << " size "  <<this->regionIndex[i].size() << endl;
-		     vector<double> rB; //holds the angles of the hex from the seed point
-		     rB.resize(0);
-             regionBoundary.resize(0);
-// fill the regionBoundary
-             for (auto h : this->regionIndex[i]) {
-		         double angle;
+    vector <std::pair<double,double>> dissectBoundary(void) {
+        ofstream hfile ( this->logpath + "/dissectDebug.out" );
+        ofstream ifile ( this->logpath + "/regionList.out" );
+        ofstream kfile ( this->logpath + "/edgesList.out" );
+        ofstream lfile ( this->logpath + "/verticesList.out" );
+        ofstream ufile ( this->logpath + "/keysList.out" );
+        hfile<<"just in dissectBoundary"<<endl;
+        vector<std::pair<double,double>> result;
+        vector<int>  regionBoundary; //holding array for the indices of hexes in each region boundary
+        this->edgeIndex.resize(0); //reset edgeIndex
+        int sideCount = 0;
+        for (int i=0; i < NUMPOINTS; i++) { //loop over regions
+            cout << " region index " << i << " size "  <<this->regionIndex[i].size() << endl;
+		    vector<double> rB; //holds the angles of the hex from the seed point
+		    rB.resize(0);
+            regionBoundary.resize(0);
+// fill the regionBoundary and record polar angles in rB
+            for (auto h : this->regionIndex[i]) {
+		        double angle;
 // cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<< " j " << j << endl;
-                 if (this->Creg[h.vi] >0){
+                if (this->Creg[h.vi] >0){
 // cout << "boundary i = "<< this->regionIndex[i][j] << " Creg = "<< this->Creg[this->regionIndex[i][j]]<<endl;
                     regionBoundary.push_back(h.vi);
 			        angle = h.phi;
 			        cout<< " getPhi test " << angle <<  " index " << h.vi << endl;
 			        rB.push_back(angle);
-                 }
-             } //end of loop on a single region
+                }
+            } //end of loop on a single region
 
-         cout<<"after filling of regionBoundary" <<endl;
-         cout<<"regionBoundary.size "<<regionBoundary.size() << endl;
-
-
-         vector<int> irB; //holds the sorted boundary indicies
-         irB = sort_indexes(rB); //irB holds sorted indices after sort on theta
-	     this->sortedBoundary[i] = irB;
-         hfile << " irB size " << irB.size() << " rB size " << rB.size() << endl;
-		 for (unsigned int i=0;i<irB.size();i++){
-		     hfile << " Creg " << Creg[regionBoundary[irB[i]]] << " index " << regionBoundary[irB[i]] << " theta " << rB[irB[i]] <<endl;
-		 } //debugging loop for dissectdebug
-         unsigned int irBSize = irB.size();
-         if (irBSize == 0) {
-             cout << "WARNING: region i " << region[i][0] << " irB size " << irBSize << endl;
-             continue;
-          } // catches empty boundaries.
+            cout<<"after filling of regionBoundary" <<endl;
+            cout<<"regionBoundary.size "<<regionBoundary.size() << endl;
+            vector<int> irB; //holds the sorted boundary indicies
+            irB = sort_indexes(rB); //irB holds sorted indices after sort on theta
+            this->sortedBoundary[i] = irB;
+            hfile << " irB size " << irB.size() << " rB size " << rB.size() << endl;
+//            for (unsigned int i=0;i<irB.size();i++){
+//                hfile << " Creg " << Creg[regionBoundary[irB[i]]] << " index " << regionBoundary[irB[i]] << " theta " << rB[irB[i]] <<endl;
+//            } //debugging loop for dissectdebug
+            unsigned int irBSize = irB.size();
+            if (irBSize == 0) {
+                cout << "WARNING: region i " << region[i][0] << " irB size " << irBSize << endl;
+                continue;
+            } // catches empty boundaries.
 
 // we now walk round the boundary in theta order, find the first vertex then proceed from there to find vertices in order
-         unsigned int idissect = 0; //counts number of boundary hexes processed
-         unsigned int Vcount = 0; //count of the vertices
-         unsigned int Ecount = 0; //count of the edges
-         int newVertex; //integer to enumerate the vertices
-         unsigned int offset = 0; //number of boundary hexes before the first vertex
-         vector<int> ihE; //contains the sorted indicies of each edge
-		 //find the offset to the first vertex
-         while (offset < irBSize) {
-            //cout << " offset " << offset << endl;
-            //cout << "Creg " << Creg[regionBoundary[irB[offset]]] <<endl;
-             if (Creg[regionBoundary[irB[offset]]] > 1)
-			    {
-                     Vcount++; //its a vertex
-// cout << " offset " << offset << " idissect " << idissect<<endl;
-				     newVertex = regionBoundary[irB[offset]];
-				     idissect++;
-				     break;
+            unsigned int idissect = 0; //counts number of boundary hexes processed
+            unsigned int Vcount = 0; //count of the vertices
+            unsigned int Ecount = 0; //count of the edges
+            int newVertex; //integer to enumerate the vertices
+            unsigned int offset = 0; //number of boundary hexes before the first vertex
+            vector<int> ihE; //contains the sorted indicies of each edge,
+                //find the offset to the first vertex
+            while (offset < irBSize) {
+                if (Creg[regionBoundary[irB[offset]]] > 1)
+    			    {
+                        //Vcount++; //its a vertex
+    				    newVertex = regionBoundary[irB[offset]];
+    				    idissect++;
+    				    break; // found the first vertex
+                    }
+                offset++;
+            }
+            cout<<"after offset loop" << " offset " << offset  << " idissect " << idissect << endl;
+            while ((idissect < irBSize)) {
+                Ecount = 0;
+                ihE.resize(0);
+    // while loop to catch the nasty case of artificial adjacent vertices, we only count the last.
+    // this is a result of our proceeding via hex body rather than hex edge.
+
+                while (Creg[regionBoundary[irB[(idissect + offset) % irBSize]]] > 1) {
+    		   	    newVertex = regionBoundary[irB[(idissect+offset)%irBSize]];
+                    cout << "in vertex loop" << " idissect " << idissect << " Creg "
+                    << Creg[regionBoundary[irB[(idissect + offset) % irBSize]]] << endl;
+    			    idissect++;
+                    Vcount++; //count all vertices even if adjacent
+    			} //end of loop to trap adjacent vertices
+    //walk along the edge until the next vertex
+                cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%irBSize]]] << " boundary " << regionBoundary[irB[(idissect + offset)%irBSize]] << " newVertex Creg " << Creg[newVertex] << endl;
+    		    regionVertex[i].push_back(newVertex);
+                //now fill the edge until the next vertex is encountered.
+                while ((this->Creg[regionBoundary[irB[(idissect + offset)%irBSize]]] == 1) && (idissect < irBSize)) {
+                    ihE.push_back(regionBoundary[irB[(idissect + offset)%irBSize]]);
+                    Ecount++;
+    				idissect++;
                 }
-			    offset++;
-		 }
-         cout<<"after offset loop" << " offset " << offset  << " idissect " << idissect << endl;
-         while ((idissect < irBSize)) {
-              Ecount = 0;
-              ihE.resize(0);
-// while loop to catch the nasty case of artificial adjacent vertices, we only count the last.
-// this is a result of our proceeding via hex body rather than hex edge.
-              while (Creg[regionBoundary[irB[(idissect + offset) % irBSize]]] > 1) {
-		   	      newVertex = regionBoundary[irB[(idissect+offset)%irBSize]];
-                  cout << "in vertex loop" << " idissect " << idissect << " Creg "
-                  << Creg[regionBoundary[irB[(idissect + offset) % irBSize]]] << endl;
-			      idissect++;
-                  Vcount++;
-			  } // cout << "vertexloop" <<endl;
-//walk along the edge until the next vertex
-              cout << "Creg " << Creg[regionBoundary[irB[(idissect + offset)%irBSize]]] << " boundary " << regionBoundary[irB[(idissect + offset)%irBSize]] << " newVertex Creg " << Creg[newVertex] << endl;
-		      regionVertex[i].push_back(newVertex);
-              while ((this->Creg[regionBoundary[irB[(idissect + offset)%irBSize]]] == 1) && (idissect < irBSize)) {
-                   ihE.push_back(regionBoundary[irB[(idissect + offset)%irBSize]]);
-                   Ecount++;
-				   idissect++;
-              }
-              ihE.insert(ihE.begin(),newVertex); //edge contrains the start vertex but not the end vertex
-              Ecount++;
-              cout << "after edge loop Ecount " << Ecount << " Vcount " << Vcount <<endl;
-              if (Ecount == 0) {
-                  cout<<"WARNING - empty edge=========================================="<<endl;
-                  continue;
-              } //loop to catch empty edge
-              cout<<"ihE Size "<<ihE.size() <<endl;
-
-              cout <<"Vcount "<< Vcount << " Ecount "<< Ecount << endl;
-              int regMiddle = region[ihE.rbegin()[1]][0]; // find the first hex in the edge after the vertex edge
-              int edgeOuter = -2;
-              for (int ihex = 0; ihex<6; ihex++){ //find the first region not the same as the central, since Creg = 1 there can only be one such region.
-                  if (regMiddle != hexRegionList[ihE.rbegin()[1]][ihex]){
-                      edgeOuter = hexRegionList[ihE.rbegin()[1]][ihex];
-                      break;
-                  }
-              }
-              hfile<<"after edgeOuter assignment"<<endl;
-              hfile<<"edgeOuter "<<edgeOuter<< " edgeInner " << i << endl;
-			  if (edgeOuter > -1) { // edgouter = -1 means that the edge is on the outside of the computational region
-                  std::pair <int,int> keypair(i,edgeOuter);
-                  int keyint = this->pair2int(keypair,this->base);
-                  std::pair <int, vector<int>> p1(keyint,ihE);
-                  hfile << "region " << i << " after pair set keyint " << keyint << " edgeOuter " << edgeOuter << endl;
-                  if (this->edges.insert(p1).second) {
-				      this->edgeIndex.push_back(keyint);
-                  }
-				  sideCount++;
-                  hfile << "after edges insert" << endl;
-                  hfile <<"=================================================="<<endl;
-                  this->regionList[i].push_back(edgeOuter);
-			  }
-              else {
-                   cout << "edgeouter "<< edgeOuter << endl;
-                   this->regionList[i].push_back(edgeOuter);
-              }
-          } // end of idissect loop
-		  cout << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<  endl;
-		  if (regionList[i].size() != Vcount) {
-		      cout << "WARNING: duplicate region in regionList for region " << i <<  endl;
-		  }
-		  if (regionList[i].size() == 0) {
-              cout << "WARNING: region  " << i << " has no neighbouring regions" << endl;
-			  continue;
-		  }
-//write out to  regionList file the neighbouring regions to this one
-		  ifile << "number of nbrs for region " << i << " is " << regionList[i].size() << endl;
-          for (unsigned int iregion = 0; iregion < regionList[i].size(); iregion++) {
-               ifile << " r " << i << " rNbr " << regionList[i][iregion];
-               cout << " r " << i << " rNbr " << regionList[i][iregion];
-               ifile << endl;
-               ifile << "---------------------------------------"<< endl;
-          }
-		  cout <<endl;
-// write to vertexlist file, vertex x and y coordinates
-		  lfile << "number of vertices for region " << i << " is " << regionVertex[i].size() << endl;
-          for (unsigned int idx=0; idx < irB.size(); idx++){
-              for (unsigned int ivtx=0; ivtx < regionVertex[i].size(); ivtx++) {
-                  cout << " in vtx loop " << ivtx << " idx " << idx << " vertex " << regionVertex[i][ivtx] << " irB " << irB[idx] << endl;
-                  if (regionBoundary[irB[idx]] == regionVertex[i][ivtx]) {
-                     lfile << " region " << ivtx << " vertex " << regionVertex[i][ivtx] << " x " << Hgrid->d_x[regionVertex[i][ivtx]] << " y " << Hgrid->d_y[regionVertex[i][ivtx]] << " theta " << rB[irB[idx]] << endl;
-                  }
-              }
-          }
-          lfile << endl;
-          lfile << "---------------------------------------"<< endl;
-
+                ihE.insert(ihE.begin(),newVertex); //edge contrains the start vertex but not the end vertex
+                Ecount++;
+                cout << "after edge loop Ecount " << Ecount << " Vcount " << Vcount <<endl;
+                if (Ecount == 0) {
+                    cout<<"WARNING - empty edge=========================================="<<endl;
+                    continue;
+                } //loop to catch empty edge
+                cout<<"ihE Size "<<ihE.size() <<endl;
+                cout <<"Vcount "<< Vcount << " Ecount "<< Ecount << endl;
+                int regMiddle = region[ihE.rbegin()[1]][0]; // region of the penultimate hex in the edge
+                if (regMiddle != i) {
+                    cout << "ERROR: penultimate hex in edge has different region" << endl;
+                }
+                int edgeOuter = -2;
+                //find the first region not the same as the central, since Creg = 1 there can only be one such region.
+                for (int ihex = 0; ihex<6; ihex++){
+                    if (regMiddle != hexRegionList[ihE.rbegin()[1]][ihex]){
+                        edgeOuter = hexRegionList[ihE.rbegin()[1]][ihex];
+                        break;
+                    }
+                }
+                hfile<<"after edgeOuter assignment"<<endl;
+                hfile<<"edgeOuter "<<edgeOuter<< " edgeInner " << i << endl;
+    			if (edgeOuter > -1) { // edgouter = -1 means that the edge is on the outside of the computational region
+                    std::pair <int,int> keypair(i,edgeOuter);
+                    int keyint = this->pair2int(keypair,this->base);
+                    std::pair <int, vector<int>> p1(keyint,ihE);
+                    hfile << "region " << i << " after pair set keyint " << keyint << " edgeOuter " << edgeOuter << endl;
+                    if (this->edges.insert(p1).second) {
+    				    this->edgeIndex.push_back(keyint);
+                    }
+    				sideCount++;
+                    hfile << "after edges insert edge size " << ihE.size() << endl;
+                    hfile <<"=================================================="<<endl;
+                    this->regionList[i].push_back(edgeOuter);
+    			}
+                else {
+                    hfile << "edgeouter "<< edgeOuter << " edge size " << ihE.size() << endl;
+                    this->regionList[i].push_back(edgeOuter);
+                }
+            } // end of idissect loop
+            hfile << " after idissect loop region " << i << " regionList size " << regionList[i].size()<<  endl;
+    		if (regionList[i].size() != Vcount) {
+    		    hfile << "WARNING: duplicate region in regionList for region " << i <<  endl;
+                hfile << "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
+    		}
+    		if (regionList[i].size() == 0) {
+                hfile << "WARNING: region  " << i << " has no neighbouring regions" << endl;
+                hfile << "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
+    			continue;
+    		}
+    //write out to  regionList file the neighbouring regions to this one
+            ifile << "number of nbrs for region " << i << " is " << regionList[i].size() << endl;
+            for (unsigned int iregion = 0; iregion < regionList[i].size(); iregion++) {
+                ifile << " r " << i << " rNbr " << regionList[i][iregion];
+                cout << " r " << i << " rNbr " << regionList[i][iregion];
+                ifile << endl;
+                ifile << "---------------------------------------"<< endl;
+            }
+    		cout <<endl;
+    // write to vertexlist file, vertex x and y coordinates
+    		lfile << "number of vertices for region " << i << " is " << regionVertex[i].size() << endl;
+            for (unsigned int idx=0; idx < irB.size(); idx++){
+                for (unsigned int ivtx=0; ivtx < regionVertex[i].size(); ivtx++) {
+                    cout << " in vtx loop " << ivtx << " idx " << idx << " vertex " << regionVertex[i][ivtx] << " irB " << irB[idx] << endl;
+                    if (regionBoundary[irB[idx]] == regionVertex[i][ivtx]) {
+                        lfile << " region " << ivtx << " vertex " << regionVertex[i][ivtx] << " x " << Hgrid->d_x[regionVertex[i][ivtx]] << " y " << Hgrid->d_y[regionVertex[i][ivtx]] << " theta " << rB[irB[idx]] << endl;
+                    }
+                }
+            }
+            lfile << endl;
+            lfile << "---------------------------------------"<< endl;
         } //end of loop on regions
-		cout << " after loop on regions edgeIndex size " << edgeIndex.size() << " edges size " << edges.size() << " sideCount " << sideCount << endl;
+        cout << " after loop on regions edgeIndex size " << edgeIndex.size() << " edges size " << edges.size() << " sideCount " << sideCount << endl;
         int difference = 0;
 // loops to print out the edges map structure
         int countIndex = 0;
-		int halfway = int(edgeIndex.size()) / 2;
+        int halfway = int(edgeIndex.size()) / 2;
         for (int irlook = 0; irlook < NUMPOINTS; irlook++) {
             for (int jrlook = 0; jrlook < NUMPOINTS; jrlook++) {
                 std::pair <int,int> klook(irlook,jrlook);
@@ -1213,11 +1306,11 @@ double renewRegPerimeter (int regNum) {
 				        hfile << " k = " << k << " k1 = " << k1 << " countIndex = " << countIndex << " edge Indexij = " << edgeIndex[countIndex] << " edgeIndexji " <<  edgeIndex[countIndex + halfway] <<  endl;
 		                countIndex++;
 					}
-					else{
+					else {
 					    hfile << " size was zero for k " << k << " and k1 " << k1 << " countIndex " << countIndex << " edge Indexij = " << edgeIndex[countIndex] << " edgeIndexji " <<  edgeIndex[countIndex + halfway]  << endl;
 						countIndex++;
-					}
-                }
+					} //end of condition edge non empty
+                } //end of condition no edge at this index
             } // end of inner loop over edges
         } //end of outer loop over edges
 		for (unsigned int i = 0; i<edgeIndex.size(); i++) {
@@ -1227,12 +1320,13 @@ double renewRegPerimeter (int regNum) {
     }//end of function dissectBoundary
 
     // function to correlate matching edges
-    double correlate_edges(void)
+    double correlate_edges(int morphNum)
 	{
 	    double result = 0;
-        ofstream edgefile(this->logpath + "/edgeCorrelations0.txt",ios::app);
+		string str = to_string(morphNum);
+        ofstream edgefile(this->logpath + "/edgeCorrelations" + str + ".txt",ios::app);
         ofstream edgerest(this->logpath + "/edgeRest.txt");
-		ofstream correl(this->logpath + "/correlate0.data",ios::app);
+		ofstream correl(this->logpath + "/correlate" + str + ".data",ios::app);
         vector<double> tempvect1;
         vector<double> tempvect2;
         vector<double> tempvect3;
@@ -1248,6 +1342,7 @@ double renewRegPerimeter (int regNum) {
         std::string filei = logpath + "/ival.Vect";
         std::string filej = logpath + "/jval.Vect";
         ofstream iout (filei,ios::app);
+        edgefile << " Before loop over regions entries in edgeIndex " << this->edgeIndex.size() << " entries in edges " << this->edges.size() << endl;
         ofstream jout (filej,ios::app);
         for (int i = 0; i <NUMPOINTS; i++)
 		{
@@ -1256,9 +1351,10 @@ double renewRegPerimeter (int regNum) {
 		    double NNmean;
 	       	NNmean = this->meanNN(i); //find the mean of NN in the region
 		    edgefile << " mean of NN in region " << i << "is " <<NNmean << endl;
-            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++)
+            for (auto j = this->regionList[i].begin(); j < this->regionList[i].end();j++)
 			{
                 //edgefile << " j iteration " << *j << endl;
+                if (*j == -1) continue;
                 tempvect1.resize(0);
                 tempvect2.resize(0);
                 tempvect3.resize(0);
@@ -1268,6 +1364,7 @@ double renewRegPerimeter (int regNum) {
                 int edgeIndex2 = this->pair2int(edgePair2,this->base);
                 int count1 = 0;
                 int count2 = 0;
+                double ratio;
                 double correlationValue = 0;
 // tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
                 for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
@@ -1283,7 +1380,8 @@ double renewRegPerimeter (int regNum) {
                 std::reverse(tempvect2.begin(),tempvect2.end()); //vectors are indexed in opposite directions either side
                 if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 				{
-                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect2,false);
+                    ratio = 1.0;
 		            result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
                         iout << " Correlation Value = " << correlationValue << endl;
@@ -1293,8 +1391,8 @@ double renewRegPerimeter (int regNum) {
                     }
 
                     countResult++;
-                    edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-				    correl << correlationValue << endl;
+                    edgefile << " if 1 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " edge1 " << edgeIndex1 << " edge1 " << edgeIndex2 << " cV " << correlationValue << endl;
+				    correl << correlationValue << " " << ratio << endl;
                     //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
                 } //end of code if both edges are equal
                 else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
@@ -1303,10 +1401,10 @@ double renewRegPerimeter (int regNum) {
                     if (tempvect3.size() == 0) {
                         edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     }
-                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect3,false);
+                    ratio = 1.0 * tempvect2.size() / (1.0 * tempvect1.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
-                    }
                         if (countResult%printInt == 0) {
                             iout << " Correlation Value = " << correlationValue << endl;
                             printDoubleVect(filei,tempvect1);
@@ -1314,14 +1412,15 @@ double renewRegPerimeter (int regNum) {
                             printDoubleVect(filej,tempvect3);
                         }
                         countResult++;
-                        edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-				        correl << correlationValue << endl;
+                    edgefile << " if 2 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " edge1 " << edgeIndex1 << " edge2 " << edgeIndex2 << " cV " << correlationValue << endl;
+				        correl << correlationValue << "  " << ratio << endl;
                     }
-
+                }
                 else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 				{
                     tempvect3 = this->equalize_vector(tempvect1,tempvect2);
-                    correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+                    correlationValue = this->correlate_Eqvector(tempvect3,tempvect2,false);
+                    ratio = 1.0 * tempvect1.size() / (1.0 * tempvect2.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
                         if (countResult%printInt == 0) {
@@ -1331,26 +1430,26 @@ double renewRegPerimeter (int regNum) {
                             printDoubleVect(filej,tempvect2);
                         }
                         countResult++;
-                        edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-				        correl << correlationValue << endl;
+				        correl << correlationValue << "  " << ratio << endl;
                     }
+                    edgefile << " if 3 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " edge1 " << edgeIndex1 << " edge1 " << edgeIndex2 << " cV " << correlationValue << endl;
                 }
                 else
                 {
-                    edgefile << "error zero size for one of the edges " << i << " size " << tempvect1.size() << " second " << *j << " size " << tempvect2.size() << endl;
-                    edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
+                    edgefile << "error zero size for one of the edges " << i << " size " << tempvect1.size() << " second " << *j << " size " << tempvect2.size() << " edges size " << this->edges.size() <<endl;
+                    edgefile << " if 4 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " edge1 " << edgeIndex1 << " edge2 " << edgeIndex2 << " cV " << correlationValue << endl;
                 }
             } //end of single edge comparison
         } // end of loop on regions
-    edgefile << " countResult "<<countResult<<endl;
-	result = result / (countResult * 1.0);
-	edgefile.close();
-	return result;
+        edgefile << " countResult "<<countResult<< " entries in edgeIndex " << this->edgeIndex.size() << " entries in edges " << this->edges.size() << endl;
+	    result = result / (countResult * 1.0);
+	    edgefile.close();
+	    return result;
     } //end of function correlate_edges
 
 
     // function to correlate matching edges
-    double adjacent_cosines(void)
+    double adjacent_cosines(bool phaseShift)
 	{
 	    double result = 0;
         ofstream edgefile(this->logpath + "/edgeCorrelations0.txt",ios::app);
@@ -1373,11 +1472,13 @@ double renewRegPerimeter (int regNum) {
         std::string filek = logpath + "/adjacent.Vect";
         ofstream iout (filei,ios::app);
         ofstream jout (filej,ios::app);
-        for (int i = 0; i <NUMPOINTS; i++)
-		{
+        double phase = 0.0;
+        unsigned int seed = time(NULL);
+        // A rando2yym uniform generator returning real/floating point types
+        morph::RandUniform<double> ruf(seed);
+        for (int i = 0; i <NUMPOINTS; i++) {
 
-            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++)
-			{
+            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
                 //edgefile << " j iteration " << *j << endl;
                 tempvect1.resize(0);
                 tempvect2.resize(0);
@@ -1398,9 +1499,16 @@ double renewRegPerimeter (int regNum) {
                 double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
                 double xval = 0;
                 int xcount = 0;
+
+                if (phaseShift) {
+                    phase =  0.25 * PI * ruf.get() ;
+                }
                 for (auto itr = this->edges[edgeIndex1].begin(); itr < this->edges[edgeIndex1].end();itr++)
 				{
-                    xval = xcount * xstep;
+                    //if (phaseShift) {
+                    //    phase = 2.0 * PI * ruf.get();
+                    //}
+                    xval = xcount * xstep + phase;
                     double val = cos (xval);
                     tempvect1.push_back(val);
                     count1++;
@@ -1411,10 +1519,16 @@ double renewRegPerimeter (int regNum) {
                 xcount = 0;
                 xval = 0;
                 xstep = (PI * 1.0) / (1.0 * (s2 - 1));
+                if (phaseShift) {
+                    phase = 0.0 * PI * ruf.get();
+                }
                 for (auto itr = this->edges[edgeIndex2].begin(); itr < this->edges[edgeIndex2].end();itr++)
 				{
-                    xval = xcount * xstep;
-                    double val = cos(xval);
+                    //if (phaseShift) {
+                    //    phase = 2.0 * PI * ruf.get();
+                    //}
+                    xval = xcount * xstep + phase;
+                    double val = cos(2.0 * xval);
                     tempvect2.push_back(val);
                     count2++;
                     xcount++;
@@ -1427,7 +1541,9 @@ double renewRegPerimeter (int regNum) {
                 if (edges[edgeIndex2].size() != 0) {
                     printDoubleVect(filek, tempvect2);
                 }
-                std::reverse(tempvect2.begin(),tempvect2.end()); //vectors are indexed in opposite directions either side
+                if (ruf.get() < 0.5) {
+                        std::reverse(tempvect2.begin(),tempvect2.end()); //vectors are indexed in opposite directions either side
+                }
                 if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 				{
                     correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
@@ -1497,10 +1613,10 @@ double renewRegPerimeter (int regNum) {
                 }
             } //end of single edge comparison
         } // end of loop on regions
-    edgefile << " countResult "<<countResult<<endl;
-	result = result / (countResult * 1.0);
-	edgefile.close();
-	return result;
+        edgefile << " countResult "<<countResult<<endl;
+        result = result / (countResult * 1.0);
+        edgefile.close();
+        return result;
     } //end of function adjacent_cosines
 
     // method to compare random pairs of edges
@@ -1556,7 +1672,7 @@ double renewRegPerimeter (int regNum) {
 			   if (s1 < s2) {
 			       dinterp = equalize_vector(first , second);
 				   s3 = dinterp.size();
-				   corr = correlate_Eqvector(dinterp, second);
+				   corr = correlate_Eqvector(dinterp, second, false);
                    if (corr == -2) {
                        continue;
                    }
@@ -1564,13 +1680,13 @@ double renewRegPerimeter (int regNum) {
 			   else if (s1 > s2) {
 			       dinterp = equalize_vector(second, first);
 				   s3 = dinterp.size();
-				   corr = correlate_Eqvector(dinterp, first);
+				   corr = correlate_Eqvector(dinterp, first, false);
                    if (corr == -2) {
                        continue;
                    }
 			   }
                else {
-			       corr = correlate_Eqvector(first, second);
+			       corr = correlate_Eqvector(first, second, false);
 				   s3 = 0;
 			   }
                jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl;
@@ -1582,7 +1698,7 @@ double renewRegPerimeter (int regNum) {
 
 
     // method to compare random pairs of edges
-	void random_cosines(const int max_comp, const int morphNum) {
+	void random_cosines(bool phaseShift, const int max_comp, const int morphNum) {
 	    ofstream jfile;
 	    ofstream kfile;
 		int max_rand = edgeIndex.size();
@@ -1592,6 +1708,10 @@ double renewRegPerimeter (int regNum) {
         string vectfile = logpath + "/random.Vect";
 		vector<double> dinterp, first, second;
 		double corr;
+        double phase = 0.0;
+        unsigned int seed = time(NULL);
+        // A rando2yym uniform generator returning real/floating point types
+        morph::RandUniform<double> ruf(seed);
 		jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
         /*
          * extract the region and neighbour region of the edge
@@ -1620,16 +1740,21 @@ double renewRegPerimeter (int regNum) {
               jfile << "in random_correlate neighbour detected reg 1 " << reg1 << " reg 2  " << reg2 << endl;
               continue;
            }
-		   if ((s1 != 0) && (s2 != 0)) //neither edge is empty
-		   {
+		   if ((s1 != 0) && (s2 != 0)) { //neither edge is empty
+               if (phaseShift) {
+                   phase =  0.25 * PI * ruf.get();
+               }
 			   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
                double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
                jfile << "size of edge 1 is " << s1 << " xstep is " << xstep << endl;
                int xcount = 0;
                double xval = 0;
                for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
-                   xval = xcount * xstep;
-                   double val = cos(xval);
+                   //if (phaseShift) {
+                   //    phase = 2.0 * PI * ruf.get();
+                   //}
+                   xval = xcount * xstep + phase;
+                   double val = cos(2.0 * xval);
                    first.push_back(val);
                    xcount++;
                }
@@ -1638,22 +1763,30 @@ double renewRegPerimeter (int regNum) {
                xcount = 0;
                xval = 0;
                xstep = (PI * 1.0) / (1.0 * (s2 - 1));
+               if (phaseShift) {
+                   phase =  0.0 * PI * ruf.get();
+               }
                for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
-                   xval = xcount * xstep;
+              //     if (phaseShift) {
+              //         phase = 2.0 * PI * ruf.get();
+              //     }
+                   xval = xcount * xstep + phase;
                    double val = cos(xval);
                    second.push_back(val);
                    xcount++;
                }
                xcount--;
                jfile << "size of edge 2 is " << s2 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
-               std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
+               if (ruf.get() < 0.5) {
+                   std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
+               }
                printDoubleVect(vectfile,first);
                printDoubleVect(vectfile,second);
 			   if (s1 < s2) {
 			       dinterp = equalize_vector(first , second);
 				   s3 = dinterp.size();
 				   corr = correlate_Eqvector(dinterp, second);
-                   if (corr == -2) {
+                   if (corr <= -2) {
                        continue;
                    }
 			   }
@@ -1661,13 +1794,13 @@ double renewRegPerimeter (int regNum) {
 			       dinterp = equalize_vector(second, first);
 				   s3 = dinterp.size();
 				   corr = correlate_Eqvector(dinterp, first);
-                   if (corr == -2) {
+                   if (corr <= -2) {
                        continue;
                    }
 			   }
                else {
 			       corr = correlate_Eqvector(first, second);
-				   s3 = 0;
+				   s3 = first.size() - second.size();
 			   }
                jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl;
 		       kfile << corr << endl;
@@ -1677,7 +1810,7 @@ double renewRegPerimeter (int regNum) {
 	}
 
     //function to return the correlation of two vectors
-    double correlate_Eqvector(vector<double> vector1, vector<double> vector2) {
+    double correlate_Eqvector(vector<double> vector1, vector<double> vector2, bool lzero=true) {
         ofstream jfile;
         jfile.open("correlateEqvector.out",ios::app);
         double result;
@@ -1686,28 +1819,30 @@ double renewRegPerimeter (int regNum) {
             jfile << "error: vectors must be same length" << endl;
             return -2;
         }
-        vector1 = this->meanzero_vector(vector1);
-        vector2 = this->meanzero_vector(vector2);
+        if (lzero) {
+            vector1 = this->meanzero_vector(vector1);
+            vector2 = this->meanzero_vector(vector2);
+        }
         double vector1Norm = 0;
         double vector2Norm = 0;
         double vector12Product = 0;
         unsigned int vectSize = vector1.size();
-        for (unsigned int  i = 0; i != vectSize; i++) {
+        for (unsigned int  i = 0; i < vectSize; i++) {
             vector1Norm +=  vector1[i]*vector1[i];
-            if (vector1Norm == 0) {
-               return -3;
-            }
             vector2Norm += vector2[i]*vector2[i];
-            if (vector2Norm == 0) {
-               return -4;
-            }
             vector12Product += vector1[i]*vector2[i];
         }
-            vector1Norm = sqrt(vector1Norm);
-            vector2Norm = sqrt(vector2Norm);
-            result = vector12Product / (vector1Norm*vector2Norm);
-            jfile << "result = " << result << endl;
-            return result;
+        if (vector2Norm == 0) {
+            return -4;
+        }
+        if (vector1Norm == 0) {
+            return -3;
+        }
+        vector1Norm = sqrt(vector1Norm);
+        vector2Norm = sqrt(vector2Norm);
+        result = vector12Product / (vector1Norm*vector2Norm);
+        jfile << "result = " << result << endl;
+        return result;
 
     } //end of function correlateEqvector
 
@@ -1775,6 +1910,7 @@ double renewRegPerimeter (int regNum) {
 	{
         morph::BezCurvePath<float> bound;
         vector<hexGeometry::point> vtxCoords;
+        vector<hexGeometry::point> mtxCoords;
 	    int size = this->regionVertex[regNum].size();
 	    if (first) {
             vtxCoords = this->vCoords[regNum];
@@ -1788,17 +1924,19 @@ double renewRegPerimeter (int regNum) {
 	  // code for all iterations to round corners
 	    for (int i=0;i<size;i++)
             {
-                this->mCoords[regNum][i].first = (vtxCoords[i].first + vtxCoords[(i+1)%size].first)/2.0;
-                this->mCoords[regNum][i].second = (vtxCoords[i].second + vtxCoords[(i+1)%size].second)/2.0;
-                cout <<" v.x " << vtxCoords[i].first << " v.y " << vtxCoords[i].second << " m.x " << this->mCoords[regNum][i].first << "   m.y " << this->mCoords[regNum][i].second << endl;
+                double x = (vtxCoords[i].first + vtxCoords[(i+1)%size].first)/2.0;
+                double y = (vtxCoords[i].second + vtxCoords[(i+1)%size].second)/2.0;
+                hexGeometry::point p;
+                p.first = x; p.second = y;
+                mtxCoords.push_back(p);
             }
         cout<< endl;
 	  //now create the BezCurvePaths
         for  (int i = 0; i < size;i++)
             {
                 std::pair<double, double> ma, mb, va;
-                ma = hGeo->point2pair(this->mCoords[regNum][((i-1)+size)%size]);
-                mb = hGeo->point2pair(this->mCoords[regNum][i]);
+                ma = hGeo->point2pair(mtxCoords[((i-1)+size)%size]);
+                mb = hGeo->point2pair(mtxCoords[i]);
                 va = hGeo->point2pair(vtxCoords[i]);
                 morph::BezCurve<float> bc(ma,mb,va);
                 bound.addCurve(bc);
@@ -2246,7 +2384,8 @@ double renewRegPerimeter (int regNum) {
   //method to renew a region after rounding
   void renewRegion(int regNum, list<morph::Hex> hexen)
   {
-    regionIndex[regNum].clear();
+    this->regionIndex[regNum].clear();
+    cout << "regionIndex" << regNum << " size " << this->regionIndex[regNum].size() << endl;
 	for (auto& h : hexen) //repopulate regionIndex
 	{
 	  this->regionIndex[regNum].push_back(h);
@@ -2257,6 +2396,8 @@ double renewRegPerimeter (int regNum) {
   void renewBoundary(int regNum, list<morph::Hex> hexen)
   {
     //pair<double,double> diff;
+    this->regionBound[regNum].clear();
+    cout << "regionBound" << regNum << " size " << this->regionBound[regNum].size() << endl;
 	for (auto h : hexen)
 	{
       if (h.boundaryHex())
@@ -2268,6 +2409,13 @@ double renewRegPerimeter (int regNum) {
 	return;
   }
 
+    void renewCentroids(int regNum) {
+    // fill the centroids
+        for (int i=0; i<NUMPOINTS; i++) {
+            this->centroids[i] = this->baryCentre(i);
+        }
+    }
+
 /*!
  * to clear the edges map
  */
@@ -2276,21 +2424,22 @@ double renewRegPerimeter (int regNum) {
         this->edgeIndex.clear();
     }
 
+
 /*!
  * this redissects the boundary of a region
  */
-    void renewDissect(int regNum)
-    {
+    void renewDissect(int regNum, int morphNum) {
+        string str = to_string(morphNum);
+        ofstream hhfile ( this->logpath + "/dissectDebug" + str + ".out",ios::app );
         vector<int> boundary; //contains the boundary h.vi values
         vector<double> rB; //contains the boundary thetas
         vector<int> irB; //holds the indicies of rB in angular order
-        //	hexGeometry::point a,b;
         int bsize = this->regionBound[regNum].size();
         int vsize = regionVertex[regNum].size();
-        cout << "region " << regNum << " size " << bsize << " vertex size " << vsize << endl;
+        hhfile << "region " << regNum << " size " << bsize << " vertex size " << vsize << endl;
         this->sortedBoundary[regNum].clear();
         vector<double> vertexAngle;
-
+        // fill rB with the polar angles of the boundary hexes
         for (auto h : regionBound[regNum]) {
             double angle = h.phi;
             rB.push_back(angle);
@@ -2298,7 +2447,7 @@ double renewRegPerimeter (int regNum) {
             //cout << "region " << regNum <<" theta boundary " << angle << " boundary index " << h.vi << endl;
         }
         irB = sort_indexes(rB); //indices after sort on theta
-        cout << " renewDissect " << " irB size " << irB.size()  << " rB size " << rB.size() << " bsize " << bsize << endl;
+        hhfile << " renewDissect " << " irB size " << irB.size()  << " rB size " << rB.size() << " bsize " << bsize << endl;
         for (int i=0; i< bsize; i++) {
             this->sortedBoundary[regNum].push_back(boundary[irB[i]]);
         }
@@ -2306,55 +2455,58 @@ double renewRegPerimeter (int regNum) {
         for (int i=0;i<vsize;i++){
             vertexAngle.push_back(this->radialAngles[regNum][i]);
         }
-	    //write the indices in phi order
-        /*
-        for (int i = 0; i < bsize; i++)
-        {
-            cout << " boundHex " << i << " hex " << boundary[irB[i]] << " angle " << rB[irB[i]] << endl;
+        for (int i=0;i<vsize;i++){
+            hhfile << "Vertex angle " << i << " = " << vertexAngle[i] << " ";
         }
-        */
+        hhfile << endl;
+	    //write the indices in phi order
+       // for (int i = 0; i < bsize; i++)
+       // {
+       //     hhfile << " boundHex " << i << " hex " << boundary[irB[i]] << " angle " << rB[irB[i]] << endl;
+       // }
         int offset = 0;
         int idissect = 0;
-        vector<vector<int>> ihE;
+        vector<vector<int>> ihE; //Different from first dissect, we now know how many edges
         ihE.resize(vsize);
+        // find the offset to the first vertex
         while ((rB[irB[offset]] < vertexAngle[0]) && (offset<bsize))
         {
-            cout << " offset inside " << offset << " vertexAngle " << vertexAngle[0] << " hex angle " << rB[irB[offset]]<< " hex " << irB[offset] << endl;
+            hhfile << " offset inside " << offset << " vertexAngle " << vertexAngle[0] << " hex angle " << rB[irB[offset]]<< " hex " << irB[offset] << endl;
             offset++;
         }
-        cout << " offset outside " << offset << " hex angle " << rB[irB[offset]] << " vsize " << vsize << " hex " << irB[offset] << endl;
+        hhfile << " offset outside " << offset << " hex angle " << rB[irB[offset]] << " vsize " << vsize << " hex " << irB[offset] << endl;
         idissect = offset;
         for (int i=1; i< vsize; i++)
         {
-            cout << "head of segment loop " << i << " idissect  " << idissect << " vertexAngle " << vertexAngle[i%vsize] << " hex " << boundary[irB[idissect%bsize]] << endl;
+            hhfile << "head of segment loop " << i << " idissect  " << idissect << " vertexAngle " << vertexAngle[i%vsize] << " hex " << boundary[irB[idissect%bsize]] << endl;
             while ((rB[irB[idissect%bsize]] < vertexAngle[i%vsize]) && (idissect <= bsize))
             {
-                cout << " filling edge loop " << i-1 << " index " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << boundary[irB[idissect%bsize]] << endl;
+               // hhfile << " filling edge loop " << i-1 << " index " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << boundary[irB[idissect%bsize]] << endl;
                 ihE[i-1].push_back(boundary[irB[idissect%bsize]]);
                 idissect++;
             }
         }
-        cout << " just before  vsize end loop angle " << vertexAngle[0] + 2*PI << endl;
+        hhfile << " just before  vsize end loop angle " << vertexAngle[0] + 2*PI << endl;
         while ((rB[irB[idissect%bsize]] < vertexAngle[0] + 2*PI) && (idissect< bsize+offset-1))
         {
-            cout << " filling end edge loop 3 " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << boundary[irB[idissect%bsize]] <<  endl;
+            //hhfile << " filling end edge loop 3 " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << boundary[irB[idissect%bsize]] <<  endl;
             ihE[vsize-1].push_back(boundary[irB[idissect%bsize]]);
             idissect++;
         }
 
-        for (int i=0;i<vsize;i++)
-        {
-            for (unsigned int j=0; j<ihE[i].size(); j++)
-            {
-                cout << " region " << regNum << " edge " << i << " size " << ihE[i].size() << " index "<< ihE[i][j]  << endl;
+       // for (int i=0;i<vsize;i++)
+       // {
+       //     for (unsigned int j=0; j<ihE[i].size(); j++)
+       //     {
+       //         hhfile << " region " << regNum << " edge " << i << " size " << ihE[i].size() << " index "<< ihE[i][j]  << endl;
 
-            }
-        }
+       //     }
+       // }
 
         for (int iregion = 0;iregion<vsize;iregion++)
         {
             int edgeOuter = this->regionList[regNum][iregion];
-            cout << "edgeOuter " << edgeOuter << " region " << regNum << endl;
+            hhfile << "edgeOuter " << edgeOuter << " region " << regNum << endl;
             if (edgeOuter > -1)
             {
                 std::pair<int,int> keypair(regNum,edgeOuter);
@@ -2378,10 +2530,11 @@ double renewRegPerimeter (int regNum) {
             }
             else {
                 int sizeij = edges[k].size();
-                cout << regNum << " " << *ptr << " sizeij " << sizeij << " key " << k << endl;
+                 hhfile << regNum << " " << *ptr << " sizeij " << sizeij << " key " << k << endl;
+               // printIntVect(hhfile,edges[k]);
             }
         }
-        cout << " renewDissect size of edges " << this->edges.size() << " size of edgeIndex " << this->edgeIndex.size() << endl;
+        hhfile << " renewDissect size of edges " << this->edges.size() << " size of edgeIndex " << this->edgeIndex.size() << endl;
     } //end of method renewDissect
 
 
@@ -2409,8 +2562,10 @@ double renewRegPerimeter (int regNum) {
 		edgefile << " mean of NN in region " << regNum << "is " <<NNmean << endl;
         //edgefile << " meann of NN in region " << regNum << " is " << NNmean << endl;
         //edgefile << " i iteration " << i << endl;
+        edgefile << " Before loop over regions entries in edgeIndex " << this->edgeIndex.size() << " entries in edges " << this->edges.size() << endl;
         for (auto j = this->regionList[regNum].begin(); j != this->regionList[regNum].end();j++)  {
             //edgefile << " j iteration " << *j << endl;
+            if (*j == -1) continue;
             tempvect1.resize(0);
             tempvect2.resize(0);
             tempvect3.resize(0);
@@ -2421,12 +2576,12 @@ double renewRegPerimeter (int regNum) {
             int count1 = 0;
             int count2 = 0;
             double correlationValue = -3;
+            double ratio;
             for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
             {
                 tempvect1.push_back(this->NN[*itr] - NNmean);
                 count1++;
             }
-            // edgefile << " after filling tempvector1 " << endl;
             for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++)
             {
                 tempvect2.push_back(this->NN[*itr] - NNmean);
@@ -2438,34 +2593,38 @@ double renewRegPerimeter (int regNum) {
             //edgefile << i << " tv1 " << tempvect1.size() << " j " << *j << " tv22  " <<  tempvect2.size() << endl;
             if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
             {
-                correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+                correlationValue = this->correlate_Eqvector(tempvect1,tempvect2,false);
+                ratio = 1.0;
                 result += fabs(correlationValue);
                 countResult++;
-                corrfile <<  correlationValue << endl;
+                corrfile <<  correlationValue << "  " << ratio << endl;
                 edgefile << " if 1 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
             } //end of code if both edges are equal
             else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 			{
                 tempvect3 = this->equalize_vector(tempvect2,tempvect1);
-                correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+                correlationValue = this->correlate_Eqvector(tempvect1,tempvect3,false);
+                ratio = 1.0 * tempvect2.size() / (1.0 * tempvect1.size());
                 result += fabs(correlationValue);
                 countResult++;
-                corrfile <<  correlationValue << endl;
+                corrfile <<  correlationValue << "  " << ratio << endl;
                 edgefile << " if 2 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
             }
             else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
 			{
                 tempvect3 = this->equalize_vector(tempvect1,tempvect2);
-                correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+                correlationValue = this->correlate_Eqvector(tempvect3,tempvect2,false);
+                ratio = 1.0 * tempvect1.size() / (1.0 * tempvect2.size());
                 result += fabs(correlationValue);
                 countResult++;
                 edgefile << " if 3 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
-                corrfile <<  correlationValue << endl;
+                corrfile <<  correlationValue << "  " << ratio << endl;
             }
             else {
-                edgefile  << " region " << regNum  <<" count1 " << tempvect1.size() << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                edgefile  << " if 4 region " << regNum  <<" count1 " << tempvect1.size() << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                //corrfile << " -1.5 " << ratio << endl;
             }
-        } //end of single edge comparison
+        } //end of loop over the edges in the region
         edgefile << " countResult "<<countResult<< " entries in edgeIndex " << this->edgeIndex.size() << " entries in edges " << this->edges.size() << endl;
         result = result / (countResult * 1.0);
         edgefile.close();

@@ -202,7 +202,7 @@ int main (int argc, char **argv)
          avAbsCorrelation = M.correlate_edges();
          cout << "after correlate_edges" << endl;
 // look at correlation between random edges
-         const int max_comp = NUMPOINTS*4;
+         const int max_comp = NUMPOINTS*5;
          cout << "before random_correlate_edges" << endl;
          M.random_correlate(max_comp,0);
          cout << "after random_correlate_edges" << endl;

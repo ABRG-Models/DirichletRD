@@ -84,7 +84,8 @@ public:
         afile << "before filling H " << Hgrid->num() << endl;
         afile << "after creating HexGrid"<<endl;
         Hgrid->setBoundary(bound,false);
-        afile << "after setting boundary on  H " << Hgrid->num() << endl;
+        afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
+        afile << "seed point.x " << seedPoint.first << " seed point.y " << seedPoint.second << endl;
         n = Hgrid->num();
         afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
         afile << "after  filling H in boundary constructor" << " n = " << n <<endl;
@@ -119,6 +120,7 @@ public:
         afile << "before filling H " << Hgrid->num() << endl;
         afile << "after creating HexGrid with radius "<< radius << endl;
         Hgrid->setCircularBoundary(radius, seedPoint, false);
+        afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
         afile << "after setting boundary on  H " << Hgrid->num() << endl;
         n = Hgrid->num();
         afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
@@ -512,12 +514,12 @@ public:
 	      //cout << " in reverse_y " << h.vi << endl;
 	      //int index = h.vi;
 	      //cout << " in y reversing loop " << h.vi << endl;
-	      double temp = double(this->Hgrid->d_y[h.vi]);
+	      float temp = h.y;
 	     // cout << " after getting y " << temp << endl;
 		  if (temp != 0.0)
 		  {
 	         // cout << " in y reversing loop " << endl;
-	          this->Hgrid->d_y[h.vi] = -temp;
+	          h.y = -temp;
 		  }
 		}
 	}
@@ -532,12 +534,14 @@ public:
         int hexcount = 0;
         double maxPhi = -10.0;
         double minPhi = 10.0;
-	    this->reverse_y();
+	    reverse_y();
 	    cout <<"in set polars ksSolver xcentre" << centre.first << " y_centre  " << centre.second <<endl;
         for (auto &h : this->Hgrid->hexen) {
             hexcount++;
-            xav += this->Hgrid->d_x[h.vi];
-            yav += this->Hgrid->d_y[h.vi];
+            //xav += this->Hgrid->d_x[h.vi];
+            //yav += this->Hgrid->d_y[h.vi];
+            xav += h.x;
+            yav += h.y;
         }
 		//cout << "after set centres " << endl;
 		if (hexcount != 0) {
@@ -560,17 +564,18 @@ public:
 			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
 			//cout << "d_x " << dx << " dy " << dy <<endl;
             h.r = sqrt((dx - centre.first)*(dx - centre.first)
-			+ (dy - centre.second)*(dy - centre.second));
+			+ (dy - yav)*(dy - yav));
             if (dy >= centre.second) {
-              angle =   atan2((dy - centre.second), (dx - centre.first));
+            //if (dy >= yav) {
+               angle =   atan2((dy - centre.second), (dx - centre.first));
 			  h.phi = angle;
-			 // cout<< " setPhi if 1 " << h.phi<<  " index " << h.vi << endl;
 			  }
             else {
-              angle =  2*PI + atan2((dy - centre.second), (dx - centre.first));
-			  h.phi = angle;
+                angle =  2*PI + atan2((dy - centre.second), (dx - centre.first));
+              //angle =  2*PI + atan2((dy - yav), (dx - xav));
+			    h.phi = angle;
 			 // cout<< " setPhi if 2 " << h.phi<<  " index " << h.vi << endl;
-			  }
+			}
             if (angle < minPhi) {
                 minPhi = angle;
             }
@@ -580,8 +585,8 @@ public:
         }
         cout << " set_kS_polars max phi " << maxPhi << " minPhi " << minPhi << endl;
         result.first = xav - centre.first ; // barycentre
-        result.second = yav - centre.second ;
-		cout << "centre x "<< centre.first << " centre y " << centre.second << " result.first " << result.first << " result.second " << result.second <<endl;
+        result.second = yav - centre.second;
+		cout << "centre x "<< centre.first << " centre y " << centre.second << " centreMove.x " << result.first << " centreMove.y " << result.second <<endl;
         return result;
     } //end of function set_polars
 
