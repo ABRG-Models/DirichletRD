@@ -117,6 +117,7 @@ public:
     vector<list<morph::Hex>> regionBound; //for each region list of hexes on the boundary
     std::vector<std::vector<std::list<morph::Hex>::iterator>> regionpHexList; //vector of vectors of pHexes (iterators)
     std::map<int,vector<int>> edges; //map of (i,j) edges, uses pair<->int converters
+    std::map<int,vector<double>> edgeVals; //map of (i,j) edgeVals, uses pair<->int converter
     vector<vector<double> > regionDist; //from each hexdistances to each seed point
     vector<vector<hexGeometry::point>> vCoords; //for each region coordinates of the vertices
     vector<vector<hexGeometry::point>> mCoords; //for each region coordinates of the midpoints
@@ -142,7 +143,7 @@ public:
         this->hexArea = 3.0*tan30*this->ds*this->ds;
         ofstream afile (this->logpath + "/debug.out" );
         ofstream jfile (this->logpath + "/correlateVector.out");
-        ifstream bfile("./centres0.data");
+        ifstream bfile("/home/john/Neuroscience/DirichletRD/Threadbeast/sim/centres0.data");
         cout << "before creating BezCurve" <<endl;
         srand(time(NULL)); //reseed random number generator
         n = 0;
@@ -1447,17 +1448,55 @@ double renewRegPerimeter (int regNum) {
 	    return result;
     } //end of function correlate_edges
 
+/*
+ * function to insert cosine functions along the edges of the tesselation
+ * phaseShift controls how the edges are shifted relative to each other
+ * mode alters the frequency of the cosine function.
+ */
+    void insert_cosines(double phaseShift, double mode) {
+        unsigned int seed = time(NULL);
+        morph::RandUniform<double> ruf(seed);
+        for (int i = 0; i <NUMPOINTS; i++) {
+            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
+                //edgefile << " j iteration " << *j << endl;
+                int count1 = 0;
+                std::pair<int,int> edgePair(i,*j);
+                int edgeIndex = this->pair2int(edgePair,this->base);
+                int s1 = this->edges[edgeIndex].size();
+// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
+                double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
+                double xval = 0;
+                int xcount = 0;
+                int amode = 0;
+                vector<double> tempvect;
+                amode = mode * ruf.get() + 1.0;
+                double phase =  phaseShift * PI * ruf.get() ;
+                for (auto itr = this->edges[edgeIndex].begin(); itr < this->edges[edgeIndex].end();itr++) {
+                    xval = xcount * xstep + phase;
+                    double val = cos (amode * xval);
+                    tempvect.push_back(val);
+                    count1++;
+                    xcount++;
+                }
+                xcount--;
+                std::pair <int, vector<double>> p(edgeIndex,tempvect);
+                this->edgeVals.insert(p);
+                cout << "size of edgeVal region " << i << " edge " << *j << " is " << tempvect.size() << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+            } //end of loop over edges of a region
+        } // end of loop over all regions
+    } // end of function insert cosines
 
-    // function to correlate matching edges
-    double adjacent_cosines(bool phaseShift)
-	{
+/*
+ * function to correlate adjacent edges
+ */
+    double adjacent_cosines() {
 	    double result = 0;
         ofstream edgefile(this->logpath + "/edgeCorrelations0.txt",ios::app);
         ofstream edgerest(this->logpath + "/edgeRest.txt");
 		ofstream correl(this->logpath + "/correlate0.data",ios::app);
-        vector<double> tempvect1;
-        vector<double> tempvect2;
-        vector<double> tempvect3;
+        vector<double> first;
+        vector<double> second;
+        vector<double> dinterp;
         edgefile << " In correlate_edges " << endl;
         // iterate over regions
         //for each region iterate over region edges
@@ -1472,87 +1511,43 @@ double renewRegPerimeter (int regNum) {
         std::string filek = logpath + "/adjacent.Vect";
         ofstream iout (filei,ios::app);
         ofstream jout (filej,ios::app);
-        double phase = 0.0;
         unsigned int seed = time(NULL);
         // A rando2yym uniform generator returning real/floating point types
+        double correlationValue = 0;
         morph::RandUniform<double> ruf(seed);
         for (int i = 0; i <NUMPOINTS; i++) {
-
             for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
                 //edgefile << " j iteration " << *j << endl;
-                tempvect1.resize(0);
-                tempvect2.resize(0);
-                tempvect3.resize(0);
+                first.resize(0);
+                second.resize(0);
+                dinterp.resize(0);
+                int count1 = 0;
+                int count2 = 0;
                 std::pair<int,int> edgePair1(i,*j);
-                int edgeIndex1 = this->pair2int(edgePair1,this->base);
+                int edgeIndex1 = pair2int(edgePair1, this->base);
+                first = this->edgeVals[edgeIndex1];
                 std::pair<int,int>  edgePair2(*j,i);
-                int edgeIndex2 = this->pair2int(edgePair2,this->base);
-                int s1 = this->edges[edgeIndex1].size();
-                int s2 = this->edges[edgeIndex2].size();
+                int edgeIndex2 = pair2int(edgePair2, this->base);
+                second = this->edgeVals[edgeIndex2];
+                int s1 = first.size();
+                int s2 = second.size();
+                int s3 = 0;
                 if ((s1 < 5) || (s2 < 5)) {
                     continue;
                 }
-                int count1 = 0;
-                int count2 = 0;
-                double correlationValue = 0;
-// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
-                double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
-                double xval = 0;
-                int xcount = 0;
-
-                if (phaseShift) {
-                    phase =  0.25 * PI * ruf.get() ;
-                }
-                for (auto itr = this->edges[edgeIndex1].begin(); itr < this->edges[edgeIndex1].end();itr++)
-				{
-                    //if (phaseShift) {
-                    //    phase = 2.0 * PI * ruf.get();
-                    //}
-                    xval = xcount * xstep + phase;
-                    double val = cos (xval);
-                    tempvect1.push_back(val);
-                    count1++;
-                    xcount++;
-                }
-                xcount--;
-                edgefile << "size of edge 1 is " << s1 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
-                xcount = 0;
-                xval = 0;
-                xstep = (PI * 1.0) / (1.0 * (s2 - 1));
-                if (phaseShift) {
-                    phase = 0.0 * PI * ruf.get();
-                }
-                for (auto itr = this->edges[edgeIndex2].begin(); itr < this->edges[edgeIndex2].end();itr++)
-				{
-                    //if (phaseShift) {
-                    //    phase = 2.0 * PI * ruf.get();
-                    //}
-                    xval = xcount * xstep + phase;
-                    double val = cos(2.0 * xval);
-                    tempvect2.push_back(val);
-                    count2++;
-                    xcount++;
-                }
-                xcount--;
-                edgefile << "size of edge 2 is " << s2 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
-                if (edges[edgeIndex1].size() != 0) {
-                    printDoubleVect(filek,tempvect1);
-                }
-                if (edges[edgeIndex2].size() != 0) {
-                    printDoubleVect(filek, tempvect2);
-                }
                 if (ruf.get() < 0.5) {
-                        std::reverse(tempvect2.begin(),tempvect2.end()); //vectors are indexed in opposite directions either side
+                    std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
                 }
-                if (tempvect1.size() == tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
+                if (s1 == s2 && s1*s2 != 0)
 				{
-                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect2);
+                    correlationValue = this->correlate_Eqvector(first, second);
 		            result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
                         iout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filei,tempvect1);
+                        printDoubleVect(filei, first);
                         jout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filej,tempvect2);
+                        printDoubleVect(filej, second);
                     }
 
                     countResult++;
@@ -1560,20 +1555,21 @@ double renewRegPerimeter (int regNum) {
 				    correl << correlationValue << endl;
                     edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
                 } //end of code if both edges are equal
-                else if (tempvect1.size() > tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+                else if (s1 > s2 && s1*s2 != 0)
 				{
-                    tempvect3 = this->equalize_vector(tempvect2,tempvect1);
-                    if (tempvect3.size() == 0) {
-                        edgefile << " i " << i << " count1 " << tempvect1.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    dinterp = this->equalize_vector(second, first);
+                    s3 = dinterp.size();
+                    if (s3 == 0) {
+                        edgefile << " i " << i << " count1 " << first.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     }
-                    correlationValue = this->correlate_Eqvector(tempvect1,tempvect3);
+                    correlationValue = this->correlate_Eqvector(dinterp,first);
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
                         iout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filei,tempvect1);
+                        printDoubleVect(filei, first);
                         jout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filej,tempvect3);
+                        printDoubleVect(filej, dinterp);
                     }
                         countResult++;
                         edgefile << " i " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
@@ -1584,20 +1580,21 @@ double renewRegPerimeter (int regNum) {
                     }
 
                 }
-                else if (tempvect1.size() < tempvect2.size() && tempvect1.size()*tempvect2.size() != 0)
+                else if (s1 < s2 && s1*s2 != 0)
 				{
-                    tempvect3 = this->equalize_vector(tempvect1,tempvect2);
-                    if (tempvect3.size() == 0){
-                        edgefile << " i " << i << " count2 " << tempvect2.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                    dinterp = this->equalize_vector(first, second);
+                    s3 = dinterp.size();
+                    if (s3 == 0){
+                        edgefile << " i " << i << " count2 " << second.size() << " j " << *j << " tempvect3 is zero  "   << endl;
                     }
-                    correlationValue = this->correlate_Eqvector(tempvect3,tempvect2);
+                    correlationValue = this->correlate_Eqvector(dinterp, second);
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
                         iout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filei,tempvect3);
+                        printDoubleVect(filei, dinterp);
                         jout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filej,tempvect2);
+                        printDoubleVect(filej, second);
                     }
                         countResult++;
                         edgefile << " i = " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << endl;
@@ -1609,7 +1606,7 @@ double renewRegPerimeter (int regNum) {
                 }
                 else
                 {
-                    edgefile << "error zero size for one of the edges " << i << " size " << tempvect1.size() << " second " << *j << " size " << tempvect2.size() << endl;
+                    edgefile << "error zero size for one of the edges " << i << " size " << first.size() << " second " << *j << " size " << second.size() << endl;
                 }
             } //end of single edge comparison
         } // end of loop on regions
@@ -1698,7 +1695,7 @@ double renewRegPerimeter (int regNum) {
 
 
     // method to compare random pairs of edges
-	void random_cosines(bool phaseShift, const int max_comp, const int morphNum) {
+	void random_cosines(const int max_comp, const int morphNum) {
 	    ofstream jfile;
 	    ofstream kfile;
 		int max_rand = edgeIndex.size();
@@ -1726,8 +1723,8 @@ double renewRegPerimeter (int regNum) {
 		   int s3 = 0;
 		   first.resize(0);
 		   second.resize(0);
-		   int s1 = edges[rr1].size(); //edge value is integer array of the hex identifiers of the edge
-		   int s2 = edges[rr2].size();
+		   int s1 = this->edgeVals[rr1].size(); //edge value is integer array of the hex identifiers of the edge
+		   int s2 = this->edgeVals[rr2].size();
            if ((s1<5) || (s2<5)) {
                continue;
            }
@@ -1741,42 +1738,8 @@ double renewRegPerimeter (int regNum) {
               continue;
            }
 		   if ((s1 != 0) && (s2 != 0)) { //neither edge is empty
-               if (phaseShift) {
-                   phase =  0.25 * PI * ruf.get();
-               }
-			   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
-               double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
-               jfile << "size of edge 1 is " << s1 << " xstep is " << xstep << endl;
-               int xcount = 0;
-               double xval = 0;
-               for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
-                   //if (phaseShift) {
-                   //    phase = 2.0 * PI * ruf.get();
-                   //}
-                   xval = xcount * xstep + phase;
-                   double val = cos(2.0 * xval);
-                   first.push_back(val);
-                   xcount++;
-               }
-               xcount--;
-               jfile << "size of edge 1 is " << s1 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
-               xcount = 0;
-               xval = 0;
-               xstep = (PI * 1.0) / (1.0 * (s2 - 1));
-               if (phaseShift) {
-                   phase =  0.0 * PI * ruf.get();
-               }
-               for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
-              //     if (phaseShift) {
-              //         phase = 2.0 * PI * ruf.get();
-              //     }
-                   xval = xcount * xstep + phase;
-                   double val = cos(xval);
-                   second.push_back(val);
-                   xcount++;
-               }
-               xcount--;
-               jfile << "size of edge 2 is " << s2 << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+               first = this->edgeVals[rr1];
+               second = this->edgeVals[rr2];
                if (ruf.get() < 0.5) {
                    std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
                }

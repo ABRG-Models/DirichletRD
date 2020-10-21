@@ -42,6 +42,7 @@ int main (int argc, char **argv)
     bool Lcontinue = atoi(argv[10]); //logical to determine if coldstart
     bool LfixedSeed = atoi(argv[11]); //are we using a fixed seed?
     bool Lgraphics = atoi(argv[12]);
+    bool LDn = atoi(argv[13]);
 	int numSectors = 12;
 	double aNoiseGain = 0.1;
 	double boundaryFalloffDist = 0.0078;
@@ -400,6 +401,7 @@ int main (int argc, char **argv)
       avDegreeAngle = avDegreeAngle / (1.0 * countRegions);
       avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
 	  occupancy = occupancy / (1.0 * countRegions);
+	  avAbsCorrelation = avAbsCorrelation / (1.0 * countRegions);
 	  jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
 //end of integration on the original tesselation
 
@@ -450,9 +452,17 @@ int main (int argc, char **argv)
 	//	    cout << "hexNumber in region " << j <<  " h.vi " << h.vi << endl;
     //    }
         double area = M.hexArea*M.regArea(j);
-        DchiVal[j] = Dchi * morph0Area[j] / area;
-        DnVal[j] = Dn *  morph0Area[j] / area;
-        DcVal[j] = Dc * morph0Area[j] / area;
+        if (LDn) {
+            DchiVal[j] = Dchi * morph0Area[j] / area;
+            DnVal[j] = Dn *  morph0Area[j] / area;
+            DcVal[j] = Dc * morph0Area[j] / area;
+        }
+        else {
+            DchiVal[j] = Dchi;
+            DnVal[j] = Dn;
+            DcVal[j] = Dc;
+        }
+
         cout << "DnVal region " << j << " = " << DnVal[j] << " Dn = " << Dn << " PI " << PI << endl;
     }
 // now draw the intial tesselation
@@ -750,7 +760,7 @@ int main (int argc, char **argv)
         avAbsCorrelation = avAbsCorrelation / (1.0 * countRegions);
 	    occupancy = occupancy / (1.0 * countRegions);
 	    // jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
-	    jfile <<Dn<< " "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<< " after morphing  " << endl;
+	    jfile <<Dn<< " "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation << endl;
 //end of integration after first morphing
 //begin second morphing
     if (skipMorph) return 0;
@@ -785,9 +795,16 @@ int main (int argc, char **argv)
     cout << "Edges size " << M.edges.size() << endl;
     for (int j = 0;j<NUMPOINTS;j++) {
         double area = M.hexArea*M.regArea(j);
-        DchiVal[j] =  Dchi * morph0Area[j] /  area;
-        DnVal[j] = Dn * morph0Area[j] / area;
-        DcVal[j] = Dc * morph0Area[j] / area;
+        if (LDn) {
+            DchiVal[j] =  Dchi * morph0Area[j] /  area;
+            DnVal[j] = Dn * morph0Area[j] / area;
+            DcVal[j] = Dc * morph0Area[j] / area;
+        }
+        else {
+            DchiVal[j] =  Dchi;
+            DnVal[j] = Dn;
+            DcVal[j] = Dc;
+        }
         cout << "DnVal region " << j << " = " << DnVal[j] << " Dn = " << Dn << " PI " << PI << endl;
     }
     boundaryCount = 0;
@@ -1072,6 +1089,6 @@ int main (int argc, char **argv)
     avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
 	occupancy = occupancy / (1.0 * countRegions);
     avAbsCorrelation = avAbsCorrelation/(1.0 * countRegions);
-	jfile <<Dn<<"  "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<< " after morphing  2" <<endl;
+	jfile <<Dn<<"  "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation  <<endl;
     return 0;
 };
