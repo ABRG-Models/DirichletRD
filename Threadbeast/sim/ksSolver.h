@@ -66,42 +66,43 @@ public:
     vector<double> NN, CC; //hold the field values for each he
     morph::HexGrid* Hgrid;
 // empty constructor
-    ksSolver(){}
-// Constructor with boundary passed in
-    ksSolver (int scale, double xspan, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
-        this->scale = scale;
-        this->xspan = xspan;
+    ksSolver(){};
+// constructor with HexGrid passed in
+    ksSolver (morph::HexGrid*  Hgrid, std::string logpath) {
+        this->Hgrid = Hgrid;
+        this->seedPoint = this->Hgrid->computeCentroid(this->Hgrid->hexen);
         this->logpath = logpath;
-        this->bound = bound;
-        this->seedPoint = seedPoint;
         ofstream afile (this->logpath + "/ksdebug.out",ios::app );
-        double s = pow(2.0, this->scale-1);
-        this->ds = 1.0/s;
+        this->seedPoint = this->Hgrid->computeCentroid(this->Hgrid->hexen);
+        this->ds = this->Hgrid->hexen.begin()->d/2.0;
         n = 0;
-        Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
-        n = Hgrid->num();
-        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
-        afile << "before filling H " << Hgrid->num() << endl;
+        n = this->Hgrid->num();
+        afile << " max x " << this->Hgrid->getXmax(0.0) << " min x " << this->Hgrid->getXmin(0.0) << endl;
+        afile << "before filling H " << this->Hgrid->num() << endl;
         afile << "after creating HexGrid"<<endl;
-        Hgrid->setBoundary(bound,false);
-        afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
         afile << "seed point.x " << seedPoint.first << " seed point.y " << seedPoint.second << endl;
-        n = Hgrid->num();
-        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        n = this->Hgrid->num();
+        afile << " max x " << this->Hgrid->getXmax(0.0) << " min x " << this->Hgrid->getXmin(0.0) << endl;
         afile << "after  filling H in boundary constructor" << " n = " << n <<endl;
+      // check the order numbering in hexen
+        int hexCount = 0;
+        for (auto h : this->Hgrid->hexen) {
+            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
+            hexCount++;
+        }
         N.resize(n);
         this->setHexType();
-        Hgrid->computeDistanceToBoundary();
-        for (auto &h : Hgrid->hexen) {
+        this->Hgrid->computeDistanceToBoundary();
+        for (auto &h : this->Hgrid->hexen) {
             afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
         }
-        NN.resize(n);
+        this->NN.resize(n);
         CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
         pair<double, double> centroid = set_kS_polars(this->seedPoint);
         cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
         cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
-    } // end of ksSolver constructor
+    }; // end of ksSolver constructor
 
 // constructor with radius passed in for solving on radial boundaries
     ksSolver (int scale, double xspan, string logpath, float radius, pair<float, float> seedPoint) {
@@ -125,8 +126,14 @@ public:
         n = Hgrid->num();
         afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
         afile << "after  filling H in circular constructor" << " n = " << n <<endl;
+      // check the order numbering in hexen
+        int hexCount = 0;
+        for (auto h : Hgrid->hexen) {
+            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
+            hexCount++;
+        }
         N.resize(n);
-         for (auto &h : this->Hgrid->hexen){
+        for (auto &h : this->Hgrid->hexen){
             this->N[h.vi].resize(6);
             if (!HAS_NE(h.vi)) {
                 h.setBoundaryHex();
@@ -182,16 +189,57 @@ public:
             afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
         }
         */
-        NN.resize(n);
+        this->NN.resize(n);
         CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
         pair<double, double> centroid = set_kS_polars(this->seedPoint);
         cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
         cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
-    } // end of ksSolver constructor
+    }; // end of ksSolver constructor
+
+// Constructor with boundary passed in
+    ksSolver (int scale, double xspan, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
+        this->scale = scale;
+        this->xspan = xspan;
+        this->logpath = logpath;
+        this->bound = bound;
+        this->seedPoint = seedPoint;
+        ofstream afile (this->logpath + "/ksdebug.out",ios::app );
+        double s = pow(2.0, this->scale-1);
+        this->ds = 1.0/s;
+        n = 0;
+        Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
+        n = Hgrid->num();
+        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        afile << "before filling H " << Hgrid->num() << endl;
+        afile << "after creating HexGrid"<<endl;
+        Hgrid->setBoundary(bound,false);
+        afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
+        afile << "seed point.x " << seedPoint.first << " seed point.y " << seedPoint.second << endl;
+        n = Hgrid->num();
+        afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
+        afile << "after  filling H in boundary constructor" << " n = " << n <<endl;
+      // check the order numbering in hexen
+        int hexCount = 0;
+        for (auto h : Hgrid->hexen) {
+            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
+            hexCount++;
+        }
+        N.resize(n);
+        this->setHexType();
+        Hgrid->computeDistanceToBoundary();
+        for (auto &h : Hgrid->hexen) {
+            afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
+        }
+        this->NN.resize(n);
+        this->CC.resize(n);
+        afile << "after alloc NN and CC" <<endl;
+        pair<double, double> centroid = set_kS_polars(this->seedPoint);
+        cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+        cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
+    }; // end of ksSolver constructor
 
 
-// this determines the type of hex
     void setHexType() {
         for (auto &h : this->Hgrid->hexen){
             this->N[h.vi].resize(6);
@@ -242,8 +290,16 @@ public:
             else {
                 this->N[h.vi][5] = Hgrid->d_nse[h.vi];
             }
-        } //end of loop over HexGrid
-    } //end of method setHexType
+        } //end of loop over HexGri this->setHexType();
+        /*
+        Hgrid->computeDistanceToBoundary();
+        for (auto &h : Hgrid->hexen) {
+            afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
+        }
+        */
+    } // end of setHexType
+
+// Constructor with boundary passed in
 
 // method to calculate the Laplacian
     vector<double> getLaplacian(vector<double> Q, double dx) {
@@ -294,7 +350,7 @@ public:
 		vector<double> cTaxis(this->n,0);
 		//cout << "in compute_dNN just before laplacian" << endl;
 		lapN = getLaplacian(inN,this->ds);
-        cTaxis = chemoTaxis(inN,CC,this->ds);
+        cTaxis = chemoTaxis(inN,this->CC,this->ds);
         double a = 1., b = 1.;
 		//cout << "in compute_dNN just before the loop" << endl;
         for (int h=0; h < this->n; h++) {
@@ -334,11 +390,10 @@ public:
 				{
 		            int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
-                    if(N[h.vi][j] == i)
-					{
-       	                NN[N[h.vi][j]] = NN[h.vi];
+                    if(N[h.vi][j] == i) {
+       	                this->NN[N[h.vi][j]] = this->NN[h.vi];
 			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
-	                    CC[N[h.vi][j]] = CC[h.vi];
+	                    this->CC[N[h.vi][j]] = this->CC[h.vi];
 	                }
 	            }
 	         }
@@ -497,9 +552,9 @@ public:
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
                     if(N[h.vi][j] == i)
 					{
-       	                NN[N[h.vi][j]] = NN[h.vi];
+       	                this->NN[N[h.vi][j]] = NN[h.vi];
 			//   cout << " NN " << NN[N[h.vi][j]] << " NN central " << NN[h.vi] << endl;
-	                    CC[N[h.vi][j]] = CC[h.vi];
+	                    this->CC[N[h.vi][j]] = this->CC[h.vi];
 	                }
 	            }
 	         }
