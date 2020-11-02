@@ -68,10 +68,10 @@ int main (int argc, char **argv)
     double ccInitialOffset = 2.5;
     bool overwrite_logs = true;
     bool skipMorph  = false;
-    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
+    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << " reg " <<  reg << endl;
     ofstream afile (logpath + "/centroids.out",ios::app);
-    string ename = logpath + "/" + ".h5";
-    string regname  = logpath + "/" + reg + ".h5";
+    string regname = logpath + "/" + reg + ".h5";
+    cout << regname << endl;
 // include the analysis methods
     Analysis L;
 
@@ -108,6 +108,7 @@ int main (int argc, char **argv)
     morph::HexGrid* hexGrid;
     hexGrid = new HexGrid;
     hexGrid->load(regname);
+    cout << "after loading " << regname << endl;
     S = new ksSolver(hexGrid, logpath);
 // now draw the intial tesselation
     int internalCount = 0;
@@ -145,12 +146,12 @@ int main (int argc, char **argv)
         idisp.redrawDisplay();
         cout << "after redrawDisplay 2" << endl;
         usleep (100000); // one hundred seconds
-        idisp.saveImage(logpath + "/Tesselation1.png");
+        idisp.saveImage(logpath + "/Tesselation1" + reg + ".png");
         idisp.closeDisplay();
     } //end of graphics section
 // initialise the fields
-    string fname = logpath + "/first.h5";
-    cout<< "just before first data read"<< " lcontinue " << Lcontinue <<endl;
+    string fname = logpath + "/first" + reg + ".h5";
+    cout<< "just before first data read"<< " lcontinue " << Lcontinue << fname << endl;
 // initialise with random field
     if (Lcontinue) {
         morph::HdfData ginput(fname,1);
@@ -222,7 +223,7 @@ int main (int argc, char **argv)
             iidisp.redrawDisplay();
 		    cout << "just after redraw display 1" << endl;
 		    cout << "just after to_string"<<endl;
-		    iidisp.saveImage(logpath + "/nnField1.png");
+		    iidisp.saveImage(logpath + "/nn" + reg + ".png");
             usleep (1000000); // one hundred seconds
 		    cout << "just after saveImage 1" << endl;
 		    iidisp.closeDisplay();
@@ -234,20 +235,17 @@ int main (int argc, char **argv)
     //code run at end of timestepping
     //first save the  ofstream outFile;
     morph::HdfData fdata(fname);
-	for (unsigned int j=0;j<NUMPOINTS;j++)
-	{
-		std::string nstr = "n";
-	    char * nst = new char[nstr.length()+1];
-		std::strcpy(nst,nstr.c_str());
-    	std::string ccstr = "c";
-	    char * ccst = new char[ccstr.length()+1];
-		std::strcpy(ccst,ccstr.c_str());
-		cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
-        //fdata.add_contained_vals(ccst,S->CC);
-        cout << "after add_contained vals CC" <<endl;
-        //fdata.add_contained_vals(nst,S->NN);
-        cout << "after add_contained vals NN`" <<endl;
-    }
+	std::string nstr = "n";
+	char * nst = new char[nstr.length()+1];
+	std::strcpy(nst,nstr.c_str());
+    std::string ccstr = "c";
+	char * ccst = new char[ccstr.length()+1];
+	std::strcpy(ccst,ccstr.c_str());
+	cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+    fdata.add_contained_vals(ccst,S->CC);
+    cout << "after add_contained vals CC" <<endl;
+    fdata.add_contained_vals(nst,S->NN);
+    cout << "after add_contained vals NN`" <<endl;
     //fdata.add_val ("/Dchi", Dchi);
     //fdata.add_val ("/Dn", Dn);
     //fdata.add_val ("/Dc",Dc);
