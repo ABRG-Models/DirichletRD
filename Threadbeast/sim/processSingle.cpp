@@ -35,7 +35,7 @@ int main (int argc, char **argv)
     int numsteps = atoi(argv[9]); //length of integration
     int numprint = atoi(argv[10]); //frequency of printing
     bool Lcontinue = atoi(argv[11]); //logical to determine if coldstart
-    bool LfixedSeed = atoi(argv[12]); //are we using a fixed seed?
+    unsigned int LfixedSeed = atoi(argv[12]); //are we using a fixed seed?
     bool Lgraphics = atoi(argv[13]);
     bool LDn = atoi(argv[14]);
 	double aNoiseGain = 0.1;
@@ -44,7 +44,7 @@ int main (int argc, char **argv)
      * open the confgig file and read in the parameters
     morph::Config conf(jsonfile);
     if (!conf.ready) {
-        cerr << "Error setting up JSON config: " << conf.emsg << endl;
+        cerr << "Error setting up JSON config: " <;< conf.emsg << endl;
     }
      */
 /*
@@ -75,16 +75,23 @@ int main (int argc, char **argv)
 // include the analysis methods
     Analysis L;
 
-    unsigned int seed;
-    if (LfixedSeed) {
-        seed = 1;
-    }
-    else {
-        seed = time(NULL);
-    }
 
-    // A ra2yyndo2yym uniform generator returning real/floating point types
+    morph::RandUniform<double> ruf(LfixedSeed);
+
+    /*
+     * decide if we are using a fixed or
+     * run-time dependent seed. Use milliseconds to
+     * allow parallel launching
+
+    unsigned int seed;
+    milliseconds ms1 = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    if (LfixedSeed)
+        seed = 1;
+    else
+        seed = static_cast<unsigned int> (ms1.count());
+
     morph::RandUniform<double> ruf(seed);
+    */
 
     /*
      * NOW create a log directory if necessary, and exit on any
@@ -104,12 +111,17 @@ int main (int argc, char **argv)
     /*
      * create a ksSolver form a HexGrid which is
      * read in from a file
-     */
     morph::HexGrid* hexGrid;
     hexGrid = new HexGrid;
     hexGrid->load(regname);
     cout << "after loading " << regname << endl;
     S = new ksSolver(hexGrid, logpath);
+    */
+    #include "triangle.h"
+    pair<double,double> seedPoint(0.0,0.0);
+    S = new ksSolver (scale, xspan, logpath, bound, seedPoint);
+//    pair<double,double> seedPoint(0.0,0.0);
+//    S = new ksSolver (scale, xspan, logpath, 0.083, seedPoint);
 // now draw the intial tesselation
     int internalCount = 0;
     double rhoInit = 2.5;

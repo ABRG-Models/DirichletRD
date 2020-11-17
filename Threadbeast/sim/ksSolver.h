@@ -74,12 +74,13 @@ public:
         this->logpath = logpath;
         ofstream afile (this->logpath + "/ksdebug.out",ios::app );
         this->seedPoint = this->Hgrid->computeCentroid(this->Hgrid->hexen);
-        this->ds = this->Hgrid->hexen.begin()->d/2.0;
+        this->ds = this->Hgrid->hexen.begin()->d;
         n = 0;
         n = this->Hgrid->num();
         afile << " max x " << this->Hgrid->getXmax(0.0) << " min x " << this->Hgrid->getXmin(0.0) << endl;
         afile << "before filling H " << this->Hgrid->num() << endl;
-        afile << "after creating HexGrid"<<endl;
+        afile << "after creating HexGri ds = "<< this->ds << endl;
+        cout << "after creating HexGri ds = "<< this->ds << endl;
         afile << "seed point.x " << seedPoint.first << " seed point.y " << seedPoint.second << endl;
         n = this->Hgrid->num();
         afile << " max x " << this->Hgrid->getXmax(0.0) << " min x " << this->Hgrid->getXmin(0.0) << endl;
@@ -87,14 +88,14 @@ public:
       // check the order numbering in hexen
         int hexCount = 0;
         for (auto h : this->Hgrid->hexen) {
-            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
+            //afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
             hexCount++;
         }
         N.resize(n);
         this->setHexType();
         this->Hgrid->computeDistanceToBoundary();
         for (auto &h : this->Hgrid->hexen) {
-            afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
+            //afile  << "dist to bdry " << h.distToBoundary << " for " << h.vi << endl;
         }
         this->NN.resize(n);
         CC.resize(n);
@@ -119,6 +120,7 @@ public:
         n = Hgrid->num();
         afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
         afile << "before filling H " << Hgrid->num() << endl;
+        afile << "after creating HexGrid ds =  " << this->ds << endl;
         afile << "after creating HexGrid with radius "<< radius << endl;
         Hgrid->setCircularBoundary(radius, seedPoint, false);
         afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
@@ -212,7 +214,7 @@ public:
         n = Hgrid->num();
         afile << " max x " << Hgrid->getXmax(0.0) << " min x " << Hgrid->getXmin(0.0) << endl;
         afile << "before filling H " << Hgrid->num() << endl;
-        afile << "after creating HexGrid"<<endl;
+        afile << "after creating HexGrid ds =  " << this->ds << endl;
         Hgrid->setBoundary(bound,false);
         afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
         afile << "seed point.x " << seedPoint.first << " seed point.y " << seedPoint.second << endl;
