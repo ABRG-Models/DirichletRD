@@ -101,8 +101,8 @@ public:
         CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
         pair<double, double> centroid = set_kS_polars(this->seedPoint);
-        cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
-        cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
+        cout << " end of ksSolver from file " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+        cout << " end of ksSolver from file " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
     }; // end of ksSolver constructor
 
 // constructor with radius passed in for solving on radial boundaries
@@ -195,8 +195,8 @@ public:
         CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
         pair<double, double> centroid = set_kS_polars(this->seedPoint);
-        cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
-        cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
+        cout << " end of ksSolver circle radius " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+        cout << " end of ksSolver circle radius " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
     }; // end of ksSolver constructor
 
 // Constructor with boundary passed in
@@ -216,6 +216,7 @@ public:
         afile << "before filling H " << Hgrid->num() << endl;
         afile << "after creating HexGrid ds =  " << this->ds << endl;
         Hgrid->setBoundary(bound,false);
+        reverse_y();
         afile << "after setting boundary on  H " << Hgrid->num() << " centroid.x " << Hgrid->boundaryCentroid.first << " centroid.y " << Hgrid->boundaryCentroid.second << endl;
         afile << "seed point.x " << seedPoint.first << " seed point.y " << seedPoint.second << endl;
         n = Hgrid->num();
@@ -237,8 +238,8 @@ public:
         this->CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
         pair<double, double> centroid = set_kS_polars(this->seedPoint);
-        cout << " end of ksSolver constructor " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
-        cout << " end of ksSolver constructor " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
+        cout << " end of ksSolver bezCurvePath " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
+        cout << " end of ksSolver bezCurvePath " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
     }; // end of ksSolver constructor
 
 
@@ -577,6 +578,7 @@ public:
 		  {
 	         // cout << " in y reversing loop " << endl;
 	          h.y = -temp;
+              this->Hgrid->d_y[h.vi] = -temp;
 		  }
 		}
 	}
@@ -591,12 +593,9 @@ public:
         int hexcount = 0;
         double maxPhi = -10.0;
         double minPhi = 10.0;
-	    reverse_y();
 	    cout <<"in set polars ksSolver xcentre" << centre.first << " y_centre  " << centre.second <<endl;
         for (auto &h : this->Hgrid->hexen) {
             hexcount++;
-            //xav += this->Hgrid->d_x[h.vi];
-            //yav += this->Hgrid->d_y[h.vi];
             xav += h.x;
             yav += h.y;
         }
@@ -612,14 +611,9 @@ public:
         for (auto&  h : this->Hgrid->hexen) {
             int index = h.vi;
 			double angle = 0;
-            /*
-			double dx = this->Hgrid->d_x[index];
-			double dy = this->Hgrid->d_y[index];
-            */
             double dx = h.x;
             double dy = h.y;
 			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
-			//cout << "d_x " << dx << " dy " << dy <<endl;
             h.r = sqrt((dx - centre.first)*(dx - centre.first)
 			+ (dy - yav)*(dy - yav));
             if (dy >= centre.second) {

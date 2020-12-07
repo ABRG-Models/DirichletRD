@@ -1,13 +1,15 @@
 /*
  *
- * Dregion class
+ * Tessellation class
  * Author: John Brooke
  *
  * Date 2019/10
  *
  * Creates a hexgrid, divides it into Dirichlet domains
  * then solves KS equations and can morph to curved
- * boundaries
+ * boundaries. There are no global hex indices uses
+ * all the indexing comes from copies of the hexGrid
+ * array from running over the regions with ksSolver.h
  *
  */
 #include <morph/tools.h>
@@ -34,7 +36,7 @@
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
 //#define NUMPOINTS 5 //just the A-E rows.
-#define NUMPOINTS 41 //just the A-E rows.
+#define NUMPOINTS 40 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -51,24 +53,6 @@ using morph::BezCurve;
 using morph::BezCurvePath;
 using morph::BezCoord;
 using namespace std;
-
-#define NE(hi) (this->Hgrid->d_ne[hi])
-#define HAS_NE(hi) (this->Hgrid->d_ne[hi] == -1 ? false : true)
-
-#define NW(hi) (this->Hgrid->d_nw[hi])
-#define HAS_NW(hi) (this->Hgrid->d_nw[hi] == -1 ? false : true)
-
-#define NNE(hi) (this->Hgrid->d_nne[hi])
-#define HAS_NNE(hi) (this->Hgrid->d_nne[hi] == -1 ? false : true)
-
-#define NNW(hi) (this->Hgrid->d_nnw[hi])
-#define HAS_NNW(hi) (this->Hgrid->d_nnw[hi] == -1 ? false : true)
-
-#define NSE(hi) (this->Hgrid->d_nse[hi])
-#define HAS_NSE(hi) (this->Hgrid->d_nse[hi] == -1 ? false : true)
-
-#define NSW(hi) (this->Hgrid->d_nsw[hi])
-#define HAS_NSW(hi) (this->Hgrid->d_nsw[hi] == -1 ? false : true)
 
 /*!
  * This class is used to build a HexGrid and then to dissect it
@@ -88,7 +72,7 @@ using namespace std;
  * subsequent morphed tessellations.
  */
 
-class DRegion
+class Tessellation
 {
 public:
     /*!
@@ -102,11 +86,12 @@ public:
     const int base = 1000; //for hashing of (i,j) pairs for each edge
     const double tan30 = 0.5773502692;
     double hexArea;
+    double dTess;
     /*
      * list of containers at public scope
      */
-    vector<vector<int> > N; // hex neighbourhood
     vector<morph::Hex> vHexInGrid; // hexen for the original HexGrid as a vector rather than a list
+    vector<vector<int> > N; // hex neighbourhood
     vector<vector<int> > region; //for each hex sorted list of regions as ints
     vector<list<morph::Hex>> regionHex; //for each region list of hexes it contains
     vector<vector<int>> hexRegionList; //for each hex neighbour regions as ints
@@ -124,8 +109,7 @@ public:
     vector<int> Creg; //for each hex count of different regions it touches
     vector<int> Cnbr; //for each hex count of neighbour hexes
     vector<vector<double>> NN, CC; //hold the field values for each hex
-    vector<double> nn, cc; //hold the field values for each hex
-    pair <double, double> centres[NUMPOINTS]; //seed points for regions
+    vector<pair <double, double>> centres; //seed points for regions
     pair <double, double> centroids[NUMPOINTS]; // centroids for regions
     vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
     morph::HexGrid* Hgrid; //original hexGrid
@@ -133,15 +117,18 @@ public:
     hexGeometry* hGeo; //supporting class for geometric analysis
     vector<vector<hexGeometry::lineSegment>> radialSegments; //radial segements from original vertices
     vector<vector<double>> radialAngles; //angles of the vertices from the centroid.
+    morph::BezCurvePath<float> outerBound;
 
  //class constructor
-    DRegion (int scale, double xspan, string basepath) {
+    Tessellation (int scale, double xspan, string basepath, double dTess) {
         this->scale = scale;
         this->logpath = basepath;
         this->xspan = xspan;
         double s = pow(2.0, scale-1);
         this->ds = 1.0/s;
+        this->dTess = dTess;
         this->hexArea = 3.0*tan30*this->ds*this->ds;
+        hGeo = new hexGeometry();
         ofstream afile (this->logpath + "/debug.out" );
         ofstream jfile (this->logpath + "/correlateVector.out");
         ifstream bfile(this->logpath + "/centres.inp");
@@ -149,32 +136,40 @@ public:
         cout << "before creating BezCurve" <<endl;
         srand(time(NULL)); //reseed random number generator
         n = 0;
+        this->curvedBoundary = hGeo->isosTriangleTess(2, NUMPOINTS, this->centres,  this->outerBound);
+        cout << "after curvedBoundary" << endl;
         Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
         this->n = Hgrid->num();
         afile << "after creating HexGrid with " << this->n << " hexes " << endl;
         double maxX = Hgrid->getXmax(0.0);
         afile << " the maximum value of x is is " << maxX << endl;
-        hGeo = new hexGeometry();
         // now read in the boundary either as a header or as a morph  d
         //   #include "bez5side.h"
         // morph::ReadCurves r("./rat.svg");
         // Hgrid->setBoundary (r.getCorticalPath(),true);
-        // this was the original call, I am trying out setBoundaryDregion for debugging
-        //    Hgrid->setBoundary(bound,false);
-        Hgrid->setEllipticalBoundary (1.0, 1.0);
+        // this was the original call, I am trying out setBoundaryRegion for debugging
+        Hgrid->setBoundary(this->outerBound,false);
+        //Hgrid->setEllipticalBoundary (1.0, 1.0);
         cout << "after setting boundary on  H " << Hgrid->num() << endl;
         n = Hgrid->num();
         cout << "after  boundary set HexGrid has " <<  n << " hexes" << endl;
+        for (auto &h : Hgrid->hexen) {
+            double temp = h.y;
+            h.y = -temp;
+            temp = -Hgrid->d_y[h.vi];
+            Hgrid->d_y[h.vi] = temp;
+        }
         // now set the centres either read in or randomly generated
-        //    #include "centres.h"
+        /*    #include "centres.h"
+              */
         for (unsigned int i=0; i<NUMPOINTS; i++) {
-            bfile >> centres[i].first >> centres[i].second;
+            cout  << " centre " << i << " ( " << centres[i].first << " , " << centres[i].second << " )" << endl;
         }
         cout << "after setting centres " << endl;
    //these are the vectors of vectors for the regions
+        N.resize(n);
         regionDist.resize(n);
         region.resize(n);
-        N.resize(n);
         curvedBoundary.resize(NUMPOINTS);
         regionpHexList.resize(NUMPOINTS);
         cout << "after  filleting fish " << " n = " << n <<endl;
@@ -193,37 +188,45 @@ public:
         cout << "before neighbour array" << endl;
       // check the order numbering in hexen
         int hexCount = 0;
+        /*
         for (auto h : Hgrid->hexen) {
             afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
             hexCount++;
         }
-
+        */
    // making a neighbour array for convenience
         for (int idx = 0; idx < n; idx++) {
+            int max = -30;
             N[idx].resize(6);
             N[idx][0] = Hgrid->d_ne[idx];
+            if (N[idx][0] > max) max = N[idx][0];
             N[idx][1] = Hgrid->d_nne[idx];
+            if (N[idx][1] > max) max = N[idx][1];
             N[idx][2] = Hgrid->d_nnw[idx];
+            if (N[idx][2] > max) max = N[idx][2];
             N[idx][3] = Hgrid->d_nw[idx];
+            if (N[idx][3] > max) max = N[idx][3];
             N[idx][4] = Hgrid->d_nsw[idx];
+            if (N[idx][4] > max) max = N[idx][4];
             N[idx][5] = Hgrid->d_nse[idx];
+            if (N[idx][5] > max) max = N[idx][5];
+            //if (max > 5) cout << " neigbour for " << idx << " is " << max << endl;
         }
         cout << "after neighbour array" << endl;
+
 
     //arrays to hold the field values
         n = this->Hgrid->num();
         NN.resize(NUMPOINTS);
         CC.resize(NUMPOINTS);
-        nn.resize(n);
-        cc.resize(n);
-        cout << "after alloc nn and CC" <<endl;
+        cout << "after alloc NN and CC" <<endl;
 
         vector <vector <double> > sortedDist;
         sortedDist.resize(n);
     // get a list of distances from each Dirichlet point for each hex.
         for (auto h : Hgrid->hexen) {
             for (int j=0;j<NUMPOINTS;j++) {
-                double temp = h.distanceFrom(centres[j]);
+                double temp = h.distanceFrom(this->centres[j]);
                 regionDist[h.vi].push_back(temp);
             }
         }
@@ -253,6 +256,7 @@ public:
                 afile<<"i ="<<i;
                 afile << "  "<<region[i][0]<<" is equidistant from "<< region[i][1];
             }
+            cout << " hex " << i << " region " << region[i][0] << endl;
         }
         cout << "before hex list loop" << endl;
 
@@ -343,6 +347,7 @@ public:
             }
            cout << "end of creg loop" << endl;
         } //end of logic determining hex types
+        cout << " end of loop over all hexes to determine their hexType" << endl;
 
            /*!
             * fills the region with appropriate hex indices
@@ -363,13 +368,18 @@ public:
        //print out the regions and count the hexes in the grid
        for (int j=0;j<NUMPOINTS;j++){
            totalHex += printRegion(j);
-           afile << " total hexes" << totalHex << endl;
+           afile << " total hexes " << totalHex << endl;
        }
        // fill the centroids
        for (int i=0; i<NUMPOINTS; i++) {
            this->centroids[i] = this->baryCentre(i);
        }
-       //set the polar coordinates by region
+       /*
+        * set the polar coordinates by region
+        * these are linked to the hex indices from the
+        * whole original hexGrid before the ksSolver is
+        * used
+        */
        for (int j=0;j<NUMPOINTS;j++){
            diff[j] = this->set_polars(j);
            afile << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
@@ -381,7 +391,7 @@ public:
        }
        cout<<"at end of constructor" << " hexes counted " << totalHex << " n " << n << endl;
 
-   } //end of DRegion constructor
+   } //end of Tessellation  constructor
 
 
     /*!
@@ -486,225 +496,6 @@ public:
 
 
     /*!
-     * Laplacian for solver
-     */
-    vector<double> getLaplacian(vector<double> Q, double dx) {
-        double overds = 1./(1.5*29.0*29.0*dx*dx);
-        vector<double> L(n,0.);
-        for(auto h : this->Hgrid->hexen){
-         int i = int(h.vi);
-            L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overds;
-        }
-        return L;
-    }
-
-    /*!
-     * Chemotaxis term for Keller-Segel equations
-     */
-    vector<double> chemoTaxis(vector<double> Q, vector<double> P, double dx) {
-		vector<double> cT(n,0.);
-        double overds = 1./(1.5*29.0*29.0*dx*dx);
-
-        for (auto h : Hgrid->hexen) {
-		    unsigned int i = h.vi;
-        // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
-	        double dr0Q = (Q[N[i][0]]+Q[i])/2.;
-	        double dg0Q = (Q[N[i][1]]+Q[i])/2.;
-	        double db0Q = (Q[N[i][2]]+Q[i])/2.;
-	        double dr1Q = (Q[N[i][3]]+Q[i])/2.;
-	        double dg1Q = (Q[N[i][4]]+Q[i])/2.;
-	        double db1Q = (Q[N[i][5]]+Q[i])/2.;
-	  //double ncentre = Q[i];
-
-            double dr0P = P[N[i][0]]-P[i];
-            double dg0P = P[N[i][1]]-P[i];
-            double db0P = P[N[i][2]]-P[i];
-	        double dr1P = P[N[i][3]]-P[i];
-            double dg1P = P[N[i][4]]-P[i];
-            double db1P = P[N[i][5]]-P[i];
-
-
-	        //finite volume for NdelC, h = s/2
-	        cT[i] = (dr0Q*dr0P+dg0Q*dg0P+db0Q*db0P+dr1Q*dr1P+dg1Q*dg1P+db1Q*db1P)*overds;
-
-
-        } //matches for on i
-		return cT;
-	} //end of function chemoTaxis
-
-    /*!
-     * function to compute the derivative
-     */
-     void compute_dNNdt(vector<double>& inN, vector<double>& dNdt, double Dn, double Dchi) {
-         vector<double> lapN(this->n,0);
-         vector<double> cTaxis(this->n,0);
-		 //cout << "in compute_dNN just before laplacian" << endl;
-        lapN = getLaplacian(inN,this->ds);
-        cTaxis = chemoTaxis(inN,cc,this->ds);
-        double a = 1., b = 1.;
-		//cout << "in compute_dNN just before the loop" << endl;
-        for (int h=0; h < this->n; h++) {
-            dNdt[h] = a-b*inN[h] + Dn*lapN[h] - Dchi*cTaxis[h];
-        }
-    }
-
-	void compute_dCCdt(vector<double>& inC, vector<double>&  dCdt, double Dc) {
-        double beta = 5.;
-        double mu = 1;
-		//cout << " before calls to Laplacian " << endl;
-        vector<double> lapC(this->n,0);
-		lapC = getLaplacian(inC,this->ds);
-        double N2;
-        for(int h=0; h < this->n;h++){
-            N2 = this->nn[h]*this->nn[h];
-            dCdt[h] =  beta*N2/(1.+N2) - mu*inC[h] + Dc*lapC[h];
-        }
-    }
-
-
-
-  //function to timestep coupled equations
-    void step(double dt, double Dn, double Dchi, double Dc) {
-      dt = dt * 2.5 / Dn;
-
-
-       // Set up boundary conditions with ghost points
-      //cout << " in time step before ghost points" << endl;
-      for(auto h : Hgrid->hexen){
-	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
-        if(this->Creg[h.vi] > 0){
-          for(int j=0;j<6;j++){
-		     int i = int(h.vi);
-		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
-             if(N[h.vi][j] == i) {
-       	       nn[N[h.vi][j]] = nn[h.vi];
-			//   cout << " nn " << nn[N[h.vi][j]] << " NN central " << nn[h.vi] << endl;
-	           cc[N[h.vi][j]] = cc[h.vi];
-	      }
-	     }
-	   }
-      }
-
-        // 2. Do integration of nn
-        {
-            // Runge-Kutta integration for A. This time, I'm taking
-            // ownership of this code and properly understanding it.
-
-            // Ntst: "A at a test point". Ntst is a temporary estimate for A.
-            vector<double> Ntst(this->n, 0.0);
-            vector<double> dNdt(this->n, 0.0);
-            vector<double> K1(this->n, 0.0);
-            vector<double> K2(this->n, 0.0);
-            vector<double> K3(this->n, 0.0);
-            vector<double> K4(this->n, 0.0);
-
-            /*
-             * Stage 1
-             */
-			 //cout << "in ksSolver before compute_dNNdt" << endl;
-            this->compute_dNNdt (this->nn, dNdt, Dn, Dchi);
-			 //cout << "in ksSolver after compute_dNNdt" << endl;
-            for (int h=0; h< this->n; ++h) {
-                K1[h] = dNdt[h] * dt;
-                Ntst[h] = this->nn[h] + K1[h] * 0.5 ;
-            }
-
-            /*
-             * Stage 2
-             */
-            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-            for (int h=0; h< this->n; ++h) {
-                K2[h] = dNdt[h] * dt;
-                Ntst[h] = this->nn[h] + K2[h] * 0.5;
-            }
-
-            /*
-             * Stage 3
-             */
-            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-            for (int h=0; h < this->n; ++h) {
-                K3[h] = dNdt[h] * dt;
-                Ntst[h] = this->nn[h] + K3[h];
-            }
-
-            /*
-             * Stage 4
-             */
-            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
-            for (int h=0; h < this->n; ++h) {
-                K4[h] = dNdt[h] * dt;
-            }
-
-            /*
-             * Final sum together. This could be incorporated in the
-             * for loop for Stage 4, but I've separated it out for
-             * pedagogy.
-             */
-            for (int h=0;h<this->n;h++) {
-                this->nn[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
-				//this->nn[i] = i * 1.0;
-            }
-        }
-
-        // 3. Do integration of cc
-        {
-            // Ctst: "B at a test point". Ctst is a temporary estimate for B.
-            vector<double> Ctst(this->n, 0.0);
-            vector<double> dCdt(this->n, 0.0);
-            vector<double> K1(this->n, 0.0);
-            vector<double> K2(this->n, 0.0);
-            vector<double> K3(this->n, 0.0);
-            vector<double> K4(this->n, 0.0);
-
-            /*
-             * Stage 1
-             */
-            this->compute_dCCdt (this->cc, dCdt, Dc);
-            for (int h=0; h < this->n; ++h) {
-                K1[h] = dCdt[h] * dt;
-                Ctst[h] = this->cc[h] + K1[h] * 0.5 ;
-            }
-
-            /*
-             * Stage 2
-             */
-		    this->compute_dCCdt (Ctst, dCdt, Dc);
-            for (int h=0; h < this->n; ++h) {
-                K2[h] = dCdt[h] * dt;
-                Ctst[h] = this->cc[h] + K2[h] * 0.5;
-            }
-
-            /*
-             * Stage 3
-             */
-            this->compute_dCCdt (Ctst, dCdt, Dc);
-            for (int h=0; h < this->n; ++h) {
-                K3[h] = dCdt[h] * dt;
-                Ctst[h] = this->cc[h] + K3[h];
-            }
-
-            /*
-             * Stage 4
-             */
-            this->compute_dCCdt (Ctst, dCdt, Dc);
-            for (int h=0; h < this->n; ++h) {
-                K4[h] = dCdt[h] * dt;
-            }
-
-            /*
-             * Final sum together. This could be incorporated in the
-             * for loop for Stage 4, but I've separated it out for
-             * pedagogy.
-             */
-            for (int h=0; h < this->n; ++h) {
-                this->cc[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
-            }
-        }
-        //cout  << "value of nn[5] end Runge " << this->nn[5] <<  " number of hexes " << this->n << endl;
-
-    }//end step
-
-    /*!
      * swap the radialSegments for all regions
      * if lvCoords = true take vCoords as the vertices
      * else take mCoords
@@ -760,24 +551,20 @@ public:
   double meanNN (int regNum) {
     double mean = 0;
     int size = (int) this->regionHex[regNum].size();
-    for (auto h : regionHex[regNum]){
-        mean += this->NN[regNum][h.vi];
+    int errCount=0;
+    unsigned int maxhvi = 0;
+    unsigned int minhvi = 1000000;
+    for (auto& h : regionHex[regNum]) {
+        if (isnan(NN[regNum][h.vi])) {
+            cout << "in meanNN hex " << h.vi <<" in region " << regNum << " is NaN" << endl;
+            errCount++;
+            continue;
+        }
+        if (h.vi > maxhvi) maxhvi = h.vi;
+        if (h.vi < minhvi) minhvi = h.vi;
+        mean += NN[regNum][h.vi];
     }
-    if (size != 0) {
-        return mean / (1.0 * size);
-    }
-    else {
-         return -999.999;
-    }
-  } //end of function meanNN
-
-  //function to return mean value of nn in the region
-  double meannn (int regNum) {
-    double mean = 0;
-    int size = (int) this->regionHex[regNum].size();
-    for (auto h : regionHex[regNum]){
-        mean += nn[h.vi];
-    }
+    cout << "in meanNN region " << regNum << " errCount " << errCount << " max hvi " << maxhvi << " min hvi " << minhvi << " mean  "  << mean << endl;
     if (size != 0) {
         return mean / (1.0 * size);
     }
@@ -1044,7 +831,6 @@ double renewRegPerimeter (int regNum) {
         Vout << endl << "end of Vector " << endl;
     }
 
-
 //function to print a vector
     void printIntVect (string path, vector<int> invect) {
         std::ofstream Vout (path ,ios::app);
@@ -1054,6 +840,8 @@ double renewRegPerimeter (int regNum) {
         }
         Vout << endl << "end of vector " << endl;
     }
+
+
 
   //function to return fraction of area with NN positive
   double regNNfrac (int regNum) {
@@ -1084,25 +872,6 @@ double renewRegPerimeter (int regNum) {
             }
         return result;
     }
-//function to return fraction of area with nn positive
-double regnnfrac (int regNum) {
-  double area = 0;
-  double positive_area = 0;
-  //int size = this->regionHex[regNum].size();
-  vector<double> normalnn;
-  // to normalise the NN field
-   for (auto h : this->regionHex[regNum]){
-        normalnn.push_back(this->nn[h.vi]);
-    }
-    normalnn = this->meanzero_vector(normalnn);
-    for (int i=0;i < (int) this->regionHex[regNum].size();i++){
-    area += 1.;
-    if ((normalnn[i]) > 0) {
-        positive_area += 1.0;
-    }
-  }
-  return positive_area / area;
-} //end of function regnnfrac
 
 // function to give r and theta relative to region centre
     pair <double,double> set_polars(int regNum){
@@ -1118,6 +887,8 @@ double regnnfrac (int regNum) {
 //set the phi values for each hex, this time relative to the region centre
         for (auto&  h : this->regionHex[regNum]) {
             double angle;
+            //cout <<"in set polars index " << index << " i " << h.vi <<endl;
+            //cout << "d_x " << this->Hgrid->d_x[index] << " d_y " << this->Hgrid->d_y[index] <<endl;
             h.r = sqrt((h.x - xcentre)*(h.x -xcentre)
             + (h.y - ycentre)*(h.y - ycentre));
             if ((h.y -ycentre) >= 0) {
@@ -1158,8 +929,12 @@ double regnnfrac (int regNum) {
         }
     }
 
+    /*
+     * function to find all the edges and vertices of the internal boundary
+     * needs to run after ksSolver has created the hexGrids and the
+     * polar coordinates for each region.
+     */
 
-    //function to find all the edges and vertices of the internal boundary
     vector <std::pair<double,double>> dissectBoundary(void) {
         ofstream hfile ( this->logpath + "/dissectDebug.out" );
         ofstream ifile ( this->logpath + "/regionList.out" );
@@ -1169,7 +944,7 @@ double regnnfrac (int regNum) {
         hfile<<"just in dissectBoundary"<<endl;
         vector<std::pair<double,double>> result;
         vector<int>  regionBoundary; //holding array for the indices of hexes in each region boundary
-        this->edgeIndex.resize(0); //reset edgeIndex
+        //this->edgeIndex.resize(0); //reset edgeIndex
         int sideCount = 0;
         for (int iregion=0; iregion < NUMPOINTS; iregion++) { //loop over regions
             cout << " region index " << iregion << " size "  <<this->regionHex[iregion].size() << endl;
@@ -1223,7 +998,7 @@ double regnnfrac (int regNum) {
                 offset++;
             }
             cout<<"after offset loop" << " offset " << offset  << " idissect " << idissect << endl;
-            while ((idissect < irBSize)) {
+            while ((idissect < irBSize-1)) {
                 Ecount = 0;
                 ihE.resize(0);
     // while loop to catch the nasty case of artificial adjacent vertices, we only count the last.
@@ -1354,6 +1129,43 @@ double regnnfrac (int regNum) {
     }//end of function dissectBoundary
 
 
+/*
+ * function to insert cosine functions along the edges of the tesselation
+ * phaseShift controls how the edges are shifted relative to each other
+ * mode alters the frequency of the cosine function.
+ */
+    void insert_cosines(double phaseShift, double mode) {
+        unsigned int seed = time(NULL);
+        morph::RandUniform<double> ruf(seed);
+        for (int i = 0; i <NUMPOINTS; i++) {
+            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
+                //edgefile << " j iteration " << *j << endl;
+                int count1 = 0;
+                std::pair<int,int> edgePair(i,*j);
+                int edgeIndex = this->pair2int(edgePair,this->base);
+                int s1 = this->edges[edgeIndex].size();
+// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
+                double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
+                double xval = 0;
+                int xcount = 0;
+                int amode = 0;
+                vector<double> tempvect;
+                amode = mode * ruf.get() + 1.0;
+                double phase =  phaseShift * PI * ruf.get() ;
+                for (auto itr = this->edges[edgeIndex].begin(); itr < this->edges[edgeIndex].end();itr++) {
+                    xval = xcount * xstep + phase;
+                    double val = cos (amode * xval);
+                    tempvect.push_back(val);
+                    count1++;
+                    xcount++;
+                }
+                xcount--;
+                std::pair <int, vector<double>> p(edgeIndex,tempvect);
+                this->edgeVals.insert(p);
+                cout << "size of edgeVal region " << i << " edge " << *j << " is " << tempvect.size() << " xstep is " << xstep << " pi " << xstep*xcount << endl;
+            } //end of loop over edges of a region
+        } // end of loop over all regions
+    } // end of function insert cosines
 
     /*
      * function to correlate matching edges
@@ -1383,14 +1195,14 @@ double regnnfrac (int regNum) {
         for (int i = 0; i <NUMPOINTS; i++)
         {
 
-            double nnmean1, nnmean2;
-            nnmean1 = this->meannn(i); //find the mean of nn in the region
-            edgefile << " mean of nn in region " << i << "is " << nnmean1 << endl;
+            double NNmean1, NNmean2;
+            NNmean1 = this->meanNN(i); //find the mean of NN in the region
+            edgefile << " mean of NN in region " << i << "is " << NNmean1 << endl;
             for (auto j = this->regionList[i].begin(); j < this->regionList[i].end();j++)
             {
                 if (*j == -1) continue;
-                nnmean2 = this->meannn(*j); //find the mean of nn in the region
-                edgefile << " j iteration " << *j << " nnmean2 " << nnmean2 << endl;
+                NNmean2 = this->meanNN(*j); //find the mean of NN in the region
+                edgefile << " j iteration " << *j << " NNmean2 " << NNmean2 << endl;
                 first.resize(0);
                 second.resize(0);
                 dinterp.resize(0);
@@ -1403,23 +1215,23 @@ double regnnfrac (int regNum) {
                 int count2 = 0;
                 double ratio;
                 double correlationValue = 0;
-// first and 2 have the values of nn on the edge with the mean of the region subtracted
+// first and 2 have the values of NN on the edge with the mean of the region subtracted
                 for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
                 {
-                if (isnan(this->nn[*itr]))
+                if (isnan(this->NN[i][*itr]))
                      edgefile << "Nan edge 2 edge hex " << *itr << endl;
-                    first.push_back(this->nn[*itr]);
+                    first.push_back(this->NN[i][*itr]);
                     count1++;
                 }
-                first = this->meanzero_vector(first, nnmean1);
+                first = this->meanzero_vector(first, NNmean1);
                 for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++)
                 {
-                    if (isnan(this->nn[*itr]))
+                    if (isnan(this->NN[*j][*itr]))
                         edgefile << "Nan edge 2 edge hex " << *itr << endl;
-                    second.push_back(this->nn[*itr]);
+                    second.push_back(this->NN[*j][*itr]);
                     count2++;
                 }
-                second = this->meanzero_vector(second, nnmean2);
+                second = this->meanzero_vector(second, NNmean2);
                // std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
                 double firstNorm = 0; double secondNorm = 0;
                 for (unsigned int  i = 0; i < first.size(); i++) {
@@ -1495,46 +1307,9 @@ double regnnfrac (int regNum) {
         correl.close();
         return result;
     } //end of function correlate_edges
-/*
- * function to insert cosine functions along the edges of the tesselation
- * phaseShift controls how the edges are shifted relative to each other
- * mode alters the frequency of the cosine function.
- */
-    void insert_cosines(double phaseShift, double mode) {
-        unsigned int seed = time(NULL);
-        morph::RandUniform<double> ruf(seed);
-        for (int i = 0; i <NUMPOINTS; i++) {
-            for (auto j = this->regionList[i].begin(); j != this->regionList[i].end();j++) {
-                //edgefile << " j iteration " << *j << endl;
-                int count1 = 0;
-                std::pair<int,int> edgePair(i,*j);
-                int edgeIndex = this->pair2int(edgePair,this->base);
-                int s1 = this->edges[edgeIndex].size();
-// tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
-                double xstep = (PI * 1.0) / (1.0 * (s1 - 1));
-                double xval = 0;
-                int xcount = 0;
-                int amode = 0;
-                vector<double> tempvect;
-                amode = mode * ruf.get() + 1.0;
-                double phase =  phaseShift * PI * ruf.get() ;
-                for (auto itr = this->edges[edgeIndex].begin(); itr < this->edges[edgeIndex].end();itr++) {
-                    xval = xcount * xstep + phase;
-                    double val = cos (amode * xval);
-                    tempvect.push_back(val);
-                    count1++;
-                    xcount++;
-                }
-                xcount--;
-                std::pair <int, vector<double>> p(edgeIndex,tempvect);
-                this->edgeVals.insert(p);
-                cout << "size of edgeVal region " << i << " edge " << *j << " is " << tempvect.size() << " xstep is " << xstep << " pi " << xstep*xcount << endl;
-            } //end of loop over edges of a region
-        } // end of loop over all regions
-    } // end of function insert cosines
 
 /*
- * function to correlate adjacent edges
+ * function to correlate adjacent edges/
  */
     double adjacent_cosines() {
         double result = 0;
@@ -1588,7 +1363,7 @@ double regnnfrac (int regNum) {
 // tempvect1 and 2 have the values of NN on the edge with the mean of the region subtracted
                 if (s1 == s2 && s1*s2 != 0)
                 {
-                    correlationValue = this->correlate_Eqvector(first, second);
+                    correlationValue = this->correlate_Eqvector(first, second, true);
                     result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
                         iout << " Correlation Value = " << correlationValue << endl;
@@ -1607,9 +1382,9 @@ double regnnfrac (int regNum) {
                     dinterp = this->equalize_vector(second, first);
                     s3 = dinterp.size();
                     if (s3 == 0) {
-                        edgefile << " i " << i << " count1 " << first.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                        edgefile << " i " << i << " count1 " << first.size() << " j " << *j << " dinterp is zero  "   << endl;
                     }
-                    correlationValue = this->correlate_Eqvector(dinterp,first);
+                    correlationValue = this->correlate_Eqvector(dinterp,first, true);
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
@@ -1632,9 +1407,9 @@ double regnnfrac (int regNum) {
                     dinterp = this->equalize_vector(first, second);
                     s3 = dinterp.size();
                     if (s3 == 0){
-                        edgefile << " i " << i << " count2 " << second.size() << " j " << *j << " tempvect3 is zero  "   << endl;
+                        edgefile << " i " << i << " count2 " << second.size() << " j " << *j << " dinterp is zero  "   << endl;
                     }
-                    correlationValue = this->correlate_Eqvector(dinterp, second);
+                    correlationValue = this->correlate_Eqvector(dinterp, second, true);
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
@@ -1662,7 +1437,6 @@ double regnnfrac (int regNum) {
         edgefile.close();
         return result;
     } //end of function adjacent_cosines
-
 
     // method to compare random pairs of edges
     void random_correlate(const int max_comp, const int morphNum) {
@@ -1702,7 +1476,6 @@ double regnnfrac (int regNum) {
            }
            //need the mean to normalise the boundary vectors
            double NNmean1 = this->meanNN(reg1);
-           cout << "after meanNN call" << endl;
            double NNmean2 = this->meanNN(reg2);
            if ((s1 != 0) && (s2 != 0)) //neither edge is empty
            {
@@ -1741,6 +1514,7 @@ double regnnfrac (int regNum) {
         count++;
         } // end of while loop
     }
+
 
     // method to compare random pairs of edges
     void random_cosines(const int max_comp, const int morphNum) {
@@ -1818,6 +1592,7 @@ double regnnfrac (int regNum) {
            } // end of if test for empty edge
         count++;
         } // end of while loop
+        jfile << count << " regions processed " << endl;
     }
 
     //function to return the correlation of two vectors
@@ -1843,17 +1618,31 @@ double regnnfrac (int regNum) {
             vector2Norm += vector2[i]*vector2[i];
             vector12Product += vector1[i]*vector2[i];
         }
-        if (vector2Norm == 0) {
+        if (vector2Norm <= 0) {
             return -4;
         }
-        if (vector1Norm == 0) {
+        if (vector1Norm <= 0) {
             return -3;
+        }
+        if (isnan(vector1Norm)) {
+                return -6;
+        }
+        if (isnan(vector2Norm)) {
+                return -5;
+        }
+        if (isnan(vector12Product)) {
+            return -7;
         }
         vector1Norm = sqrt(vector1Norm);
         vector2Norm = sqrt(vector2Norm);
         result = vector12Product / (vector1Norm*vector2Norm);
         jfile << "result = " << result << endl;
-        return result;
+        if (isnan(result)) {
+             return -999.999;
+         }
+         else {
+             return result;
+         }
 
     } //end of function correlateEqvector
 
@@ -2002,7 +1791,7 @@ double regnnfrac (int regNum) {
         }
 
         //iterate over polygon vertices
-        cout << " vtxCoords region " << regNum << " vtxCoords size " << vtxCoords.size() << " mCoords size " << this->mCoords[regNum].size() << " vCoords size " << this->vCoords[regNum].size() << " size in polygonSides " << size << endl;
+        cout << " vtxCoords region " << regNum << " vtxCoords size " << vtxCoords.size() << " mCoords size " << this->mCoords[regNum].size() << " vCoords size " << this->vCoords[regNum].size() << endl;
           // code for all iterations to round corners
           //now create the line segments that make the sides
         for (int i = 0; i < size;i++) {
@@ -2070,8 +1859,8 @@ double regnnfrac (int regNum) {
           for (auto h : this->regionHex[regNum]) {
               if (Creg[h.vi] > 0) {
                    count++;
-                   boundHex.first = h.x,
-                   boundHex.second = h.y;
+                   boundHex.first = Hgrid->d_x[h.vi],
+                   boundHex.second = Hgrid->d_y[h.vi];
                    boundDist = getdist(boundHex,barycentre);
                    if (boundDist < minradius) {
                        minradius = boundDist;
@@ -2101,8 +1890,8 @@ double regnnfrac (int regNum) {
          int count=0;
          for (auto h : this->regionHex[regNum]) {
                  count++;
-                 boundHex.first = h.x,
-                 boundHex.second = h.y;
+                 boundHex.first = Hgrid->d_x[h.vi],
+                 boundHex.second = Hgrid->d_y[h.vi];
                  double boundDist = getdist(boundHex,barycentre);
 
                  if (boundDist > maxradius)
@@ -2111,15 +1900,6 @@ double regnnfrac (int regNum) {
          cout << " maxradius count of boundary hexes for region " << regNum << " is " << count << endl;
          return maxradius;
       }
-
-    vector<double> nnRegional(int regNum) {
-        vector<double> result;
-        for (auto h : regionHex[regNum]) {
-            result.push_back(nn[h.vi]);
-        }
-        return result;
-    }
-
 
 
     //sectorize over radius
@@ -2222,7 +2002,7 @@ double regnnfrac (int regNum) {
          } //end of loop over hexes in and individual region
       }//end of loop over all regions
 
-      dfile << "after creation of sectorized field region Dregion " << regNum <<  endl;
+      dfile << "after creation of sectorized field region Tessellation " << regNum <<  endl;
 
       for (int k=0;k<numSectors;k++){
          startradius = (k*radiusInc);
@@ -2404,27 +2184,49 @@ double regnnfrac (int regNum) {
 
 
   //method to renew a region after rounding
-  void renewRegion(int regNum, list<morph::Hex> hexen)
-  {
-    this->regionHex[regNum].clear();
-    cout << "regionHex" << regNum << " size " << this->regionHex[regNum].size() << endl;
-    for (auto& h : hexen) //repopulate regionHex
+    double renewRegion(int regNum, list<morph::Hex> hexen, vector<double> vectorNN)
     {
-      this->regionHex[regNum].push_back(h);
+        double result = 0;
+        this->regionHex[regNum].clear();
+        this->NN[regNum].clear();
+        for (auto& h : hexen) {
+            this->regionHex[regNum].push_back(h);
+            this->NN[regNum].push_back(vectorNN[h.vi]);
+        }
+        for (unsigned int i=0; i<vectorNN.size(); i++) {
+            result += fabs(this->NN[regNum][i]);
+        }
+        cout << "regionHex" << regNum << " size " << this->regionHex[regNum].size() << endl;
+        return result;
     }
-  }
+
+/*
+    double populateRegionNN(vector<double> vectorNN, int regNum) {
+        double result = 0;
+        int count = 0;
+        this->NN[regNum].clear();
+        vector<double>::iterator ptr;
+        for (ptr = vectorNN.begin(); ptr < vectorNN.end(); ptr++) {
+            this->NN[regNum].push_back(*ptr);
+            count++;
+        }
+        cout << " in populateRegionNN count " << count << " norm " <<  result;
+        return result;
+    }
+*/
+
 
   //method to renew polars and boundary
   void renewBoundary(int regNum, list<morph::Hex> hexen)
   {
     //pair<double,double> diff;
     this->regionBound[regNum].clear();
-    cout << "regionBound" << regNum << " size " << this->regionBound[regNum].size() << endl;
-    for (auto h : this->Hgrid->hexen)
+    for (auto &h : hexen)
     {
       if (h.boundaryHex())
       {
         this->regionBound[regNum].push_back(h);
+        cout << "in renewBoundary " << regNum << "  h.phi " << h.phi << endl;
       }
     }
     cout << " region " << regNum << " bound size " <<regionBound[regNum].size() << endl;
@@ -2445,7 +2247,6 @@ double regnnfrac (int regNum) {
         this->edges.clear();
         this->edgeIndex.clear();
     }
-
 
 
 /*!
@@ -2469,7 +2270,7 @@ double regnnfrac (int regNum) {
             double angle = h.phi;
             rB.push_back(angle);
             regionBoundary.push_back(h.vi);
-            //cout << "region " << regNum <<" theta boundary " << angle << " boundary index " << h.vi << endl;
+            cout << "region " << regNum <<" theta boundary " << angle << " boundary index " << h.vi << endl;
         }
         irB = sort_indexes(rB); //indices after sort on theta
         hhfile << " renewDissect " << " irB size " << irB.size()  << " rB size " << rB.size() << " bsize " << bsize << endl;
@@ -2481,13 +2282,13 @@ double regnnfrac (int regNum) {
             vertexAngle.push_back(this->radialAngles[regNum][i]);
         }
         for (int i=0;i<vsize;i++){
-            hhfile << "Vertex angle " << i << " = " << vertexAngle[i] << " radial angle " << this->radialAngles[regNum][i] << " ";
+            hhfile << "Vertex angle " << i << " = " << vertexAngle[i] << " ";
         }
         hhfile << endl;
         //write the indices in phi order
        for (int i = 0; i < bsize; i++)
        {
-           hhfile << " boundHex " << i << " hex " << regionBoundary[irB[i]] << " angle " << rB[irB[i]] << endl;
+           hhfile << " boundHex " << i << " hex " << regionBoundary[irB[i]] << " irB[i] " << irB[i] << " angle " << rB[irB[i]] << endl;
        }
         int offset = 0;
         int idissect = 0;
@@ -2519,7 +2320,7 @@ double regnnfrac (int regNum) {
             idissect++;
         }
 
-        for (int iregion = 0;iregion<vsize;iregion++)
+        for (int iregion = 0; iregion<vsize; iregion++)
         {
             int edgeOuter = this->regionList[regNum][iregion];
             hhfile << "edgeOuter " << edgeOuter << " region " << regNum << endl;
@@ -2672,4 +2473,6 @@ double regnnfrac (int regNum) {
         corrfile.close();
         return result;
     } //end of function renewcorrelate_edges
-}; // DRegion
+
+}; // Tessellation
+

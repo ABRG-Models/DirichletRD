@@ -581,7 +581,147 @@ public:
         }
         return result;
     }
+    vector <morph::BezCurvePath<float>> eqTriangleMesh(float d, vector<pair<double,double>>&  baryPoints, vector<morph::BezCurve<float>>& outer, pair<float, float> centroid = std::make_pair(0.0,0.0)) {
+        cout << "just entering eqTriangleMesh" << endl;
+        vector <morph::BezCurvePath<float>> result;
+        result.resize(6);
+        vector<pair<float,float>> p;
+        pair<float,float> p0 = centroid;
+        p.resize(6, std::make_pair(0.0f,0.0f));
+        float pi6 = PI/6.0;
+        for (int i=0; i<6; i++) {
+           p[i] = std::make_pair(d * cos(pi6 + i * PI / 3.0), d * sin(pi6 + i * PI / 3.0));
+           p[i].first = p[i].first + centroid.first;
+           p[i].second =  p[i].second + centroid.second;
+        }
+        for (int i=0; i<6; i++) {
+            morph::BezCurve<float> c0(p0, p[i]);
+            morph::BezCurve<float> c1(p[i], p[(i+1)%6]);
+            morph::BezCurve<float> c2(p[(i+1)%6], p0);
+            result[i].addCurve(c0);
+            result[i].addCurve(c1);
+            result[i].addCurve(c2);
+            double bp1 = (p0.first + p[i].first + p[(i+1)%6].first)/3.0;
+            double bp2 = (p0.second + p[i].second + p[(i+1)%6].second)/3.0;
+            baryPoints.push_back(std::make_pair(bp1,bp2));
+            outer.push_back(c1);
+        }
+        return result;
+    }
 
+    vector<morph::BezCurvePath<float>> eqTriangleTess(double ds, vector<pair<double,double>>& centres, morph::BezCurvePath<float>& outerBound) {
+        vector<morph::BezCurvePath<float>> result;
+        vector<pair<double,double>> baryPoints;
+        vector<morph::BezCurve<float>> outer;
+        cout << "Just entering equTriangleTess" << endl;
+        float pi3 = PI/3.0;
+        float d = ds / sqrt(3.0);
+        baryPoints.resize(0);
+        result = eqTriangleMesh(d,baryPoints,outer);
+        cout << "after eqTriangleMesh call 0 " << "baryPoints size " << baryPoints.size() << endl;
+        for (int k=0; k<6; k++) {
+            centres.push_back(baryPoints[k]);
+        }
+        for (int i=0; i<6; i++) {
+            baryPoints.resize(0);
+            outer.resize(0);
+            pair<float,float> offset = std::make_pair(ds*cos(i*pi3), ds*sin(i*pi3));
+            vector<morph::BezCurvePath<float>> basic = eqTriangleMesh(d, baryPoints, outer, offset);
+            for (auto bp : basic) {
+                result.push_back(bp);
+            }
+            for (int j=i; j<i+3; j++) {
+                outerBound.addCurve(outer[(j+4)%6]);
+            }
+            for (int k=0; k<6; k++) {
+                centres.push_back(baryPoints[k]);
+            }
+        }
+        return result;
+    }
+
+    vector <morph::BezCurvePath<float>> isosTriangleMesh(double longSide, double shortSide, vector<pair<double,double>>&  baryPoints,  pair<float, float> basePoint = std::make_pair(0.0,0.0)) {
+        cout << "just entering isoTriangleMesh" << endl;
+        vector <morph::BezCurvePath<float>> result;
+        result.resize(2);
+        vector<pair<float,float>> p;
+        p.resize(4, std::make_pair(0.0f,0.0f));
+        float vertical = sqrt(longSide*longSide - shortSide*shortSide/4.0);
+        p[0] = std::make_pair(-shortSide/2.0 + basePoint.first, basePoint.second);
+        p[1] = std::make_pair(shortSide/2.0 + basePoint.first, basePoint.second);
+        p[2] = std::make_pair(basePoint.first, vertical + basePoint.second);
+        p[3] = std::make_pair(basePoint.first + shortSide, vertical + basePoint.second);
+        morph::BezCurve<float> c0(p[0], p[1]);
+        morph::BezCurve<float> c1(p[1], p[2]);
+        morph::BezCurve<float> c2(p[2], p[0]);
+        result[0].addCurve(c0);
+        result[0].addCurve(c1);
+        result[0].addCurve(c2);
+        morph::BezCurve<float> c3(p[1], p[3]);
+        morph::BezCurve<float> c4(p[3], p[2]);
+        morph::BezCurve<float> c5(p[2], p[1]);
+        result[1].addCurve(c3);
+        result[1].addCurve(c4);
+        result[1].addCurve(c5);
+        double bp1first = (p[0].first + p[1].first + p[2].first)/3.0;
+        double bp1second = (p[0].second + p[1].second + p[2].second)/3.0;
+        pair<double, double> bp1 = std::make_pair(bp1first, bp1second);
+        double bp2first = (p[1].first + p[3].first + p[2].first)/3.0;
+        double bp2second = (p[1].second + p[3].second + p[2].second)/3.0;
+        pair<double, double> bp2 = std::make_pair(bp2first, bp2second);
+        cout << "bp1.x " << bp1first << "bp1.y " << bp1second << endl;
+        cout << "bp2.x " << bp2first << "bp2.y " << bp2second << endl;
+        baryPoints.push_back(bp1);
+        baryPoints.push_back(bp2);
+        return result;
+    }
+
+    vector<morph::BezCurvePath<float>> isosTriangleTess(int ratio, const int npoints, vector<pair<double,double>>& centres, morph::BezCurvePath<float>& outer) {
+        vector<morph::BezCurvePath<float>> result;
+        vector<pair<double,double>> baryPoints;
+        centres.resize(0);
+        double spaceX = 0.16;
+        double longSide = spaceX * ratio;
+        double spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
+        vector<pair<float,float>> p;
+        p.resize(4);
+        int rowX = 2;
+        int rowY = 2;
+        cout << "in isosTriangleMesh rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << endl;
+        double offset = 0;
+        for (int j = -rowY; j < rowY; j++) {
+            offset = (1 - j) * (spaceX/2.0);
+            for (int i = -rowX; i < rowX + 1; i++) {
+                 baryPoints.resize(0);
+                 pair<float, float> basePoint = std::make_pair(i*spaceX - offset, j*spaceY);
+                 vector<morph::BezCurvePath<float>> basic = isosTriangleMesh(longSide, spaceX, baryPoints, basePoint);
+                 cout <<  " in rowX rowY loop i " << i << " j " << j << " x " << i*spaceX << " j " << j*spaceY <<endl;
+                 for (auto bp : basic) {
+                     result.push_back(bp);
+                 }
+                 for (int k=0; k<2; k++) {
+                     centres.push_back(baryPoints[k]);
+                 }
+             }
+        }
+        p[0] = std::make_pair((-rowX - rowY/2 -1) *spaceX, -rowY*spaceY);
+        cout << "p0.x " << p[0].first << " p0.y " << p[0].second << endl;
+        p[1] = std::make_pair((rowX - rowY/2) *spaceX, -rowY*spaceY);
+        cout << "p1.x " << p[1].first << " p1.y " << p[1].second << endl;
+        p[2] = std::make_pair((rowX + rowY/2)*spaceX, rowY*spaceY);
+        cout << "p2.x " << p[2].first << " p2.y " << p[2].second << endl;
+        p[3] = std::make_pair((rowY/2 - rowX -1)*spaceX, rowY*spaceY);
+        cout << "p3.x " << p[3].first << " p3.y " << p[3].second << endl;
+        morph::BezCurve<float> c0(p[0], p[1]);
+        morph::BezCurve<float> c1(p[1], p[2]);
+        morph::BezCurve<float> c2(p[2], p[3]);
+        morph::BezCurve<float> c3(p[3], p[0]);
+        outer.addCurve(c0);
+        outer.addCurve(c1);
+        outer.addCurve(c2);
+        outer.addCurve(c3);
+        return result;
+    }
 
 
 
