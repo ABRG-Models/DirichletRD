@@ -89,7 +89,7 @@ int main (int argc, char **argv)
      */
 
     unsigned int seed;
-    milliseconds ms1 = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    chrono::milliseconds ms1 = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
     if (LfixedSeed)
         seed = 1;
     else
@@ -129,14 +129,6 @@ int main (int argc, char **argv)
 	ofstream degfile3 (logpath + "/degree3.data");
     ifstream vfile ("./triangle.inp");
     /*
-     * Tessellation
-     */
-    Tessellation M(scale, xspan, logpath, dTress);
-    vector<std::pair<double,double>> cGravity;
-    cGravity = M.dissectBoundary(); //dissect region boundary
-    cout << "Edges size = " << M.edges.size() << endl;
-	M.setRadialSegments(); //set the radial segments for regions
-    /*
      * analysis tools
      */
     Analysis L;
@@ -146,11 +138,32 @@ int main (int argc, char **argv)
      * in each region with a separate ksSolver
      */
     vector<ksSolver> S;
+    morph::BezCurvePath<float> outer;
+    double ratio = 1.0;
+    const int rowX = 2; const int rowY = 2;
     //next line for creating a tessellation of equilateral triangles
     //triangleBound = h->eqTriangleTess(dTress, M.centres, M.outerBound);
-    //next line for creating a tessellation of isosceles triangles.
-    triangleBound = hGeom->isosTriangleTess(2, NUMPOINTS, M.centres, M.outerBound);
-    cerr << "size of triangleBound " << triangleBound.size() << endl;
+    //next lines for creating a tessellation of isosceles triangles.
+    vector<vector<hexGeometry::point>> vtxs;
+    vtxs.resize(NUMPOINTS);
+    vector<hexGeometry::point> vertices;
+    vertices = hGeom->isosVertices(ratio, rowX, rowY, 2.0, true);
+    vector<vector<int>> vIndices;
+    vector<vector<int>> nbrList =hGeom->triangleNeighbors(rowX, rowY, vIndices);
+    triangleBound = hGeom->genTriangleTess(rowX, rowY, vertices, vIndices, outer);
+    for (int j=0; j<NUMPOINTS; j++) {
+        vtxs[j].push_back(vertices[vIndices[j][0]]);
+        vtxs[j].push_back(vertices[vIndices[j][1]]);
+        vtxs[j].push_back(vertices[vIndices[j][2]]);
+    }
+    //line below specific to perfect isosceles triangles
+    //triangleBound = hGeom->isosTriangleTess(ratio, rowX, rowY, vtxs, outer);
+    cout << "size of triangleBound " << triangleBound.size() << endl;
+    /*
+     * Tessellation
+     */
+    Tessellation M(scale, xspan, logpath, outer, vtxs);
+    cout << "after Tessellation" << endl;
     /*
      * Solve the KS equations over the regions
      */
@@ -179,26 +192,20 @@ int main (int argc, char **argv)
         morph::Gdisplay idisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         idisp.resetDisplay (fix, eye, rot);
         // plot stuff here.
-            for (auto h : M.Hgrid->hexen) {
+        for (int j=0; j<NUMPOINTS; j++) {
+            for (auto h : S[j].Hgrid->hexen) {
                 if (h.boundaryHex()) {
                     idisp.drawHex (h.position(), (h.d/2.0f), cl_a);
                 }
             }
-            for (auto h : M.Hgrid->hexen) {
-                if (M.Cnbr[h.vi] < 6 || M.Creg[h.vi] > 0) {
-                    idisp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
-                    internalCount++;
-                }
+            std::array<float,3> pos = {M.centres[j].first, M.centres[j].second, 0};
+            cout << " drawing centre of region x " << M.centres[j].first << " y " << M.centres[j].second << endl;
+            idisp.drawHex (pos,offset,1.0*hexWidth,cl_a);
+            for (unsigned int i=0; i< M.vCoords[j].size();i++) {
+                 std::array<float,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
+                 idisp.drawHex (pos,offset,4.0*hexWidth,cl_b);
             }
-            for (int regcnt = 0; regcnt < NUMPOINTS;regcnt++) {
-                std::array<float,3> pos = {M.centres[regcnt].first, M.centres[regcnt].second, 0};
-                cout << " drawing centre of region x " << M.centres[regcnt].first << " y " << M.centres[regcnt].second << endl;
-                idisp.drawHex (pos,offset,1.0*hexWidth,cl_a);
-                for (unsigned int i=0; i< M.vCoords[regcnt].size();i++) {
-                    std::array<float,3> pos = {M.vCoords[regcnt][i].first, M.vCoords[regcnt][i].second, 0};
-                    idisp.drawHex (pos,offset,4.0*hexWidth,cl_b);
-                }
-            }
+        }
 
         idisp.redrawDisplay();
         cout << "after redrawDisplay 2" << endl;
@@ -296,24 +303,17 @@ int main (int argc, char **argv)
                     array<float,3> colour = morph::Tools::getJetColorF(regionNN[idx]);
                     if (!h.boundaryHex()) {
                         iidisp.drawHex(h.position(),(h.d/2.0f),colour);
-                    //    cout << "just after drawHex 2 colour "<< " value " << regionNN[idx] << endl;
+                         cout << "just after drawHex 2 colour "<< " value " << regionNN[idx] << endl;
                     }
                     idx++;
                 }
+                cout << " just befoere draw vCoords " << endl;
                 for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                     std::array<float,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                     iidisp.drawHex (pos,offset,4.0*hexWidth,cl_c);
                 }
+                cout << " just after draw vCoords " << endl;
             }//end of loop over regions
-    for (auto h : M.Hgrid->hexen) {
-         if (M.Creg[h.vi] ==  1 ) {
-             iidisp.drawHex (h.position(), (h.d/2.0f), cl_b);
-             boundaryCount++;
-         }
-         else if (M.Creg[h.vi] > 1) {
-              iidisp.drawHex (h.position(), (h.d/2.0f), cl_c);
-         }
-    }
             cout << "just before redraw display 1" << endl;
             iidisp.redrawDisplay();
 		    cout << "just after redraw display 1" << endl;
@@ -354,12 +354,12 @@ int main (int argc, char **argv)
     /*
      * Now populate the Tessellation regions with NN
      */
-    afile << "first setting of centroids" << endl;
-    afile << "centroids for zero morphin " << endl;
+    cout << "first setting of centroids" << endl;
     // repopulate the regions
     for (int j=0;j<NUMPOINTS;j++)
     {
         double NNNorm;
+        cout << "jsut before renewRegion J " << j << endl;
         NNNorm = M.renewRegion(j,S[j].Hgrid->hexen, S[j].NN);
         cout << "nnNorm after M.renewRegion " << NNNorm << endl;
     }
@@ -367,8 +367,13 @@ int main (int argc, char **argv)
     {
         M.renewBoundary(j,S[j].Hgrid->hexen);
     }
+    M.setRadialSegments();
     cout << "just before renewDissect first time" << endl;
     M.edges_clear();
+    cout << "just before setting regionList 1" << endl;
+    cout << "just before setting regionList 2" << endl;
+    M.setregionList(nbrList);
+    cout << "just before renewDissect " << endl;
     for (int j=0;j<NUMPOINTS;j++)
     {
         M.renewDissect(j,0);
@@ -409,7 +414,7 @@ int main (int argc, char **argv)
             //angle degree
             tempArea = M.regArea(j);
             tempPerimeter = M.renewRegPerimeter(j);
-
+            gfile << "before sectorize Dangle" << endl;
             // digital version
             angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, numSectors, S[j].NN);
             degreeAngle = L.find_zeroDAngle(angleDVector);
@@ -461,9 +466,12 @@ int main (int argc, char **argv)
           for (int j=0;j<NUMPOINTS;j++) {
               countRegions++;
               occupancy += M.regNNfrac(j);
-              tempArea = M.regArea(j);
-              tempPerimeter = M.regPerimeter(j);
+              cout << "just after regNNfrac " << endl;
+              //tempArea = M.regArea(j);
+              //tempPerimeter = M.regPerimeter(j);
+              cout << "just before renewcorrelate_edges morph1 " << endl;
               avAbsCorrelation += M.renewcorrelate_edges(j,0);
+              cout << "just after renewcorrelate_edges morph1 " << endl;
               angleDVector = M.sectorize_reg_Dangle(j,numSectors,radiusOffset, numSectors, S[j].NN);
               degreeAngle = L.find_zeroDAngle(angleDVector);
 		      avDegreeAngle += degreeAngle;
@@ -930,9 +938,9 @@ int main (int argc, char **argv)
       //ndisp.drawHex (pos, 0.005, cl_aa);
 
         usleep (100000);
-        cout << "before redrawDisplay 2 " << endl;
+        cout << "before redrawDisplay 3 " << endl;
         ndisp.redrawDisplay();
-        cout << "after redrawDisplay 2" << endl;
+        cout << "after redrawDisplay 3" << endl;
         usleep (100000); // one hundred seconds
         ndisp.saveImage(logpath + "/Tesselation3.png");
         ndisp.closeDisplay();

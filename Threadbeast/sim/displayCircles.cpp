@@ -26,6 +26,7 @@
 #include <locale>
 #include <algorithm>
 #include <string>
+#include <chrono>
 using std::array;
 using std::string;
 using std::stringstream;
@@ -42,6 +43,7 @@ using morph::Display
 */
 using namespace morph;
 using namespace std;
+using namespace std::chrono;
 
 int main (int argc, char **argv)
 {
@@ -61,7 +63,7 @@ int main (int argc, char **argv)
     int numprint = atoi(argv[9]); //frequency of printing
     bool Lcontinue = atoi(argv[10]); //true if readdata false if coldstart
     bool lminRadius = atoi(argv[11]); //true for min circles, false for max
-
+    unsigned int off = atoi(argv[12]);
 	int numSectors = 12;
 	double aNoiseGain = 0.1;
 	double boundaryFalloffDist = 0.0078;
@@ -567,6 +569,11 @@ int main (int argc, char **argv)
     {
         for (unsigned int j=0;j<NUMPOINTS;j++)
 		{
+            unsigned int seed;
+            //milliseconds ms1 = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+            //seed = static_cast<unsigned int> (ms1.count());
+            seed = j + off;
+            morph::RandUniform<double> ruf1(seed);
             for (auto h : S[j].Hgrid->hexen) {
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
             // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
@@ -574,13 +581,13 @@ int main (int argc, char **argv)
                 double choice = morph::Tools::randDouble();
 		        if (choice > 0.5)
 				{
-                    S[j].NN[h.vi] = - ruf.get() * aNoiseGain +nnInitialOffset;
-                    S[j].CC[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
+                    S[j].NN[h.vi] = - ruf1.get() * aNoiseGain +nnInitialOffset;
+                    S[j].CC[h.vi] = - ruf1.get() * aNoiseGain + ccInitialOffset;
 				}
 		        else
 				{
-                    S[j].NN[h.vi] = - ruf.get() * aNoiseGain +nnInitialOffset;
-                    S[j].CC[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
+                    S[j].NN[h.vi] = - ruf1.get() * aNoiseGain +nnInitialOffset;
+                    S[j].CC[h.vi] = - ruf1.get() * aNoiseGain + ccInitialOffset;
 				}
                 if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                     double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
@@ -588,6 +595,7 @@ int main (int argc, char **argv)
                     S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
                 } //end of if on boundary distance
             }//end of loop over region
+            usleep(1000);
         }//end of loop over all regions
     } //end of else on Lcontinue
     cout <<  "just after field creation first morph" << endl;
@@ -736,42 +744,6 @@ int main (int argc, char **argv)
 } //end of loop on NUMPOINT
 
     if (skipThree) return 0;
-// we now draw the gingerbread tessellation
-/*
-    morph::Gdisplay odisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-    odisp.resetDisplay (fix, eye, rot);
-    for (int j=0;j<NUMPOINTS;j++)
-    {
-        // plot stuff here.
-        int boundaryCount = 0;
-        int internalCount = 0;
-        int totalCount = 0;
-        //cout << "size of region j "<< j << " is " << M.regionpHexList[j].size() << " size of Hexgrid " << S[j].Hgrid->num() << endl;
-        //cout << "size of region j "<< j << " is " << S[j].Hgrid->num() << " size of Hexgrid " << S[j].Hgrid->num() << endl;
-
-        for (auto h : S[j].Hgrid->hexen) {
-            if (h.testFlags(HEX_IS_REGION_BOUNDARY) == true) {
-                odisp.drawHex (h.position(), (h.d/2.0f), cl_a);
-                boundaryCount++;
-            }
-        }
-            // Draw small hex at boundary centroid
-        array<float,3> c;
-        c[2] = 0;
-        c[0] = S[j].Hgrid->boundaryCentroid.first;
-        c[1] = S[j].Hgrid->boundaryCentroid.second;
-        cout << "d/2: " << S[j].Hgrid->hexen.begin()->d/4.0f << endl;
-        odisp.drawHex (c, offset, (S[j].Hgrid->hexen.begin()->d/2.0f), cl_a);
-        cout << "boundaryCentroid x,y: " << c[0] << "," << c[1] << endl;
-    }//end of loop on NUMPOINTS to plot boundaries
-    usleep (1000000);
-    cout << "before redrawDisplay 2 " << endl;
-    odisp.redrawDisplay();
-    cout << "after redrawDisplay 2" << endl;
-   // usleep (1000000); // one hundred seconds
-    odisp.saveImage(logpath + "/Tessellation3.png");
-    odisp.closeDisplay();
-    */
     // clear the edges
     M.edges_clear();
     // redissect the boundaries
@@ -786,14 +758,14 @@ int main (int argc, char **argv)
     tempPerimeter = 0;
     tempArea = 0;
     countRegions = 0;
-    M.random_correlate(max_comp, 1);
+    M.random_correlate(max_comp, 0);
     cout << "just after random correlate_edges morph2 " << endl;
     avAbsCorrelation = 0;
     cout << "just after M.correlate_edges, third pass" << endl;
     for (int j=0;j<NUMPOINTS;j++)
 	{
 	    countRegions++;
-        avAbsCorrelation += M.renewcorrelate_edges(j,1);
+        avAbsCorrelation += M.renewcorrelate_edges(j,0);
 	} //end of loop on NUMPOINTs
     avAbsCorrelation = avAbsCorrelation/(1.0 * countRegions);
 	// jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;

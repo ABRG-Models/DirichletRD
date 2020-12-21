@@ -1432,7 +1432,7 @@ double regnnfrac (int regNum) {
                 }
                 if (first.size() == second.size() && first.size()*second.size() != 0)
                 {
-                    correlationValue = this->correlate_Eqvector(first, second, true);
+                    correlationValue = this->correlate_Eqvector(first, second, false);
                     ratio = 1.0;
                     result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
@@ -1450,7 +1450,7 @@ double regnnfrac (int regNum) {
                 else if (first.size() > second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(second,first);
-                    correlationValue = this->correlate_Eqvector(first, dinterp, true);
+                    correlationValue = this->correlate_Eqvector(first, dinterp, false);
                     ratio = 1.0 * second.size() / (1.0 * first.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
@@ -1468,7 +1468,7 @@ double regnnfrac (int regNum) {
                 else if (first.size() < second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(first,second);
-                    correlationValue = this->correlate_Eqvector(dinterp, second, true);
+                    correlationValue = this->correlate_Eqvector(dinterp, second, false);
                     ratio = 1.0 * first.size() / (1.0 * second.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
@@ -1718,7 +1718,7 @@ double regnnfrac (int regNum) {
                if (s1 < s2) {
                    dinterp = equalize_vector(first , second);
                    s3 = dinterp.size();
-                   corr = correlate_Eqvector(dinterp, second, true);
+                   corr = correlate_Eqvector(dinterp, second, false);
                    if (corr == -2) {
                        continue;
                    }
@@ -1726,13 +1726,13 @@ double regnnfrac (int regNum) {
                else if (s1 > s2) {
                    dinterp = equalize_vector(second, first);
                    s3 = dinterp.size();
-                   corr = correlate_Eqvector(dinterp, first, true);
+                   corr = correlate_Eqvector(dinterp, first, false);
                    if (corr == -2) {
                        continue;
                    }
                }
                else {
-                   corr = correlate_Eqvector(first, second, true);
+                   corr = correlate_Eqvector(first, second, false);
                    s3 = 0;
                }
                jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl << endl;
@@ -2631,7 +2631,7 @@ double regnnfrac (int regNum) {
             }
             if (first.size() == second.size() && second.size()*first.size() != 0)
             {
-                correlationValue = this->correlate_Eqvector(first, second, true);
+                correlationValue = this->correlate_Eqvector(first, second, false);
                 ratio = 1.0;
                 result += fabs(correlationValue);
                 countResult++;
@@ -2641,7 +2641,7 @@ double regnnfrac (int regNum) {
             else if (first.size() > second.size() && first.size()*second.size() != 0)
             {
                 dinterp = this->equalize_vector(second,first);
-                correlationValue = this->correlate_Eqvector(dinterp, first, true);
+                correlationValue = this->correlate_Eqvector(dinterp, first, false);
                 ratio = 1.0 * second.size() / (1.0 * first.size());
                 result += fabs(correlationValue);
                 countResult++;
@@ -2651,7 +2651,7 @@ double regnnfrac (int regNum) {
             else if (first.size() < second.size() && first.size()*second.size() != 0)
             {
                 dinterp = this->equalize_vector(first,second);
-                correlationValue = this->correlate_Eqvector(dinterp, second, true);
+                correlationValue = this->correlate_Eqvector(dinterp, second, false);
                 ratio = 1.0 * first.size() / (1.0 * second.size());
                 if (correlationValue > -2) {
                     result += fabs(correlationValue);

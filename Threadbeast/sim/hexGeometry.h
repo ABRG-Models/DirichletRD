@@ -8,8 +8,11 @@
  * to be included from Dregion
  * (maybe change to HexGrid later)
  */
+#include<chrono>
 using morph::HexGrid;
 using namespace std;
+using namespace morph;
+using namespace std::chrono;
 #define PI 3.1415926535897932
 
 #define NE(hi) (this->Hgrid->d_ne[hi])
@@ -105,6 +108,13 @@ public:
         std::pair<double, double> result;
         result.first = inPoint.first;
         result.second = inPoint.second;
+        return result;
+    }
+
+    point makePoint(double x, double y) {
+        point result;
+        result.first = x;
+        result.second = y;
         return result;
     }
 
@@ -640,10 +650,11 @@ public:
         return result;
     }
 
-    vector <morph::BezCurvePath<float>> isosTriangleMesh(double longSide, double shortSide, vector<pair<double,double>>&  baryPoints,  pair<float, float> basePoint = std::make_pair(0.0,0.0)) {
+    vector <morph::BezCurvePath<float>> isosTriangleMesh(double longSide, double shortSide, vector<vector<point>>&  vertices, point basePoint) {
         cout << "just entering isoTriangleMesh" << endl;
         vector <morph::BezCurvePath<float>> result;
         result.resize(2);
+        vertices.resize(2);
         vector<pair<float,float>> p;
         p.resize(4, std::make_pair(0.0f,0.0f));
         float vertical = sqrt(longSide*longSide - shortSide*shortSide/4.0);
@@ -663,54 +674,60 @@ public:
         result[1].addCurve(c3);
         result[1].addCurve(c4);
         result[1].addCurve(c5);
-        double bp1first = (p[0].first + p[1].first + p[2].first)/3.0;
-        double bp1second = (p[0].second + p[1].second + p[2].second)/3.0;
-        pair<double, double> bp1 = std::make_pair(bp1first, bp1second);
-        double bp2first = (p[1].first + p[3].first + p[2].first)/3.0;
-        double bp2second = (p[1].second + p[3].second + p[2].second)/3.0;
-        pair<double, double> bp2 = std::make_pair(bp2first, bp2second);
-        cout << "bp1.x " << bp1first << "bp1.y " << bp1second << endl;
-        cout << "bp2.x " << bp2first << "bp2.y " << bp2second << endl;
-        baryPoints.push_back(bp1);
-        baryPoints.push_back(bp2);
+        vertices[0].push_back(pair2point(p[2]));
+        vertices[0].push_back(pair2point(p[0]));
+        vertices[0].push_back(pair2point(p[1]));
+        vertices[1].push_back(pair2point(p[3]));
+        vertices[1].push_back(pair2point(p[2]));
+        vertices[1].push_back(pair2point(p[1]));
+        cout << "vertices[0] size " << vertices[0].size() << endl;
         return result;
+        //vertices[0][1] = pair2point(p[0]);
+        //vertices[0][2] = pair2point(p[1]);
+        //vertices[1][0] = pair2point(p[3]);
+        //vertices[1][1] = pair2point(p[2]);
+        //vertices[1][2] = pair2point(p[1]);
     }
 
-    vector<morph::BezCurvePath<float>> isosTriangleTess(int ratio, const int npoints, vector<pair<double,double>>& centres, morph::BezCurvePath<float>& outer) {
+    vector<morph::BezCurvePath<float>> isosTriangleTess(double ratio, const int rowX, const int rowY, vector<vector<point>>& vertices, morph::BezCurvePath<float>& outer) {
         vector<morph::BezCurvePath<float>> result;
-        vector<pair<double,double>> baryPoints;
-        centres.resize(0);
+        vector<vector<point>> baseVertices;
+        vertices.resize(0);
         double spaceX = 0.16;
         double longSide = spaceX * ratio;
         double spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
+        unsigned int seed;
         vector<pair<float,float>> p;
         p.resize(4);
-        int rowX = 2;
-        int rowY = 2;
-        cout << "in isosTriangleMesh rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << endl;
+        cout << "in isosTriangleTess rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << endl;
         double offset = 0;
-        for (int j = -rowY; j < rowY; j++) {
+        for (int j = -rowY; j < rowY + 1; j++) {
             offset = (1 - j) * (spaceX/2.0);
             for (int i = -rowX; i < rowX + 1; i++) {
-                 baryPoints.resize(0);
-                 pair<float, float> basePoint = std::make_pair(i*spaceX - offset, j*spaceY);
-                 vector<morph::BezCurvePath<float>> basic = isosTriangleMesh(longSide, spaceX, baryPoints, basePoint);
+                 baseVertices.resize(0);
+                 point basePoint = this->makePoint(i*spaceX - offset, j*spaceY);
+                 vector<morph::BezCurvePath<float>> basic = isosTriangleMesh(longSide, spaceX, baseVertices, basePoint);
                  cout <<  " in rowX rowY loop i " << i << " j " << j << " x " << i*spaceX << " j " << j*spaceY <<endl;
                  for (auto bp : basic) {
                      result.push_back(bp);
                  }
                  for (int k=0; k<2; k++) {
-                     centres.push_back(baryPoints[k]);
+                     cout << "in k loop " << k << endl;
+                     vertices.push_back(baseVertices[k]);
+                     cout << " baseVertices size " << baseVertices.size();
+                     cout << " baseVertices[k].size " << baseVertices[k].size() << endl;
+                     cout << " k " << baseVertices[k][0].first <<  " , " << baseVertices[k][1].first << " , " << baseVertices[k][2].first << endl;
                  }
              }
         }
-        p[0] = std::make_pair((-rowX - rowY/2 -1) *spaceX, -rowY*spaceY);
-        cout << "p0.x " << p[0].first << " p0.y " << p[0].second << endl;
-        p[1] = std::make_pair((rowX - rowY/2) *spaceX, -rowY*spaceY);
-        cout << "p1.x " << p[1].first << " p1.y " << p[1].second << endl;
-        p[2] = std::make_pair((rowX + rowY/2)*spaceX, rowY*spaceY);
-        cout << "p2.x " << p[2].first << " p2.y " << p[2].second << endl;
-        p[3] = std::make_pair((rowY/2 - rowX -1)*spaceX, rowY*spaceY);
+            p[0] = std::make_pair((-rowX - rowY/2 -1) *spaceX, -rowY*spaceY);
+            cout << "p0.x " << p[0].first << " p0.y " << p[0].second << endl;
+            p[1] = std::make_pair((rowX - rowY/2) *spaceX, -rowY*spaceY);
+            cout << "p1.x " << p[1].first << " p1.y " << p[1].second << endl;
+            p[2] = std::make_pair((rowX + rowY/2)*spaceX, rowY*spaceY);
+            cout << "p2.x " << p[2].first << " p2.y " << p[2].second << endl;
+            p[3] = std::make_pair((rowY/2 - rowX -1)*spaceX, rowY*spaceY);
+
         cout << "p3.x " << p[3].first << " p3.y " << p[3].second << endl;
         morph::BezCurve<float> c0(p[0], p[1]);
         morph::BezCurve<float> c1(p[1], p[2]);
@@ -720,8 +737,183 @@ public:
         outer.addCurve(c1);
         outer.addCurve(c2);
         outer.addCurve(c3);
+        cout << "end of isosTriangleTess " << endl;
         return result;
     }
+
+/*
+ * returns a vector of points that represent the coordinates of the vertices of an isosceles array
+ * If lPertub true then the vertices are randomly perturbed. This function works with triangle neigbours
+ * which computes the topologica connectivity of the tessellation.
+ */
+    vector<point> isosVertices( double ratio, const int rowX, const int rowY, double pRatio, bool lPerturb = false) {
+        vector<point> result;
+        result.resize(0);
+        double spaceX = 1.0 / (1.0 * (2 * rowX + 1));
+        double longSide = spaceX * ratio;
+        double spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
+        unsigned int seed;
+        chrono::milliseconds ms1 = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch());
+        morph::RandUniform<double> ruf(seed);
+        cout << "in isosPerturbTess rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << " pRatio " << pRatio << endl;
+        int count=0;
+        for (int j = -rowY; j < rowY + 2; j++) {
+            double offset = j * (spaceX/2.0);
+            for (int i = -rowX; i < rowX + 2; i++) {
+                double radius = pRatio * spaceX * ruf.get() / 4.0;
+                double angle = 2.0 * PI * ruf.get();
+                double x = i*spaceX + offset;
+                double y = j*spaceY;
+                if (lPerturb) {
+                    x = x + radius * cos(angle);
+                    y = y + radius * sin(angle);
+                }
+                point basePoint = this->makePoint(x, y);
+                result.push_back(basePoint);
+                count++;
+         cout<<" vertex " << count << " x " << x << " y " << y  << endl;
+            }
+        }
+        return result;
+    }
+
+    /* This method takes the vector of vertex points and the topological arrangement of the triangular tessellation.
+     * It returns a vector of BezCurvePaths representing the regions of the tessellation
+     * and a BezCurvePath that gives the outer boundary which is a chain of line segments
+     */
+
+    vector<morph::BezCurvePath<float>> genTriangleTess(const int rowX, const int rowY, vector<point> vertices, vector<vector<int>> vIndices, morph::BezCurvePath<float>& outer) {
+        vector<morph::BezCurvePath<float>> result;
+        int numTriangles = (2*rowX+1) * (2*rowY+1) * 2;
+        int stride = (2*rowX+1)*2;
+        result.resize(numTriangles);
+        vector<vector<int>> tessVertices;
+        vector<morph::BezCurve<float>> edges;
+        vector<std::pair<double,double>> triPoints;
+        triPoints.resize(3);
+        edges.resize(0);
+        for (int j = -rowY; j < rowY + 1; j++) {
+            int jrowY = j + rowY;
+            for (int i = -rowX; i < rowY + 1; i++) {
+                int idx = 2*(i+rowX);
+                int index = idx + (jrowY)*stride;
+                triPoints[0] = point2pair(vertices[vIndices[index][0]]);
+                triPoints[1] = point2pair(vertices[vIndices[index][1]]);
+                triPoints[2] = point2pair(vertices[vIndices[index][2]]);
+         cout<<" region " << index << " v1 " << vIndices[index][0] << " v2 " << vIndices[index][1] << " v3 " << vIndices[index][2] << endl;
+        cout << triPoints[0].first << " , " << triPoints[0].second << " | " << triPoints[1].first << " , " << triPoints[1].second << " | " << triPoints[2].first << " , " << triPoints[2].second << endl;
+
+                morph::BezCurve<float> c0(triPoints[0],triPoints[1]);
+                morph::BezCurve<float> c1(triPoints[1],triPoints[2]);
+                morph::BezCurve<float> c2(triPoints[2],triPoints[0]);
+                edges.push_back(c0);
+                edges.push_back(c1);
+                edges.push_back(c2);
+                result[index].addCurve(c0);
+                result[index].addCurve(c1);
+                result[index].addCurve(c2);
+
+                idx = 2*(i + rowX) + 1; //for down triangles
+                index = idx + (jrowY)*stride;
+                triPoints[0] = point2pair(vertices[vIndices[index][0]]);
+                triPoints[1] = point2pair(vertices[vIndices[index][1]]);
+                triPoints[2] = point2pair(vertices[vIndices[index][2]]);
+         cout<<" region " << index << " v1 " << vIndices[index][0] << " v2 " << vIndices[index][1] << " v3 " << vIndices[index][2] << endl;
+         cout << triPoints[0].first << " , " << triPoints[0].second << " | " << triPoints[1].first << " , " << triPoints[1].second << " | "<< triPoints[2].first << " , " << triPoints[2].second << endl;
+                morph::BezCurve<float> c3(triPoints[0],triPoints[1]);
+                morph::BezCurve<float> c4(triPoints[1],triPoints[2]);
+                morph::BezCurve<float> c5(triPoints[2],triPoints[0]);
+                edges.push_back(c3);
+                edges.push_back(c4);
+                edges.push_back(c5);
+                result[index].addCurve(c3);
+                result[index].addCurve(c4);
+                result[index].addCurve(c5);
+            }
+        }
+
+        for (int i = -rowX; i < rowX + 1; i++) {
+            int idx = (i+rowX)*6 + 1;
+            outer.addCurve(edges[idx]);
+        }
+
+        for (int j = -rowY; j < rowY +1; j++) {
+            int idx = (j+rowY+1)*3*stride - 1;
+            outer.addCurve(edges[idx]);
+        }
+
+        for (int i = rowX; i > -rowX - 1; i--) {
+            int idx = (2*rowY)*3*stride + 6*(i+rowX+1) -3;
+            outer.addCurve(edges[idx]);
+        }
+
+        for (int j = rowY; j > -rowY - 1; j--) {
+            int idx = (j+rowY)*3*stride;
+            outer.addCurve(edges[idx]);
+        }
+        return result;
+    }
+
+
+
+
+    vector<vector<int>> triangleNeighbors(const int rowX, const int rowY, vector<vector<int>>& vIndices) {
+        vector<vector<int>> result;
+        result.resize((2*rowX+1)*(2*rowY+1)*2);
+        vIndices.resize((2*rowX+1)*(2*rowY+1)*2);
+        cout << "rowX " <<  rowX << " rowY " << rowY << " result size " << result.size() << endl;
+        int stride = 2*(2*rowX + 1);
+        int vstride = 2*rowX + 2;
+        int r1=0; int r2=0; int r3=0; int index=0;
+        int v1=0; int v2=0; int v3=0;
+        for (int j = -rowY; j < rowY + 1; j++) {
+            int  jrowY = j + rowY;
+            for (int i = -rowX; i < rowX + 1; i++) {
+                int idx = 2*(i + rowX); //for up triangles
+                r1 = idx - 1 +  (jrowY)*stride;
+                r2 = idx + 1 + (j - 1 + rowY)*stride;
+                r3 = idx + 1 + (jrowY)*stride;
+                v1 = i + rowX + (jrowY + 1)*vstride;
+                v2 = i + rowX + (jrowY)*vstride;
+                v3 = i + rowX + 1 +  (jrowY)*vstride;
+                if (j == -rowY) r2 = idx + (2*rowY)*stride + 1;
+                if ((idx)%stride == 0) r1 = idx + stride -1;
+                index = idx + (jrowY)*stride;
+                cout << " i " << i << " j " << j << " region " << index << " r1 " << r1 << " r2 " << r2 << " r3 " << r3 << endl;
+                cout << " i " << i << " j " << j << " region " << index << " v1 " << v1 << " v2 " << v2 << " v3 " << v3 << endl;
+                result[index].push_back(r1);
+                result[index].push_back(r2);
+                result[index].push_back(r3);
+                vIndices[index].push_back(v1);
+                vIndices[index].push_back(v2);
+                vIndices[index].push_back(v3);
+
+                idx = 2*(i + rowX) + 1; //for down triangles
+                r1 = idx - 1  + (j + 1 + rowY)*stride;
+                r2 = idx - 1  + (jrowY)*stride;
+                r3 = idx + 1 +  (jrowY)*stride;
+                v1 = i + rowX + 1 + (jrowY+1)*vstride;
+                v2 = i + rowX + (jrowY+1)*vstride;
+                v3 = i + rowX + 1 + (jrowY)*vstride;
+                if (j == rowY) r1 = idx -1;
+                if (idx%stride == 2*(2*rowX+1) -1 ) r3 = (jrowY)*stride;
+                index = idx + (jrowY)*stride;
+                cout << "i " << i << " j " << j  << " region " << index << " r1 " << r1 << " r2 " << r2 << " r3 " << r3 << endl;
+                cout << " i " << i << " j " << j << " region " << index << " v1 " << v1 << " v2 " << v2 << " v3 " << v3 << endl;
+                result[index].push_back(r1);
+                result[index].push_back(r2);
+                result[index].push_back(r3);
+                vIndices[index].push_back(v1);
+                vIndices[index].push_back(v2);
+                vIndices[index].push_back(v3);
+            }
+        }
+        return result;
+    }
+
+
+
+
 
 
 
