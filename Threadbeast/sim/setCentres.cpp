@@ -41,11 +41,14 @@ int main (int argc, char **argv)
     vector <pair <float, float>> centres; //seed points for regions
     centres.resize(NUMPOINTS);
     std::string num;
+    unsigned int off;
     if (argc > 2) {
         num =  (argv[2]);
+	off = stoi(argv[3]);
     }
     else {
         num = "";
+	off = 1;
     }
 
     double maxX = stod(argv[1]);
@@ -54,9 +57,10 @@ int main (int argc, char **argv)
 	double minY = -maxY;
 
     ofstream afile ( "./centres.h");
-    ofstream bfile ( "./centres" + num + ".data");
+    ofstream bfile ( "./centres" + num + ".inp");
 
-    unsigned int seed = time(NULL);
+   // unsigned int seed = time(NULL);
+      unsigned int seed = off;
 
     cout << "numpoints " << NUMPOINTS << " maxX " << maxX << " minX " << minX << " maxY " << maxY << " minY " << minY << endl;
     // A rando2yym uniform generator returning real/floating point types
