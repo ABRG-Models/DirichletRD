@@ -43,8 +43,7 @@ int main (int argc, char **argv)
     std::string num;
     unsigned int off;
     if (argc > 2) {
-        num =  (argv[2]);
-	off = stoi(argv[3]);
+    	off = atoi(argv[2]);
     }
     else {
         num = "";
@@ -57,10 +56,11 @@ int main (int argc, char **argv)
 	double minY = -maxY;
 
     ofstream afile ( "./centres.h");
-    ofstream bfile ( "./centres" + num + ".inp");
+    ofstream bfile ( "./centres.inp");
 
    // unsigned int seed = time(NULL);
       unsigned int seed = off;
+      cout << "seed " << seed << endl;
 
     cout << "numpoints " << NUMPOINTS << " maxX " << maxX << " minX " << minX << " maxY " << maxY << " minY " << minY << endl;
     // A rando2yym uniform generator returning real/floating point types
