@@ -581,7 +581,7 @@ int main (int argc, char **argv)
         vector<int> zeroIndices;
         vector<double> zeroPhi;
         vector<double> normalNN = M.meanzero_vector(M.sortedBoundaryNN[j]);
-        M.printDoubleVect(fileString1,normalNN);
+        //M.printDoubleVect(fileString1,normalNN);
         cout << " sortedBundary size " << M.sortedBoundary[j].size() << " normalNN size " << normalNN.size() << endl;
         zeroIndices = L.find_zeroIndices(normalNN);
         cout << "zeroIndices size" << zeroIndices.size() << endl;
@@ -590,7 +590,7 @@ int main (int argc, char **argv)
             zeroPhi.push_back(M.sortedBoundaryPhi[j][zeroIndices[i]]);
         }
         M.printIntVect(fileString, zeroIndices);
-        //M.printDoubleVect(fileString1, zeroPhi);
+        M.printDoubleVect(fileString1, zeroPhi);
        // M.printIntVect(fileString,M.sortedBoundary[j]);
     }
     //not the circle.

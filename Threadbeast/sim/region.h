@@ -1045,7 +1045,7 @@ double renewRegPerimeter (int regNum) {
         for (ptr = invect.begin(); ptr < invect.end(); ptr++) {
            Vout << *ptr << "  ";
         }
-        Vout << endl << "end of Vector " << endl;
+        Vout << endl;
     }
 
 
@@ -1056,7 +1056,7 @@ double renewRegPerimeter (int regNum) {
         for (ptr = invect.begin(); ptr < invect.end(); ptr++) {
            Vout << *ptr << "  ";
         }
-        Vout << endl << "end of vector " << endl;
+        Vout << endl;
     }
 
   //function to return fraction of area with NN positive
