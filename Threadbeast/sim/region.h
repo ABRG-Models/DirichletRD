@@ -96,7 +96,7 @@ public:
      */
     int scale; //scale of the initial HexGrid
     double xspan; //width of the HexGrid
-    int n; //size of the initial HexGrid
+    int n; //size of the initial HexGrid/
     double ds; //hex to hex distance
     string logpath; //where the analysis and restart files live
     const int base = 1000; //for hashing of (i,j) pairs for each edge
@@ -113,6 +113,8 @@ public:
     vector<vector<int>> regionList; //for each region, regions that are its neighbours
     vector<vector<int>> regionVertex; //for each region, vertices that bound it sorted by angle
     vector<vector<int>> sortedBoundary; // for each reagion indices of boundary or cutter hexes sorted by angle
+    vector<vector<double>> sortedBoundaryPhi; // for each reagion indices of boundary or cutter hexes sorted by angle
+    vector<vector<double>> sortedBoundaryNN; // for each reagion indices of boundary or cutter hexes sorted by angle
     vector<int> edgeIndex; // vector of the keys for the integers representing the edge pairs
     vector<list<morph::Hex>> regionBound; //for each region list of hexes on the boundary
     std::vector<std::vector<std::list<morph::Hex>::iterator>> regionpHexList; //vector of vectors of pHexes (iterators)
@@ -188,6 +190,8 @@ public:
         radialAngles.resize(NUMPOINTS); // radial line segments
         regionBound.resize(NUMPOINTS); //hexes on region boundary unsorted
         sortedBoundary.resize(NUMPOINTS);//hexes on region boundary sorted by angle
+        sortedBoundaryNN.resize(NUMPOINTS);//hexes on region boundary sorted by angle
+        sortedBoundaryPhi.resize(NUMPOINTS);//hexes on region boundary sorted by angle
         vCoords.resize(NUMPOINTS); //vertex coordinates of a region
         mCoords.resize(NUMPOINTS); //midpoint coordinates of a region
         cout << "before neighbour array" << endl;
@@ -2120,9 +2124,43 @@ double regnnfrac (int regNum) {
         return result;
     }
 
+    /*
+     * takes the boundary of a region and sorts it by angle
+     * produces sorted vectors for
+     * 1. hex indices of the hexes of the sorted boundary
+     * 2. NN values of the hexes in angular order around the boundary
+     * 3. The phi value for each hex in sorted order
+     * all vectors have the same length and the index of the vector refers to
+     * the same hex in all three arrays. It differs from the sorting in
+     * renewDissect because the bounary is not dissected
+     */
+    void sortRegionBoundary(int regNum) {
+        vector<int> regionBoundary;
+        vector<int> irB;
+        vector<double> rB;
+        regionBoundary.resize(0);
+        rB.resize(0);
+        irB.resize(0);
+        int bsize = regionBound[regNum].size();
+        this->sortedBoundary[regNum].clear();
+        for (auto& h : this->regionBound[regNum]) {
+            double angle = h.phi;
+            rB.push_back(angle);
+            regionBoundary.push_back(h.vi);
+        }
+        irB = sort_indexes(rB); //indices after sort on theta
+        for (int i=0; i< bsize; i++) {
+            this->sortedBoundary[regNum].push_back(regionBoundary[irB[i]]);
+            this->sortedBoundaryPhi[regNum].push_back(rB[irB[i]]);
+            this->sortedBoundaryNN[regNum].push_back(NN[regNum][regionBoundary[irB[i]]]);
+        }
+    }
 
-
-    //sectorize over radius
+    /* sectorize over radius analogue version
+     * unlike the old region.h we cannot directly fill from the NN field because this is different when we integrate
+     * using the methods in region.h where the h.vi refer to the global positions of the hexes and are unique
+     * and the use from main programs that use ksSolver for each region
+     */
     vector <double> sectorize_reg_radius (int regNum, int numSectors, int beginAngle, int endAngle, vector<double> fieldVal) {
         ofstream dfile ("logs/sectorRadius.txt",ios::app);
         vector <double>  radiusNN;
@@ -2178,8 +2216,11 @@ double regnnfrac (int regNum) {
 
     } //end of function sectorize_radius
 
-     //sectorize over radius
-    //adapted for digital output
+    /* sectorize over radius adapted for digital output
+     * unlike the old region.h we cannot directly fill from the NN field because this is different when we integrate
+     * using the methods in region.h where the h.vi refer to the global positions of the hexes and are unique
+     * and the use from main programs that use ksSolver for each region
+     */
     vector <int> sectorize_reg_Dradius (int regNum, int numSectors, int beginAngle, int endAngle, vector<double> fieldVal) {
        ofstream dfile ( "logs/sectorRadius.txt",ios::app);
        vector <int>  radiusNN;
@@ -2248,7 +2289,11 @@ double regnnfrac (int regNum) {
 
 
 
- //function to count the hexes in sectors of a region via angular sectors
+    /* function to count the hexes in sectors of a region via angular sectors
+     * unlike the old region.h we cannot directly fill from the NN field because this is different when we integrate
+     * using the methods in region.h where the h.vi refer to the global positions of the hexes and are unique
+     * and the use from main programs that use ksSolver for each region
+     */
     vector <double> sectorize_reg_angle (int regNum, int numSectors, int beginradius, int endradius, vector<double> fieldVal) {
     //std::pair<double,double> diff; //difference between seed point and CoG of region
         ofstream cfile ("logs/sectorAngle.txt",ios::app);
@@ -2269,7 +2314,7 @@ double regnnfrac (int regNum) {
 // to normalise the NN field
 //int size = (int) this->regionHex[regNum].size();
         for (auto h : this->regionHex[regNum]){
-           normalNN.push_back(fieldVal[h.vi]);
+            normalNN.push_back(fieldVal[h.vi]);
         }
         normalNN = meanzero_vector(normalNN);
 //for (int i=0;i<size;i++)
@@ -2313,7 +2358,11 @@ double regnnfrac (int regNum) {
 
     } //end of function sectorize_region
 
- //function to count the hexes in sectors of a region via angular sectors
+    /* function to count the hexes in sectors of a region via angular sectors digital version
+     * unlike the old region.h we cannot directly fill from the NN field because this is different when we integrate
+     * using the methods in region.h where the h.vi refer to the global positions of the hexes and are unique
+     * and the use from main programs that use ksSolver for each region
+     */
     vector <int> sectorize_reg_Dangle (int regNum, int numSectors, int beginradius, int endradius, vector<double> fieldVal) {
         ofstream cfile ("logs/sectorAngle.txt",ios::app);
  //std::pair<double,double> diff; //difference between seed point and CoG of region
@@ -2415,12 +2464,12 @@ double regnnfrac (int regNum) {
   }
 
   //method to renew polars and boundary
-  void renewBoundary(int regNum, list<morph::Hex> hexen)
+  void renewBoundary(int regNum, list<morph::Hex> hexList)
   {
     //pair<double,double> diff;
     this->regionBound[regNum].clear();
-    cout << "regionBound" << regNum << " size " << this->regionBound[regNum].size() << endl;
-    for (auto h : this->Hgrid->hexen)
+    cout << "regionBound" << regNum << " size 1 " << this->regionBound[regNum].size() << " size 2 " << hexList.size() << endl;
+    for (auto h : hexList)
     {
       if (h.boundaryHex())
       {

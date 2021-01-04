@@ -108,7 +108,7 @@ public:
         }
         sum = sum/(1.0*size);
         return result;
-    }  
+    }
     //function to smooth a vector by moving average
     vector <double> smooth_vector(vector<double> invector, int window) {
         vector<double> outvector;
@@ -187,8 +187,36 @@ public:
     return count;
   }
 
+// find the zeros in a ray angular
+    vector<int> find_zeroIndices(vector<double> ray) {
+    vector<int> result;
+    result.resize(0);
+    result.resize(0);
+    int size = ray.size();
+    ofstream zerofile ("zero.txt",ios::app);
+    zerofile << "size = " << size << endl;
+    double oldVal = ray[0];
+    zerofile << " first oldVal = " << oldVal << " ray[0] " << ray[0] << endl;
+    int count = 0;
+    for (int i = 1 ; i<size+1; i++){
+      //  if (ray[i%size] != 0.0) {
+           double newVal = ray[i%size];
+           zerofile << " radius " << i%size << " " << oldVal << " "<< newVal << " ray[i] " << ray[i%size] << endl;
+           double norm = fabs(oldVal*newVal);
+           if (oldVal*newVal/norm < 0.0) {
+                 result.push_back(i);
+                 count++;
+           }
+        oldVal = newVal;
+        //}
+      zerofile << " radius " << i%size << " " << oldVal << " "<< newVal << " ray[i] " << ray[i%size] << endl;
+      }
+      zerofile << "number of zeros " << count << endl;
+      return result;
+  }
 
- // find the zeros in a ray angular
+
+ // find the zeros in a ray radial
     int find_zeroDRadius(vector<int> ray) {
     int size = ray.size();
     //ofstream zerofile ("zero.txt",ios::app);
