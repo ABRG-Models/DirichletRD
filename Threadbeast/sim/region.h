@@ -1388,12 +1388,14 @@ double regnnfrac (int regNum) {
         {
 
             double nnmean1, nnmean2;
-            nnmean1 = this->meannn(i); //find the mean of nn in the region
+            //nnmean1 = this->meannn(i); //find the mean of nn in the region
+            nnmean1 = 0;
             edgefile << " mean of nn in region " << i << "is " << nnmean1 << endl;
             for (auto j = this->regionList[i].begin(); j < this->regionList[i].end();j++)
             {
                 if (*j == -1) continue;
-                nnmean2 = this->meannn(*j); //find the mean of nn in the region
+                //nnmean2 = this->meannn(*j); //find the mean of nn in the region
+                nnmean2=0;
                 edgefile << " j iteration " << *j << " nnmean2 " << nnmean2 << endl;
                 first.resize(0);
                 second.resize(0);
@@ -1705,9 +1707,11 @@ double regnnfrac (int regNum) {
               continue;
            }
            //need the mean to normalise the boundary vectors
-           double NNmean1 = this->meanNN(reg1);
+           //double NNmean1 = this->meanNN(reg1);
+           double NNmean1=0;
            cout << "after meanNN call" << endl;
-           double NNmean2 = this->meanNN(reg2);
+           //double NNmean2 = this->meanNN(reg2);
+           double NNmean2=0;
            if ((s1 != 0) && (s2 != 0)) //neither edge is empty
            {
                jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
@@ -2633,12 +2637,14 @@ double regnnfrac (int regNum) {
         // there are some regions that have this
         int countResult = 0;
         double NNmean1, NNmean2;
-        NNmean1 = this->meanNN(regNum);
+        //NNmean1 = this->meanNN(regNum);
+        NNmean1 = 0;
         edgefile << " mean of NN in region " << regNum << "is " << NNmean1 << endl;
         //edgefile << " mean of NN in region " << regNum << "is " <<NNmean << endl;
         for (auto j = this->regionList[regNum].begin(); j < this->regionList[regNum].end(); j++)  {
             if (*j == -1) continue;
-            NNmean2 = this->meanNN(*j); //find the mean of NN in the region
+            //NNmean2 = this->meanNN(*j); //find the mean of NN in the region
+            NNmean2 = 0;
             edgefile << " j iteration " << *j << " NNmean2 " << NNmean2 << endl;
             first.resize(0);
             second.resize(0);

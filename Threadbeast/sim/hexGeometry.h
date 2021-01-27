@@ -744,7 +744,9 @@ public:
 /*
  * returns a vector of points that represent the coordinates of the vertices of an isosceles array
  * If lPertub true then the vertices are randomly perturbed. This function works with triangle neigbours
- * which computes the topologica connectivity of the tessellation.
+ * which computes the topologica connectivity of the tessellation. If we set ratio = 1 we get a
+ * tessellation of equal triangles but on an isosceles mesh. If we set pRatio non zero and lPerturb true then
+ * we get scalene triangles meshed together
  */
     vector<point> isosVertices( double ratio, const int rowX, const int rowY, double pRatio, bool lPerturb = false) {
         vector<point> result;
@@ -754,6 +756,7 @@ public:
         double spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
         unsigned int seed;
         chrono::milliseconds ms1 = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch());
+        seed = static_cast<unsigned int> (ms1.count());
         morph::RandUniform<double> ruf(seed);
         cout << "in isosPerturbTess rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << " pRatio " << pRatio << endl;
         int count=0;

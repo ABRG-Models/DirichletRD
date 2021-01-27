@@ -31,56 +31,66 @@ int main (int argc, char **argv)
       std::cout << "not enough arguments" << argc << endl;
       return -1;
     }
-    //string jsonfile = argv[1];
-    string logpath = argv[1];
-    double dt = stod(argv[2]); //timesetp passed to M.step
-    double Dn = stod(argv[3]); //Dn diffusion passed to M.step
-    double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
-    double Dc = stod(argv[5]);
-	int scale = stoi(argv[6]);
-	double xspan = stod(argv[7]);
-    int numsteps = atoi(argv[8]); //length of integration
-    int numprint = atoi(argv[9]); //frequency of printing
-    bool Lcontinue = atoi(argv[10]); //logical to determine if coldstart
-    bool  LfixedSeed = atoi(argv[11]); //are we using a fixed seed?
-    bool Lgraphics = atoi(argv[12]);
-    bool LDn = atoi(argv[13]);
-	int numSectors = 12;
-	double aNoiseGain = 0.1;
-	double boundaryFalloffDist = 0.0078;
+    string jsonfile = argv[1];
     vector<morph::BezCurvePath<float>> triangleBound;
     triangleBound.resize(0);
     hexGeometry* hGeom;
     double dTress = 0.5;
-    /*
-     * open the confgig file and read in the parameters
+    // open the confgig file and read in the parameters
     morph::Config conf(jsonfile);
     if (!conf.ready) {
         cerr << "Error setting up JSON config: " << conf.emsg << endl;
     }
-     */
-/*
-    double dt = conf.getDouble("dt",0.0001);
-    double Dn = conf.getDouble("Dn",5.0);
-    double Dchi = conf.getDouble("DChi",5.0);
-    double Dc = conf.getDouble("Dc",1.5);
-    int scale = conf.getInt("scale",8);
-    double xspan = conf.getDouble("xspan",5.0);
-    int numsteps = conf.getInt("numsteps",100);
-    int numAdjust = conf.getInt("numAdjust",1000000);
-    int numprint = conf.getInt("numprint",95);
+    cout << "just before reading parameters" << endl;
+    double dt = conf.getDouble("dt",0.0002);
+    cout << "dt " << dt << endl;
+    double Dn = conf.getDouble("Dn",36.0);
+    cout << "Dn " << Dn << endl;
+    double Dchi = conf.getDouble("DChi",0.0);
+    cout << "Dchi " << Dchi << endl;
+    double Dc = conf.getDouble("Dc",12.0);
+    cout << "Dc  " << Dc << endl;
+    int scale = conf.getInt("scale",7);
+    cout << "scale " << scale << endl;
+    double xspan = conf.getDouble("xspan",4.0);
+    cout << "xspan " << xspan << endl;
+    int numsteps = conf.getInt("numsteps",200);
+    cout << "numsteps " << numsteps << endl;
+    int numAdjust = conf.getInt("numAdjust",101);
+    cout << "numAdjust " << numAdjust << endl;
+    int numprint = conf.getInt("numprint",85);
+    cout << "numprint " << numprint << endl;
     string logpath = conf.getString("logpath","../logs");
-    //string svgpath = conf.getString("svgpath","./rat.svg");
+    cout <<  logpath << endl;
+    bool Lgraphics = conf.getBool("Lgraphics", true);
+    cout << "Lgraphics " << Lgraphics << endl;
+    bool LDn = conf.getBool("LDn", true);
+    cout << "LDn " << LDn << endl;
     double boundaryFalloffDist = conf.getDouble("boundaryFalloffDist",0.0078);
-    double aNoiseGain = conf.getDouble("aNoiseGain",0.1);
-    int numSectors = conf.getInt("numsectors",12);
+    cout << "boundarFalloffDist " << boundaryFalloffDist << endl;
+    double aNoiseGain = conf.getDouble("aNoiseGain",0.2);
+    cout << "aNoiseGain " << aNoiseGain << endl;
+    int numSectors = conf.getInt("numsectors",14);
+    cout << "numSectors " << numSectors << endl;
     bool Lcontinue = conf.getBool("Lcontinue",false);
-*/
-    double nnInitialOffset = 1.0;
-    double ccInitialOffset = 2.5;
-    bool overwrite_logs = true;
-    bool skipMorph  = true;
-    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
+    cout << "Lcontinue " << Lcontinue << endl;
+    double nnInitialOffset = conf.getDouble("nnInitialOffset", 1.0);
+    cout << "nnInitialOffset " << nnInitialOffset << endl;
+    double ccInitialOffset = conf.getDouble("ccInitialOffset",2.5);
+    cout << "ccInitialOffset " << ccInitialOffset << endl;
+    bool overwrite_logs = conf.getBool("overwrite_logs",true);
+    cout << "overwrite_logs " << overwrite_logs << endl;
+    bool skipMorph  = conf.getBool("skipMorph",true);
+    cout << "skipMorph " << skipMorph << endl;
+    bool lPerturb = conf.getBool("lPerturb",true);
+    cout << "lPerturb " << lPerturb << endl;
+    bool LfixedSeed = conf.getBool("LfixedSeed",false);
+    cout << "LfixedSeed " << LfixedSeed << endl;
+    double ratio = conf.getDouble("ratio", 1.0);
+    cout << "ratio  " << ratio  << endl;
+    double pRatio = conf.getDouble("pRatio",0.0);
+    cout << "pRatio " << pRatio << endl;
+    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << " pRatio " << pRatio << " ratio " << ratio << "  " << logpath <<  endl;
     ofstream afile (logpath + "/centroids.out",ios::app);
     /*
      * decide if we are using a fixed or
@@ -139,15 +149,17 @@ int main (int argc, char **argv)
      */
     vector<ksSolver> S;
     morph::BezCurvePath<float> outer;
-    double ratio = 1.0;
     const int rowX = 2; const int rowY = 2;
     //next line for creating a tessellation of equilateral triangles
     //triangleBound = h->eqTriangleTess(dTress, M.centres, M.outerBound);
     //next lines for creating a tessellation of isosceles triangles.
+    //if ratio is set to 1.0 we get equilateral triangles
+    //if pRatio is > 0.0 and lPerturb == true then we get a tessellation of
+    //perturbed triangles.
     vector<vector<hexGeometry::point>> vtxs;
     vtxs.resize(NUMPOINTS);
     vector<hexGeometry::point> vertices;
-    vertices = hGeom->isosVertices(ratio, rowX, rowY, 2.0, true);
+    vertices = hGeom->isosVertices(ratio, rowX, rowY, pRatio, lPerturb);
     vector<vector<int>> vIndices;
     vector<vector<int>> nbrList =hGeom->triangleNeighbors(rowX, rowY, vIndices);
     triangleBound = hGeom->genTriangleTess(rowX, rowY, vertices, vIndices, outer);
@@ -482,7 +494,6 @@ int main (int argc, char **argv)
               avDegreeRadius += degreeRadius;
 
               degfile1 << degreeAngle/2 << " " << degreeRadius << " " << M.regNNfrac(j) << " " << tempArea << " "<< tempPerimeter<<endl<<flush;
-	       //} //end of if on non-zero regions
 	    } //end of loop on NUMPOINTs
         avDegreeAngle = avDegreeAngle / (1.0 * countRegions);
         avDegreeRadius = avDegreeRadius / (1.0 * countRegions);
@@ -1189,7 +1200,5 @@ int main (int argc, char **argv)
 	occupancy = occupancy / (1.0 * countRegions);
     avAbsCorrelation = avAbsCorrelation/(1.0 * countRegions);
 	jfile <<Dn<<"  "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation  <<endl;
-    return 0;
-
     return 0;
 };
