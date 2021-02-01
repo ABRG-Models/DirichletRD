@@ -34,7 +34,7 @@
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
 //#define NUMPOINTS 5 //just the A-E rows.
-#define NUMPOINTS 41 //just the A-E rows.
+//#define NUMPOINTS 41 //just the A-E rows.
 
 using std::vector;
 using std::array;
@@ -102,6 +102,7 @@ public:
     const int base = 1000; //for hashing of (i,j) pairs for each edge
     const double tan30 = 0.5773502692;
     double hexArea;
+    int NUMPOINTS;
     /*
      * list of containers at public scope
      */
@@ -127,8 +128,8 @@ public:
     vector<int> Cnbr; //for each hex count of neighbour hexes
     vector<vector<double>> NN, CC; //hold the field values for each hex
     vector<double> nn, cc; //hold the field values for each hex
-    pair <double, double> centres[NUMPOINTS]; //seed points for regions
-    pair <double, double> centroids[NUMPOINTS]; // centroids for regions
+    vector <pair <double, double>> centres; //seed points for regions
+    vector<pair <double, double>> centroids; // centroids for regions
     vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
     morph::HexGrid* Hgrid; //original hexGrid
     vector<morph::BezCurvePath<float>> curvedBoundary; //vector of boundaries for creating morphed regions
@@ -137,7 +138,8 @@ public:
     vector<vector<double>> radialAngles; //angles of the vertices from the centroid.
 
  //class constructor
-    DRegion (int scale, double xspan, string basepath) {
+    DRegion (int scale, double xspan, string basepath, int npoints) {
+        this->NUMPOINTS = npoints;
         this->scale = scale;
         this->logpath = basepath;
         this->xspan = xspan;
@@ -169,8 +171,11 @@ public:
         cout << "after  boundary set HexGrid has " <<  n << " hexes" << endl;
         // now set the centres either read in or randomly generated
         //    #include "centres.h"
+        centres.resize(NUMPOINTS);
+        centroids.resize(NUMPOINTS);
         for (unsigned int i=0; i<NUMPOINTS; i++) {
             bfile >> centres[i].first >> centres[i].second;
+           cout << "centres.first" << centres[i].first << "centres.second" <<  centres[i].second << endl;
         }
         cout << "after setting centres " << endl;
    //these are the vectors of vectors for the regions
@@ -194,6 +199,8 @@ public:
         sortedBoundaryPhi.resize(NUMPOINTS);//hexes on region boundary sorted by angle
         vCoords.resize(NUMPOINTS); //vertex coordinates of a region
         mCoords.resize(NUMPOINTS); //midpoint coordinates of a region
+        centres.resize(NUMPOINTS);
+        centroids.resize(NUMPOINTS);
         cout << "before neighbour array" << endl;
       // check the order numbering in hexen
         int hexCount = 0;
