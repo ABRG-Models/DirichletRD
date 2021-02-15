@@ -52,17 +52,13 @@ int main (int argc, char **argv)
       return -1;
     }
     //string jsonfile = argv[1];
-    string logpath = argv[1];
-    double dt = stod(argv[2]); //timesetp passed to M.step
-    double Dn = stod(argv[3]); //Dn diffusion passed to M.step
-    double Dchi = stod(argv[4]); //Dchi chemotaxis passed to M.step
-    double Dc = stod(argv[5]);
-	int scale = stoi(argv[6]);
-	double xspan = stod(argv[7]);
-    int numsteps = atoi(argv[8]); //length of integration
-    int Lcontinue = atoi(argv[9]); //logical to determine if coldstart
-    bool phaseShift = atoi(argv[10]);
+    string logpath = argv[1]; //location of log files
+	int scale = stoi(argv[2]);
+	double xspan = stod(argv[3]);
+    double phaseShift = stod(argv[4]);
+    double mode = stod(argv[5]);
 
+    const int NUMPOINTS = 41;
 	int numSectors = 12;
 	double aNoiseGain = 0.1;
 	double boundaryFalloffDist = 0.0078;
@@ -90,11 +86,7 @@ int main (int argc, char **argv)
     int numSectors = conf.getInt("numsectors",12);
     bool Lcontinue = conf.getBool("Lcontinue",false);
 */
-    double nnInitialOffset = 1.0;
-    double ccInitialOffset = 2.5;
     bool overwrite_logs = true;
-    bool skipMorph  = true;
-    cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
 
     unsigned int seed = time(NULL);
 
@@ -128,68 +120,29 @@ int main (int argc, char **argv)
     }
 
 // initialise DRegion class setting scale
-    DRegion M(9,5.0,logpath);
+    DRegion M(8,5.0,logpath, NUMPOINTS);
     cout << "before dissect_boundary " << endl;
+    M.setCreg();
     vector<std::pair<double,double>> centroids;
     centroids = M.dissectBoundary(); //dissect region boundary
+    cout << "after dissectBoundary " << endl;
+// afer dissectBoundary
 	M.setRadialSegments(); //set the radial segments for regions
+    cout << "after setRadialSegments " << endl;
+// after setRadialSegments
 // include the analysis methods
     Analysis L;
-
-    string fname = logpath + "/first.h5";
-    cout<< "just before first data read"<< " Lcontinue " << Lcontinue <<endl;
-// initialise with random field
-    if (Lcontinue) {
-	    morph::HdfData input (fname,1);
-	    cout<< "just after first data read fname "<< fname << endl;
-	    input.read_contained_vals("n",M.NN);
-	    input.read_contained_vals("c",M.CC);
-	    cout<< "just after input of NN and CC1"<< endl;
-//	    input.close();
-    }
-    else {
-		for (auto h : M.Hgrid->hexen) {
-		    double choice = ruf.get();
-            // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
-            // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
-            // normal value. Close to boundary, noise is less.
-		    if (choice > 0.5)
-			{
-                M.NN[h.vi] = - ruf.get() * aNoiseGain +nnInitialOffset;
-                M.CC[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
-			}
-			else
-			{
-                M.NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
-                M.CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
-			}
-            if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
-                double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
-                M.NN[h.vi] = (M.NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
-              //  M.CC[h.vi] = (M.CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
-		    } //end of if on boundary distance
-	    }//end of loop over region
-    } //end of else on Lcontinue
-    cout <<  "just after field creation" << endl;
-
-    float hexWidth = M.Hgrid->hexen.begin()->d/2.0;
-    cerr << "d/2: " << hexWidth << endl;
-    int stepped = 0;
-    for (int i=0;i<numsteps;i++)
-	{
-//cout << " just before time step " << " i " << i << endl;
-        M.step(dt, Dn, Dchi, Dc);
-        stepped++;
-	} //end of numsteps loop
-    cout << " just after step loop  iterations  = " << stepped << endl;
 
 // post run analysis
 // look at correlation between adjacent edges
 // look at correlation between random edge
-
     int max_comp = 5 * NUMPOINTS;
-    M.random_cosines(phaseShift,max_comp,0);
-    M.adjacent_cosines(phaseShift);
+    M.insert_cosines(phaseShift, mode);
+    cout << "after insert_cosines " << endl;
+    M.adjacent_cosines();
+    cout << "after adjacent_cosines " << endl;
+    M.random_cosines(max_comp,0);
+    cout << "after random_cosines " << endl;
 
     return 0;
 };

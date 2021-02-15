@@ -33,15 +33,11 @@
 #include "hexGeometry.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
-//#define NUMPOINTS 5 //just the A-E rows.
-//#define NUMPOINTS 41 //just the A-E rows.
 
 using std::vector;
 using std::array;
 using std::string;
 using std::stringstream;
-using std::cerr;
-using std::endl;
 using std::runtime_error;
 using morph::HexGrid;
 using morph::HdfData;
@@ -277,7 +273,8 @@ public:
             if (!HAS_NE(h.vi)) {
                 hexRegionList[h.vi].push_back(-1);
                 h.setBoundaryHex();
-                this->Cnbr.at(h.vi)--;
+                N[h.vi][0] = h.vi;
+                this->Cnbr.at(h.vi) = -1;
                 cout << "no ne" << endl;
             }
             else {
@@ -286,7 +283,8 @@ public:
             if (!HAS_NNE(h.vi)) {
                 hexRegionList[h.vi].push_back(-1);
                 h.setBoundaryHex();
-                this->Cnbr.at(h.vi)--;
+                this->Cnbr.at(h.vi) = -1;
+                N[h.vi][1] =  h.vi;
                 cout << "no nne" << endl;
             }
             else {
@@ -295,7 +293,8 @@ public:
             if (!HAS_NNW(h.vi)) {
                 hexRegionList[h.vi].push_back(-1);
                 cout << "no nnw" << endl;
-                this->Cnbr.at(h.vi)--;
+                this->Cnbr.at(h.vi) = -1;
+                N[h.vi][2] = h.vi;
                 h.setBoundaryHex();
             }
             else {
@@ -304,7 +303,8 @@ public:
             if (!HAS_NW(h.vi)) {
                 hexRegionList[h.vi].push_back(-1);
                 h.setBoundaryHex();
-                this->Cnbr.at(h.vi)--;
+                this->Cnbr.at(h.vi) = -1;
+                N[h.vi][3] = h.vi;
                 cout << "no nw" << endl;
             }
             else {
@@ -313,7 +313,8 @@ public:
             if (!HAS_NSW(h.vi)) {
                 hexRegionList[h.vi].push_back(-1);
                 h.setBoundaryHex();
-                this->Cnbr.at(h.vi)--;
+                this->Cnbr.at(h.vi) = -1;
+                N[h.vi][4] = h.vi;
                 cout << "no nsw" << endl;
             }
             else {
@@ -322,37 +323,13 @@ public:
             if (!HAS_NSE(h.vi)) {
                 hexRegionList[h.vi].push_back(-1);
                 h.setBoundaryHex();
-                this->Cnbr.at(h.vi)--;
+                this->Cnbr.at(h.vi)  = -1;
+                N[h.vi][5] = h.vi;
                 cout << "no nse" << endl;
             }
             else {
                 hexRegionList[h.vi].push_back(region[N[h.vi][5]][0]); //nbr region
             }
-
-            /*!
-             * processing of internal boundaries
-             */
-            int centralRegion = region[h.vi][0];
-            int oldRegion = centralRegion;
-            int newRegion = 0;
-            cout << "just before the internal boundary logic" << " i " << h.vi << endl;
-            for (int j=0;j<6;j++) {
-            //cout << "j = " << j  << " h.vi " << h.vi <<  endl;
-                newRegion =  hexRegionList[h.vi][j];
-                cout << " hexRegionList " << hexRegionList[h.vi][j] << endl;
-                if (centralRegion != newRegion) { //its a boundary hex
-                    cout << "centralRegion " << centralRegion << " newRegion " << newRegion << endl;
-                    h.setBoundaryHex();
-                    N[h.vi][j] = h.vi;
-                    //cout << " Cnbr " << Cnbr[h.vi] << endl;
-                    if (oldRegion != newRegion){ //logic to test if vertex
-                        Creg[h.vi]++;
-                        cout << " Creg " << Creg[h.vi] << " oldRegion " << oldRegion << " newRegion " << newRegion << endl;
-                        oldRegion = newRegion;
-                    }
-                }
-            }
-           cout << "end of creg loop" << endl;
         } //end of logic determining hex types
 
            /*!
@@ -394,7 +371,57 @@ public:
 
    } //end of DRegion constructor
 
+   /*!
+    * processing of internal boundaries
+    */
+    void setCreg() {
+        for (auto h : this->Hgrid->hexen) {
+            int centralRegion = region[h.vi][0];
+            int oldRegion = centralRegion;
+            int newRegion = 0;
+            cout << "just before the Creg logic" << " i " << h.vi << endl;
+            for (int j=0;j<6;j++) {
+            //cout << "j = " << j  << " h.vi " << h.vi <<  endl;
+                newRegion =  this->hexRegionList[h.vi][j];
+                //if (newRegion == -1) continue;
+                cout << " hexRegionList " << hexRegionList[h.vi][j] << endl;
+                if (centralRegion != newRegion) { //its a boundary hex
+                    cout << "centralRegion " << centralRegion << " newRegion " << newRegion << endl;
+                    h.setBoundaryHex();
+                    //this line could have been the problem. Its setting the j neighbour of h.vi to be the central value
+                    //I am now setting it to a value that cannot be a h.vi value
+                    if (oldRegion != newRegion){ //logic to test if vertex
+                        Creg[h.vi]++;
+                        cout << " Creg " << Creg[h.vi] << " oldRegion " << oldRegion << " newRegion " << newRegion << endl;
+                        oldRegion = newRegion;
+                    }
+                }
+            }
+           cout << "end of creg loop" << endl;
+        }
+    }// end of method setInternalBoundary
 
+    void setInternalBoundary() {
+        for (auto h : this->Hgrid->hexen) {
+            int centralRegion = region[h.vi][0];
+            int newRegion = 0;
+            cout << "just before the internal boundary logic" << " i " << h.vi << endl;
+            for (int j=0;j<6;j++) {
+            //cout << "j = " << j  << " h.vi " << h.vi <<  endl;
+                newRegion =  this->hexRegionList[h.vi][j];
+                //if (newRegion == -1) continue;
+                cout << " hexRegionList " << hexRegionList[h.vi][j] << endl;
+                if (centralRegion != newRegion) { //its a boundary hex
+                    cout << "centralRegion " << centralRegion << " newRegion " << newRegion << endl;
+                    h.setBoundaryHex();
+                    //this line could have been the problem. Its setting the j neighbour of h.vi to be the central value
+                    //I am now setting it to a value that cannot be a h.vi value
+                    N[h.vi][j] = h.vi;
+                }
+            }
+           cout << "end of setInternalBoundary loop" << endl;
+        }
+    }// end of method setInternalBoundar
     /*!
      * Euclidean distance between two points
      */
@@ -576,26 +603,25 @@ public:
 
   //function to timestep coupled equations
     void step(double dt, double Dn, double Dchi, double Dc) {
-      dt = dt * 2.5 / Dn;
-
+      //dt = dt * 2.5 / Dn;
 
        // Set up boundary conditions with ghost points
       //cout << " in time step before ghost points" << endl;
-      for(auto h : Hgrid->hexen){
+ /*     for(auto h : Hgrid->hexen){
 	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
         if(this->Creg[h.vi] > 0){
           for(int j=0;j<6;j++){
-		     int i = int(h.vi);
 		 // cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << endl;
-             if(N[h.vi][j] == i) {
-       	       nn[N[h.vi][j]] = nn[h.vi];
+             if(N[h.vi][j] < 0) {
+       	      // nn[N[h.vi][j]] = nn[h.vi];
+                 N[h.vi][j] = h.vi;
 			//   cout << " nn " << nn[N[h.vi][j]] << " NN central " << nn[h.vi] << endl;
-	           cc[N[h.vi][j]] = cc[h.vi];
+	           //cc[N[h.vi][j]] = cc[h.vi];
 	      }
 	     }
 	   }
       }
-
+  */
         // 2. Do integration of nn
         {
             // Runge-Kutta integration for A. This time, I'm taking
@@ -715,6 +741,147 @@ public:
 
     }//end step
 
+
+  //function to timestep coupled equations
+    void stepOuter(double dt, double Dn, double Dchi, double Dc) {
+      //dt = dt * 2.5 / Dn;
+/*
+       // Set up boundary conditions with ghost points
+      //cout << " in time step before ghost points" << endl;
+      int hcount = 0;
+      for(auto &h : Hgrid->hexen){
+	   // cout << "top of ghost loop hex " << h.vi << " x " << h.x << " y " << h.y << endl;
+        if(this->Cnbr[h.vi] == -1){
+          hcount ++;
+          for(int j=0;j<6;j++){
+		 //    cout << "in ghost loop j = " << j << " i= " << i << " Nbr " << N[h.vi][j] << " Cnbr " << Cnbr[h.vi] << " hcount " << hcount << endl;
+             if(N[h.vi][j] == -1) {
+       	       nn[N[h.vi][j]] = nn[h.vi];
+			//   cout << " nn " << nn[N[h.vi][j]] << " NN central " << nn[h.vi] << endl;
+	           cc[N[h.vi][j]] = cc[h.vi];
+	      }
+	     }
+	   }
+      }
+ */
+        // 2. Do integration of nn
+        {
+            // Runge-Kutta integration for A. This time, I'm taking
+            // ownership of this code and properly understanding it.
+
+            // Ntst: "A at a test point". Ntst is a temporary estimate for A.
+            vector<double> Ntst(this->n, 0.0);
+            vector<double> dNdt(this->n, 0.0);
+            vector<double> K1(this->n, 0.0);
+            vector<double> K2(this->n, 0.0);
+            vector<double> K3(this->n, 0.0);
+            vector<double> K4(this->n, 0.0);
+
+            /*
+             * Stage 1
+             */
+			 //cout << "in ksSolver before compute_dNNdt" << endl;
+            this->compute_dNNdt (this->nn, dNdt, Dn, Dchi);
+			 //cout << "in ksSolver after compute_dNNdt" << endl;
+            for (int h=0; h< this->n; ++h) {
+                K1[h] = dNdt[h] * dt;
+                Ntst[h] = this->nn[h] + K1[h] * 0.5 ;
+            }
+
+            /*
+             * Stage 2
+             */
+            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
+            for (int h=0; h< this->n; ++h) {
+                K2[h] = dNdt[h] * dt;
+                Ntst[h] = this->nn[h] + K2[h] * 0.5;
+            }
+
+            /*
+             * Stage 3
+             */
+            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
+            for (int h=0; h < this->n; ++h) {
+                K3[h] = dNdt[h] * dt;
+                Ntst[h] = this->nn[h] + K3[h];
+            }
+
+            /*
+             * Stage 4
+             */
+            this->compute_dNNdt (Ntst, dNdt, Dn, Dchi);
+            for (int h=0; h < this->n; ++h) {
+                K4[h] = dNdt[h] * dt;
+            }
+
+            /*
+             * Final sum together. This could be incorporated in the
+             * for loop for Stage 4, but I've separated it out for
+             * pedagogy.
+             */
+            for (int h=0;h<this->n;h++) {
+                this->nn[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
+				//this->nn[i] = i * 1.0;
+            }
+        }
+
+        // 3. Do integration of cc
+        {
+            // Ctst: "B at a test point". Ctst is a temporary estimate for B.
+            vector<double> Ctst(this->n, 0.0);
+            vector<double> dCdt(this->n, 0.0);
+            vector<double> K1(this->n, 0.0);
+            vector<double> K2(this->n, 0.0);
+            vector<double> K3(this->n, 0.0);
+            vector<double> K4(this->n, 0.0);
+
+            /*
+             * Stage 1
+             */
+            this->compute_dCCdt (this->cc, dCdt, Dc);
+            for (int h=0; h < this->n; ++h) {
+                K1[h] = dCdt[h] * dt;
+                Ctst[h] = this->cc[h] + K1[h] * 0.5 ;
+            }
+
+            /*
+             * Stage 2
+             */
+		    this->compute_dCCdt (Ctst, dCdt, Dc);
+            for (int h=0; h < this->n; ++h) {
+                K2[h] = dCdt[h] * dt;
+                Ctst[h] = this->cc[h] + K2[h] * 0.5;
+            }
+
+            /*
+             * Stage 3
+             */
+            this->compute_dCCdt (Ctst, dCdt, Dc);
+            for (int h=0; h < this->n; ++h) {
+                K3[h] = dCdt[h] * dt;
+                Ctst[h] = this->cc[h] + K3[h];
+            }
+
+            /*
+             * Stage 4
+             */
+            this->compute_dCCdt (Ctst, dCdt, Dc);
+            for (int h=0; h < this->n; ++h) {
+                K4[h] = dCdt[h] * dt;
+            }
+
+            /*
+             * Final sum together. This could be incorporated in the
+             * for loop for Stage 4, but I've separated it out for
+             * pedagogy.
+             */
+            for (int h=0; h < this->n; ++h) {
+                this->cc[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
+            }
+        }
+        //cout  << "value of nn[5] end Runge " << this->nn[5] <<  " number of hexes " << this->n << endl;
+
+    }//end step
     /*!
      * swap the radialSegments for all regions
      * if lvCoords = true take vCoords as the vertices
@@ -1369,12 +1536,15 @@ double regnnfrac (int regNum) {
     /*
      * function to correlate matching edges
      */
-    double correlate_edges()
+    double correlate_edges(int iter, bool lzeroMean=true)
     {
         double result = 0;
-        ofstream edgefile(this->logpath + "/edgeCorrelations.txt",ios::app);
-        ofstream edgerest(this->logpath + "/edgeRest.txt");
-        ofstream correl(this->logpath + "/correlate.data",ios::app);
+        string str = to_string(iter);
+        ofstream edgefile(this->logpath + "/edgeCorrelations" + str + ".txt", ios::app);
+        ofstream edgerest(this->logpath + "/edgeRest" + str + ".txt");
+        string dataname = "/correlate" + str + ".data";
+        ofstream correl(this->logpath + dataname,ios::app);
+
         vector<double> first;
         vector<double> second;
         vector<double> dinterp;
@@ -1395,7 +1565,7 @@ double regnnfrac (int regNum) {
         {
 
             double nnmean1, nnmean2;
-            //nnmean1 = this->meannn(i); //find the mean of nn in the region
+           // nnmean1 = this->meannn(i); //find the mean of nn in the region
             nnmean1 = 0;
             edgefile << " mean of nn in region " << i << "is " << nnmean1 << endl;
             for (auto j = this->regionList[i].begin(); j < this->regionList[i].end();j++)
@@ -1433,7 +1603,7 @@ double regnnfrac (int regNum) {
                     count2++;
                 }
                 second = this->meanzero_vector(second, nnmean2);
-               // std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
+                std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
                 double firstNorm = 0; double secondNorm = 0;
                 for (unsigned int  i = 0; i < first.size(); i++) {
                     if (isnan(first[i]))
@@ -1445,7 +1615,7 @@ double regnnfrac (int regNum) {
                 }
                 if (first.size() == second.size() && first.size()*second.size() != 0)
                 {
-                    correlationValue = this->correlate_Eqvector(first, second, true);
+                    correlationValue = this->correlate_Eqvector(first, second, lzeroMean);
                     ratio = 1.0;
                     result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
@@ -1463,7 +1633,7 @@ double regnnfrac (int regNum) {
                 else if (first.size() > second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(second,first);
-                    correlationValue = this->correlate_Eqvector(first, dinterp, true);
+                    correlationValue = this->correlate_Eqvector(first, dinterp, lzeroMean);
                     ratio = 1.0 * second.size() / (1.0 * first.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
@@ -1481,7 +1651,7 @@ double regnnfrac (int regNum) {
                 else if (first.size() < second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(first,second);
-                    correlationValue = this->correlate_Eqvector(dinterp, second, true);
+                    correlationValue = this->correlate_Eqvector(dinterp, second, lzeroMean);
                     ratio = 1.0 * first.size() / (1.0 * second.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
@@ -1678,7 +1848,7 @@ double regnnfrac (int regNum) {
 
 
     // method to compare random pairs of edges
-    void random_correlate(const int max_comp, const int morphNum) {
+    void random_correlate(const int max_comp, const int morphNum, bool lNN=true, bool lzero=true) {
         ofstream jfile;
         ofstream kfile;
         int max_rand = edgeIndex.size();
@@ -1721,19 +1891,33 @@ double regnnfrac (int regNum) {
            double NNmean2=0;
            if ((s1 != 0) && (s2 != 0)) //neither edge is empty
            {
-               jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
-               for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
-                   first.push_back(this->NN[reg1][*itr]);
+               if (lNN) {  //we are working on the NN field as a vector<vector>>
+                   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
+                   for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
+                       first.push_back(this->NN[reg1][*itr]);
+                   }
+                   first = this->meanzero_vector(first, NNmean1);
+                   for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
+                       second.push_back(this->NN[reg2][*itr]);
+                   }
+                   second = this->meanzero_vector(second,NNmean2);
                }
-               first = this->meanzero_vector(first, NNmean1);
-               for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
-                   second.push_back(this->NN[reg2][*itr]);
+
+               else{  //we are working on the nn field as a vector
+                   jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
+                   for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
+                       first.push_back(this->nn[*itr]);
+                   }
+                   first = this->meanzero_vector(first, NNmean1);
+                   for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
+                       second.push_back(this->nn[*itr]);
+                   }
+                   second = this->meanzero_vector(second,NNmean2);
                }
-               second = this->meanzero_vector(second,NNmean2);
                if (s1 < s2) {
                    dinterp = equalize_vector(first , second);
                    s3 = dinterp.size();
-                   corr = correlate_Eqvector(dinterp, second, true);
+                   corr = correlate_Eqvector(dinterp, second, lzero);
                    if (corr == -2) {
                        continue;
                    }
@@ -1741,7 +1925,7 @@ double regnnfrac (int regNum) {
                else if (s1 > s2) {
                    dinterp = equalize_vector(second, first);
                    s3 = dinterp.size();
-                   corr = correlate_Eqvector(dinterp, first, true);
+                   corr = correlate_Eqvector(dinterp, first, lzero);
                    if (corr == -2) {
                        continue;
                    }
@@ -1762,6 +1946,7 @@ double regnnfrac (int regNum) {
         ofstream jfile;
         ofstream kfile;
         int max_rand = edgeIndex.size();
+        max_rand = 205;
         string str = to_string(morphNum);
         jfile.open(this->logpath + "/random_correlate" + str + ".txt",ios::app);
         kfile.open(this->logpath + "/random_correlate" + str + ".data",ios::app);
@@ -1780,12 +1965,14 @@ double regnnfrac (int regNum) {
         while (count <max_comp) {
            int r1 = rand() % max_rand;
            int r2 = rand() % max_rand;
+           jfile << "jsst before interger assingnments" << endl;
            int rr1 = this->edgeIndex[r1]; //edgeIndex is a vector of the integer keys of edges
            int rr2 = this->edgeIndex[r2];
            jfile << " r1 " << r1  << " r2 " << r2 << " rr1 " << rr1 << " rr2 " << rr2 << endl;
            int s3 = 0;
            first.resize(0);
            second.resize(0);
+           jfile << "jsst before size assingnments" << endl;
            int s1 = this->edgeVals[rr1].size(); //edge value is integer array of the hex identifiers of the edge
            int s2 = this->edgeVals[rr2].size();
            if ((s1<5) || (s2<5)) {

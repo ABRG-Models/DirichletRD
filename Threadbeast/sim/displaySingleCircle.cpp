@@ -1,8 +1,9 @@
 #include "region.h"
 #include "analysis.h"
 #include "ksSolver.h"
-#include <morph/display.h>
+//#include "display.cpp"
 #include <morph/Config.h>
+#include <morph/display.h>
 #include <cctype>
 #include <locale>
 #include <algorithm>
@@ -15,13 +16,9 @@ using std::cerr;
 using std::endl;
 using std::runtime_error;
 using morph::Gdisplay;
-
-/*
 using morph::HexGrid;
-using morph::HdfData;:
+using morph::HdfData;
 using morph::Tools;
-using morph::Display
-*/
 using namespace morph;
 using namespace std;
 using namespace std::chrono;
@@ -97,22 +94,213 @@ int main (int argc, char **argv)
 // initialise DRegion class setting scale
     DRegion M(scale,xspan,logpath,NUMPOINTS);
     cout << "before dissect_boundary " << endl;
-//	for (auto h : M.Hgrid->hexen) {
-//	   cout << " first h.vi output " << h.vi << endl;
-//	   }
-    vector<std::pair<double,double>> centroids;
-    centroids = M.dissectBoundary(); //dissect region boundary
-    M.setRadialSegments(); //set radial segments and vertices for each region
     double hexWidth = M.Hgrid->hexen.begin()->d/2.0;
 // include the analysis methods
     Analysis L;
 
-    string fname = logpath + "/first.h5";
     cout<< "just before first data read"<< " Lcontinue " << Lcontinue <<endl;
     unsigned int seed = time(NULL);
     // A rando2yym uniform generator returning real/floating point types
     morph::RandUniform<double> ruf(seed);
+// section for solving on the circle Tessllation
+// if (skipMorph) return 0;
+    cout << "just before creating circle Tessellation Solver S" << endl;
+    //Readjust Dn for a single region
+    double radius = 1.0;
+    pair<double,double> centroid(0.0,0.0);
+    M.setCreg();
+    cout << "just after clearing region boundary" << endl;
+    vector<std::pair<double,double>> centroids;
+    centroids = M.dissectBoundary(); //dissect region boundary
+    M.setRadialSegments(); //set radial segments and vertices for each region
+
+// initialise the fields
+    string gname = logpath + "/second.h5";
+    cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
+        //WARNING next 2 lines are just a temporary fix
+   // Lcontinue=true;
 // initialise with random field
+    if (Lcontinue)
+	{
+        morph::HdfData ginput(gname,1);
+        cout << "just after trying to open ../logs/second.h5" << endl;
+        std::string ccstr = "c";
+        char * ccst = new char[ccstr.length()+1];
+        std::strcpy(ccst,ccstr.c_str());
+        std::string nstr = "n";
+        char * nst = new char[nstr.length()+1];
+        std::strcpy(nst,nstr.c_str());
+        cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+        ginput.read_contained_vals(ccst,M.cc);
+        ginput.read_contained_vals(nst,M.nn);
+    }
+    else
+    {
+        unsigned int seed;
+        //milliseconds ms1 = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+        //seed = static_cast<unsigned int> (ms1.count());
+        seed = off;
+        morph::RandUniform<double> ruf1(seed);
+        for (auto h : M.Hgrid->hexen) {
+        // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
+        // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
+        // normal value. Close to boundary, noise is less.
+            double choice = morph::Tools::randDouble();
+		    if (choice > 0.5)
+			{
+                M.nn[h.vi] = - ruf1.get() * aNoiseGain +nnInitialOffset;
+                M.cc[h.vi] = - ruf1.get() * aNoiseGain + ccInitialOffset;
+			}
+		    else
+			{
+                M.nn[h.vi] = - ruf1.get() * aNoiseGain +nnInitialOffset;
+                M.cc[h.vi] = - ruf1.get() * aNoiseGain + ccInitialOffset;
+            }
+            if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
+                //double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
+                double bSig = 1.0;
+                M.nn[h.vi] = (M.nn[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
+                M.cc[h.vi] = (M.cc[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
+            } //end of if on boundary distance
+        }//end of loop over region
+        usleep(1000);
+    } //end of else on Lcontinue
+//work out the cutting template.
+    vector<vector<hexGeometry::lineSegment>> regionLineSegments;
+    regionLineSegments.resize(NUMPOINTS);
+    for (int j=0;j<NUMPOINTS;j++)
+    {
+        regionLineSegments[j] = M.polygonSides(j, true);
+         unsigned int sideSize = regionLineSegments[j].size();
+         cout << "sideSize " << sideSize << " region " << j << endl;
+         int count = 0;
+         for (auto& h : M.Hgrid->hexen) {
+             for (unsigned int i=0; i<sideSize; i++) {
+                 if (M.hGeo->hexIntersectLineSegment(regionLineSegments[j][i],h)){
+                     h.setFlags(HEX_IS_REGION_BOUNDARY);
+                     //M.regionBound[j].push_back(h);
+                     count++;
+                  }
+              }
+         }
+     }
+    vector<double> fix(3.0, 0.0);
+    vector<double> eye(3.0, 0.0);
+    vector<double> rot(3.0, 0.0);
+    double rhoInit = 3.0;
+    //double rhoInit = 5.0;
+    array<float,3> cl_a = morph::Tools::getJetColorF (0.1);
+    array<float,3> cl_c = morph::Tools::getJetColorF (0.28);
+    array<float,3> cl_b = morph::Tools::getJetColorF (0.58);
+    array<float,3> cl_d = morph::Tools::getJetColorF (0.80);
+    array<float,3> offset = {{0, 0, 0}};
+    int boundaryCount = 0;
+     morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+     //plot the tessellation
+     ndisp.resetDisplay (fix, eye, rot);
+     for (int j=0;j<NUMPOINTS;j++) {
+         // plot stuff here
+         int boundaryCount = 0;
+         int internalCount = 0;
+         int totalCount = 0;
+         for (auto h : M.Hgrid->hexen) {
+             if (M.Creg[h.vi] == 1) {
+                 ndisp.drawHex (h.position(), (h.d/2.0f), cl_c);
+                 boundaryCount++;
+             }
+         	 if (M.Creg[h.vi] > 1) {
+                 ndisp.drawHex (h.position(), (h.d * 2.0f), cl_d);
+             }
+         	 if (M.Cnbr[h.vi] == -1) {
+                 ndisp.drawHex (h.position(), (h.d / 2.0f), cl_b);
+             }
+         }
+         cout << " region " << j << " has boundary length " << boundaryCount << endl;
+     }//end of loop on NUMPOINTS to plot boundaries
+     usleep (1000000);
+     cout << "before redrawDisplay 2 " << endl;
+     ndisp.redrawDisplay();
+     cout << "after redrawDisplay 2" << endl;
+     usleep (1000000); // one hundred seconds
+     ndisp.saveImage(logpath + "/Tessellation2.png");
+     ndisp.closeDisplay();
+// begin second time stepping loop
+    for (int i=0;i<8*numsteps;i++) {
+        M.stepOuter(dt, Dn, Dchi, Dc);
+    // print out the final field as with the gingerbread cutter tessellation
+        if (i%numprint == 0) {
+            //M.nn = S.NN;
+        //set up display
+            morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+            mmdisp.resetDisplay (fix, eye, rot);
+            vector<double> tempnn;
+            vector<double> regionNN;
+        	for (auto h : M.Hgrid->hexen) {
+                tempnn.push_back(M.nn[h.vi]);
+        	}
+        //normalise over the region then write normalised values to normalised NN over hexGrid
+            regionNN = L.normalise(tempnn);
+        	for (auto h : M.Hgrid->hexen)
+        	{
+   			    array<float,3> colour = morph::Tools::getJetColorF(regionNN[h.vi]);
+                if (M.Creg[h.vi] == 1) {
+                    mmdisp.drawHex (h.position(), (h.d/2.0f), cl_a);
+                    boundaryCount++;
+                }
+                else {
+                    mmdisp.drawHex(h.position(),(h.d/2.0f),colour);
+                }
+             }
+            cout << "just before redraw display 1" << endl;
+            mmdisp.redrawDisplay();
+            cout << "just after redraw display 1" << endl;
+            cout << "just after to_string"<<endl;
+            //int step = i / numprint;
+            //string str = std::to_string(step);
+            mmdisp.saveImage(logpath + "/nnField2.png");
+            usleep (1000000); // one hundred seconds
+            cout << "just after saveImage 1" << endl;
+            mmdisp.closeDisplay();
+        } //end of printing of gingerbread cut field
+    }
+    //code run at end of timestepping
+    //first save the  ofstream outFile;
+    morph::HdfData gdata(gname);
+	std::string nstr = "n";
+	char * nst = new char[nstr.length()+1];
+	//std::copy(nstr.begin(),nstr.end(),nst);
+	std::strcpy(nst,nstr.c_str());
+    std::string ccstr = "c";
+    char * ccst = new char[ccstr.length()+1];
+    std::strcpy(ccst,ccstr.c_str());
+    cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
+    gdata.add_contained_vals(ccst,M.cc);
+    gdata.add_contained_vals(nst,M.nn);
+    gdata.add_val ("/Dchi", Dchi);
+    gdata.add_val ("/Dn", Dn);
+    gdata.add_val ("/Dc",Dc);
+    gdata.~HdfData();
+    cout << " just after writing data first time"  << endl;
+    cout << "just before analysis on whole circle " << endl;
+//computing average values over all regions
+    double avAbsCorrelation = 0;
+    double tempPerimeter = 0;
+    double tempArea = 0;
+    double countRegions = 0;
+    const int max_comp = NUMPOINTS*5;
+    M.random_correlate(max_comp, 0, false, true);
+    cout << "just after random correlate_edges morph2 " << endl;
+    avAbsCorrelation += M.correlate_edges(0, true);
+    cout << "just after M.correlate_edges, third pass" << endl;
+	// jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
+	cout << Dn <<"  "<< Dchi <<" "<< Dc <<" " << avAbsCorrelation << " after morphing  2" << endl;
+    //end of first setting and viewing section
+
+    //setting next solving and viewing section
+    //now set internal boundaries
+// initialise with random field
+    M.setInternalBoundary();
+    string fname = logpath + "/first.h5";
     if (Lcontinue) {
 	    morph::HdfData input (fname,1);
 	    cout<< "just after first data read fname "<< fname << endl;
@@ -137,24 +325,15 @@ int main (int argc, char **argv)
                 M.cc[h.vi] = - ruf.get() * aNoiseGain + ccInitialOffset;
 			}
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
-                double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
+                //double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
+                double bSig = 1.0;
                 M.nn[h.vi] = (M.nn[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
                 M.cc[h.vi] = (M.cc[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
 		    } //end of if on boundary distance
 	    }//end of loop over region
     } //end of else on Lcontinue
     cout <<  "just after field creation" << endl;
-    vector<double> fix(3.0, 0.0);
-    vector<double> eye(3.0, 0.0);
-    vector<double> rot(3.0, 0.0);
-    double rhoInit = 3.0;
-    //double rhoInit = 5.0;
-    array<float,3> cl_a = morph::Tools::getJetColorF (0.0);
-    array<float,3> cl_c = morph::Tools::getJetColorF (0.28);
-    array<float,3> cl_b = morph::Tools::getJetColorF (0.58);
-    array<float,3> cl_d = morph::Tools::getJetColorF (0.00);
-    array<float,3> offset = {{0, 0, 0}};
-    int boundaryCount = 0;
+   ;
     if (lGraphics) {
         morph::Gdisplay isp(900, 900, 0, 0, "A boundary", rhoInit, 0.0, 0.0);
      	cout << "after setting display" << endl;
@@ -162,15 +341,18 @@ int main (int argc, char **argv)
     	cout << "after setting display" << endl;
     	//plot stuff here.
      	for (auto h : M.Hgrid->hexen) {
-        	 if (M.Creg[h.vi] > 1) {
-              	isp.drawHex (h.position(), (h.d/2.0f), cl_c);
-         	}
-         	else if (M.Creg[h.vi] == 1) {
-                    isp.drawHex (h.position(), (h.d/2.0f), cl_b);
-                 }
-       //  else
-        // {
-          //   isp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
+        	 if (M.Creg[h.vi] == 1) {
+              	isp.drawHex (h.position(), (h.d / 2.0), cl_c);
+         	 }
+         	 if (M.Creg[h.vi] > 1) {
+                 isp.drawHex (h.position(), (h.d * 2.0f), cl_d);
+             }
+         	 if (M.Cnbr[h.vi] == -1) {
+                 isp.drawHex (h.position(), (h.d * 2.0f), cl_b);
+             }
+         //else
+         //{
+           //  isp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
          //}
          }
      	for (int regcnt = 0; regcnt < NUMPOINTS;regcnt++) {
@@ -185,11 +367,10 @@ int main (int argc, char **argv)
      	isp.saveImage(logpath + "/Tessellation0.png");
      	isp.closeDisplay();
     }
-
     cerr << "d/2: " << hexWidth << endl;
     cout << "before time-stepping loop" << endl;
     for (int i=0;i<numsteps;i++) {
-        M.step(dt, Dn, Dchi, Dc);
+        M.stepOuter(dt, Dn, Dchi, Dc);
         if (i%numprint == 0 && lGraphics) {
             morph::Gdisplay disp(900, 900, 0, 0, "first run", rhoInit, 0.0, 0.0);
             disp.resetDisplay (fix, eye, rot);
@@ -223,14 +404,17 @@ int main (int argc, char **argv)
             for (auto h : M.Hgrid->hexen) {
             // cout << "just before drawHex  "<< h.vi << "normalnn " << normalnn[h.vi] << endl;
                 if (M.Creg[h.vi] == 0) {
-                    if (h.d/2.0 > 0.05){
-			            cerr << "hex too large for " << h.vi <<endl;
-                    }
-                array<float,3> colour = morph::Tools::getJetColorF(normalnn[h.vi]);
-	            disp.drawHex(h.position(),hexWidth,colour);
+                    array<float,3> colour = morph::Tools::getJetColorF(normalnn[h.vi]);
+                    disp.drawHex(h.position(),hexWidth,colour);
                 }
-		        else {
-                    disp.drawHex(h.position(),hexWidth,cl_a);
+		        else if (M.Cnbr[h.vi] == -1 ) {
+                    disp.drawHex(h.position(),hexWidth,cl_b);
+                }
+                else if (M.Creg[h.vi] == 1) {
+                    disp.drawHex(h.position(), hexWidth, cl_c);
+                }
+                else if (M.Creg[h.vi] > 1) {
+                    disp.drawHex(h.position(), 4*hexWidth, cl_d);
                 }
             }
             cout << "just before redraw display 0" << endl;
@@ -253,22 +437,17 @@ int main (int argc, char **argv)
          data.add_val ("/Dchi", Dchi); //Chi parameter
          data.add_val ("/Dn", Dn); //Dn paramater
          data.add_val ("/Dc",Dc); //Dc parameter:
-
          cout << " just after writing data "  << endl;
 // post run analysis
-// look at correlation between adjacent edges
 
         cout << "before correlate_edges" << endl;
 
-        double avAbsCorrelation = M.correlate_edges();
-        int sumRegions = 0;
+        avAbsCorrelation = M.correlate_edges(1, true);
         cout << "before correlate_edges zero morph" << endl;
-        avAbsCorrelation = avAbsCorrelation / (1.0 * sumRegions) ;
         cout << " Average correlation whole region " << avAbsCorrelation << endl;
 // look at correlation between random edges
-         const int max_comp = NUMPOINTS*5;
          cout << "before random_correlate_edges" << endl;
-         //M.random_correlate(max_comp,0);
+         M.random_correlate(max_comp,1,false,true);
          cout << "after random_correlate_edges" << endl;
 //  cout<<"after correlate_edges" << endl;
          vector <int> radiusDVector;
@@ -277,8 +456,8 @@ int main (int argc, char **argv)
          vector <double> radiusVector;
          int degreeRadius;
          int degreeAngle;
-	     double tempArea = 0;
-	     double tempPerimeter = 0;
+	     tempArea = 0;
+	     tempPerimeter = 0;
 		 int angleOffset = 0;
 		 int radiusOffset = 0;
          for (int j=0;j<NUMPOINTS;j++) {
@@ -331,7 +510,7 @@ int main (int argc, char **argv)
 	  double occupancy = 0;
       tempArea = 0;
 	  tempPerimeter = 0;
-	  int countRegions = 0;
+	  countRegions = 0;
       for (int j=0;j<NUMPOINTS;j++) {
 	      if (M.regArea(j) != 0){
 	          countRegions++;
@@ -362,201 +541,5 @@ int main (int argc, char **argv)
 	  occupancy = occupancy / (1.0 * countRegions);
 	  jfile <<Dn<<" "<<Dchi<<" "<<Dc<<" "<<avDegreeAngle<<" "<<avDegreeRadius<<" "<<occupancy<<" "<<avAbsCorrelation<<endl;
 //end of integration on the original tesselation
-
-
-
-// section for solving on the circle Tessllation
-// if (skipMorph) return 0;
-    cout << "just before creating circle Tessellation" <<endl;
-    ksSolver S;
-    //Readjust Dn for a single region
-    Dn = Dn * (1.0 * NUMPOINTS);
-    double radius = 1.0;
-    pair<double,double> centroid(0.0,0.0);
-    S = ksSolver(scale, xspan, logpath, radius, centroid);
-	cout << "just after populating the ksVector"<<endl;
-
-// initialise the fields
-    string gname = logpath + "/second.h5";
-    cout<< "just before second data read"<< " lcontinue " << Lcontinue <<endl;
-// initialise with random field
-    if (Lcontinue)
-	{
-        morph::HdfData ginput(gname,1);
-        cout << "just after trying to open ../logs/second.h5" << endl;
-        std::string ccstr = "c";
-        char * ccst = new char[ccstr.length()+1];
-        std::strcpy(ccst,ccstr.c_str());
-        std::string nstr = "n";
-        char * nst = new char[nstr.length()+1];
-        std::strcpy(nst,nstr.c_str());
-        cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
-        ginput.read_contained_vals(ccst,S.CC);
-        ginput.read_contained_vals(nst,S.NN);
-    }
-    else
-    {
-        unsigned int seed;
-        //milliseconds ms1 = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
-        //seed = static_cast<unsigned int> (ms1.count());
-        seed = off;
-        morph::RandUniform<double> ruf1(seed);
-        for (auto h : S.Hgrid->hexen) {
-        // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
-        // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
-        // normal value. Close to boundary, noise is less.
-            double choice = morph::Tools::randDouble();
-		    if (choice > 0.5)
-			{
-                S.NN[h.vi] = - ruf1.get() * aNoiseGain +nnInitialOffset;
-                S.CC[h.vi] = - ruf1.get() * aNoiseGain + ccInitialOffset;
-			}
-		    else
-			{
-                S.NN[h.vi] = - ruf1.get() * aNoiseGain +nnInitialOffset;
-                S.CC[h.vi] = - ruf1.get() * aNoiseGain + ccInitialOffset;
-            }
-            if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
-                double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
-                S.NN[h.vi] = (S.NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
-                S.CC[h.vi] = (S.CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
-            } //end of if on boundary distance
-        }//end of loop over region
-        usleep(1000);
-    } //end of else on Lcontinue
-//work out the cutting template.
-    vector<vector<hexGeometry::lineSegment>> regionLineSegments;
-    regionLineSegments.resize(NUMPOINTS);
-    for (int j=0;j<NUMPOINTS;j++)
-    {
-        regionLineSegments[j] = M.polygonSides(j, true);
-         unsigned int sideSize = regionLineSegments[j].size();
-         cout << "sideSize " << sideSize << " region " << j << endl;
-         int count = 0;
-         for (auto& h : S.Hgrid->hexen) {
-             for (unsigned int i=0; i<sideSize; i++) {
-                 if (M.hGeo->hexIntersectLineSegment(regionLineSegments[j][i],h)){
-                     h.setFlags(HEX_IS_REGION_BOUNDARY);
-                     //M.regionBound[j].push_back(h);
-                     count++;
-                  }
-              }
-         }
-     }
-     morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-     //plot the tessellation
-     ndisp.resetDisplay (fix, eye, rot);
-     for (int j=0;j<NUMPOINTS;j++) {
-         // plot stuff here
-         int boundaryCount = 0;
-         int internalCount = 0;
-         int totalCount = 0;
-         //cout << "size of region j "<< j << " is " << M.regionpHexList[j].size() << " size of Hexgrid " << S[j].Hgrid->num() << endl;
-         //cout << "size of region j "<< j << " is " << S[j].Hgrid->num() << " size of Hexgrid " << S[j].Hgrid->num() << endl;
-         for (auto h : S.Hgrid->hexen) {
-             if (h.testFlags(HEX_IS_REGION_BOUNDARY) == true) {
-                 ndisp.drawHex (h.position(), (h.d/2.0f), cl_a);
-                 boundaryCount++;
-             }
-         }
-         cout << " region " << j << " has boundary length " << boundaryCount << endl;
-     }//end of loop on NUMPOINTS to plot boundaries
-     usleep (1000000);
-     cout << "before redrawDisplay 2 " << endl;
-     ndisp.redrawDisplay();
-     cout << "after redrawDisplay 2" << endl;
-     usleep (1000000); // one hundred seconds
-     ndisp.saveImage(logpath + "/Tessellation2.png");
-     ndisp.closeDisplay();
-// begin second time stepping loop
-    for (int i=0;i<5*numsteps;i++) {
-        S.step(dt, Dn, Dchi, Dc);
-    // print out the final field as with the gingerbread cutter tessellation
-        if (i%numprint == 0) {
-            M.nn = S.NN;
-        //set up display
-            morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-            mmdisp.resetDisplay (fix, eye, rot);
-            vector<double> tempnn;
-            vector<double> regionNN;
-        	for (auto h : S.Hgrid->hexen) {
-                tempnn.push_back(S.NN[h.vi]);
-        	}
-        //normalise over the region then write normalised values to normalised NN over hexGrid
-            regionNN = L.normalise(tempnn);
-        	for (auto h : S.Hgrid->hexen)
-        	{
-   			    array<float,3> colour = morph::Tools::getJetColorF(regionNN[h.vi]);
-                if (h.testFlags(HEX_IS_REGION_BOUNDARY) == true) {
-                    mmdisp.drawHex (h.position(), (h.d/2.0f), cl_a);
-                    boundaryCount++;
-   			    array<float,3> colour = morph::Tools::getJetColorF(regionNN[h.vi]);
-                }
-                else {
-                    mmdisp.drawHex(h.position(),(h.d/2.0f),colour);
-                }
-             }
-            cout << "just before redraw display 1" << endl;
-            mmdisp.redrawDisplay();
-            cout << "just after redraw display 1" << endl;
-            cout << "just after to_string"<<endl;
-            //int step = i / numprint;
-            //string str = std::to_string(step);
-            mmdisp.saveImage(logpath + "/nnField2.png");
-            usleep (1000000); // one hundred seconds
-            cout << "just after saveImage 1" << endl;
-            mmdisp.closeDisplay();
-        } //end of printing of gingerbread cut field
-    }
-    //code run at end of timestepping
-    //first save the  ofstream outFile;
-    morph::HdfData gdata(gname);
-	std::string nstr = "n";
-	char * nst = new char[nstr.length()+1];
-	//std::copy(nstr.begin(),nstr.end(),nst);
-	std::strcpy(nst,nstr.c_str());
-    std::string ccstr = "c";
-    char * ccst = new char[ccstr.length()+1];
-    std::strcpy(ccst,ccstr.c_str());
-    cout << "labels "<< nst <<" , " << nstr <<","<< ccst<< "," << ccstr <<endl;
-    gdata.add_contained_vals(ccst,S.CC);
-    gdata.add_contained_vals(nst,S.NN);
-    gdata.add_val ("/Dchi", Dchi);
-    gdata.add_val ("/Dn", Dn);
-    gdata.add_val ("/Dc",Dc);
-
-     cout << " just after writing data "  << endl;
-
-      gfile << endl << "analysis on first morphing iteration " << endl;
-    for (int j=0;j<NUMPOINTS;j++) {
-   // if (skipThree) return 0;
-    // clear the edges
-    M.edges_clear();
-    // redissect the boundaries
-    cout << "just before renewDissect morph2 " << endl;
-    for (int j=0;j<NUMPOINTS;j++)
-	{
-	    M.renewDissect(j, 1);
-    }
-
-    cout << "just after renewDissect morph2 " << endl;
-//computing average values over all regions
-    avAbsCorrelation = 0;
-    tempPerimeter = 0;
-    tempArea = 0;
-    countRegions = 0;
-    M.random_correlate(max_comp, 0);
-    cout << "just after random correlate_edges morph2 " << endl;
-    avAbsCorrelation = 0;
-    cout << "just after M.correlate_edges, third pass" << endl;
-    for (int j=0;j<NUMPOINTS;j++)
-	{
-	    countRegions++;
-        avAbsCorrelation += M.renewcorrelate_edges(j,0);
-	} //end of loop on NUMPOINTs
-    avAbsCorrelation = avAbsCorrelation/(1.0 * countRegions);
-	// jfile << avDegreeAngle <<" "<<avDegreeRadius<<endl;
-	cout << Dn <<"  "<< Dchi <<" "<< Dc <<" " << avAbsCorrelation << " after morphing  2" << endl;
     return 0;
-    }
 };
