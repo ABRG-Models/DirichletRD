@@ -1064,7 +1064,7 @@ int main (int argc, char **argv)
 
     M.edges_clear();
     // swap the radialAngles to the mCoords
-    M.swapRadialSegments(false);
+    // M.swapRadialSegments(false);
     // redissect the boundaries
     cout << "just before renewDissect second time" << endl;
     for (int j=0;j<NUMPOINTS;j++)
@@ -1135,9 +1135,9 @@ int main (int argc, char **argv)
         M.renewBoundary(j,S[j].Hgrid->hexen);
         //M.renewCentroids(j);
     }
-//    swap the radialAngles to the vCoords
+//    swap the radialAngles to the mCoords
     M.edges_clear();
-    M.swapRadialSegments(true);
+    M.swapRadialSegments(false);
     // redissect the boundaries
     for (int j=0;j<NUMPOINTS;j++)
     {

@@ -889,7 +889,7 @@ public:
      */
     void swapRadialSegments(bool lvCoords) {
         hexGeometry::point a,b;
-        ofstream zfile ("./vertexAngles.txt",ios::app);
+        ofstream zfile (this->logpath + "/vertexAngles.txt",ios::app);
         for (unsigned int j=0;j<NUMPOINTS;j++) {
             this->radialAngles[j].clear();
             a.first = this->centroids[j].first;
@@ -1560,23 +1560,16 @@ double regnnfrac (int regNum) {
         // what happens if there are multiple entries in regionList at the start and the end?
         // there are some regions that have this
         int countResult = 0;
-        int printInt = 15;
-        std::string filei = logpath + "/ival.Vect";
-        std::string filej = logpath + "/jval.Vect";
-        ofstream iout (filei,ios::app);
-        ofstream jout (filej,ios::app);
         for (int i = 0; i <NUMPOINTS; i++)
         {
 
             double nnmean1, nnmean2;
-           // nnmean1 = this->meannn(i); //find the mean of nn in the region
-            nnmean1 = 0;
+            nnmean1 = this->meannn(i); //find the mean of nn in the region
             edgefile << " mean of nn in region " << i << "is " << nnmean1 << endl;
             for (auto j = this->regionList[i].begin(); j < this->regionList[i].end();j++)
             {
                 if (*j == -1) continue;
-                //nnmean2 = this->meannn(*j); //find the mean of nn in the region
-                nnmean2=0;
+                nnmean2 = this->meannn(*j); //find the mean of nn in the region
                 edgefile << " j iteration " << *j << " nnmean2 " << nnmean2 << endl;
                 first.resize(0);
                 second.resize(0);
@@ -1590,25 +1583,22 @@ double regnnfrac (int regNum) {
                 int count2 = 0;
                 double ratio;
                 double correlationValue = 0;
-// first and 2 have the values of nn on the edge with the mean of the region subtracted
+                // first and 2 have the values of nn on the edge with the mean of the region subtracted
+                //create two vectors from the opposing edges
                 for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
                 {
-                if (isnan(this->nn[*itr]))
-                     edgefile << "Nan edge 2 edge hex " << *itr << endl;
                     first.push_back(this->nn[*itr]);
                     count1++;
                 }
                 first = this->meanzero_vector(first, nnmean1);
                 for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++)
                 {
-                    if (isnan(this->nn[*itr]))
-                        edgefile << "Nan edge 2 edge hex " << *itr << endl;
                     second.push_back(this->nn[*itr]);
                     count2++;
                 }
                 second = this->meanzero_vector(second, nnmean2);
-                std::reverse(second.begin(),second.end()); //vectors are indexed in opposite directions either side
-                double firstNorm = 0; double secondNorm = 0;
+                //vectors are indexed in opposite directions either side
+                std::reverse(second.begin(),second.end());
                 for (unsigned int  i = 0; i < first.size(); i++) {
                     if (isnan(first[i]))
                         edgefile << "Nan at " << i << " in first" << endl;
@@ -1617,23 +1607,15 @@ double regnnfrac (int regNum) {
                     if (isnan(second [i]))
                         edgefile << "Nan at " << i << " in second" << endl;
                 }
+                //Do this if the vectors are the same size
                 if (first.size() == second.size() && first.size()*second.size() != 0)
                 {
                     correlationValue = this->correlate_Eqvector(first, second, lzeroMean);
                     ratio = 1.0;
-                    result += fabs(correlationValue);
-                    if (countResult%printInt == 0) {
-                        iout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filei,first);
-                        jout << " Correlation Value = " << correlationValue << endl;
-                        printDoubleVect(filej,second);
-                    }
-
-                    countResult++;
-                    correl << correlationValue << " " <<  endl;
                     edgefile << " if 1 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
                     //edgefile << i << " Size1 " << edges[edgeIndex1].size() << " j " << *j << " Size2  " << edges[edgeIndex2].size() << endl;
                 } //end of code if both edges are equal
+                //do this if the first vector is bigger than the second
                 else if (first.size() > second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(second,first);
@@ -1641,17 +1623,12 @@ double regnnfrac (int regNum) {
                     ratio = 1.0 * second.size() / (1.0 * first.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
-                        if (countResult%printInt == 0) {
-                            iout << " Correlation Value = " << correlationValue << endl;
-                            printDoubleVect(filei,first);
-                            jout << " Correlation Value = " << correlationValue << endl;
-                            printDoubleVect(filej,dinterp);
-                        }
                         countResult++;
-                     edgefile << " if 2 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
                         correl << correlationValue << "  " <<  endl;
                     }
+                    edgefile << " if 2 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
                 }
+                //do this if the first vector is smaller than the second.
                 else if (first.size() < second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(first,second);
@@ -1659,17 +1636,12 @@ double regnnfrac (int regNum) {
                     ratio = 1.0 * first.size() / (1.0 * second.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
-                        if (countResult%printInt == 0) {
-                            iout << " Correlation Value = " << correlationValue << endl;
-                            printDoubleVect(filei,dinterp);
-                            jout << " Correlation Value = " << correlationValue << endl;
-                            printDoubleVect(filej,second);
-                        }
                         countResult++;
                         correl << correlationValue << "  " <<  endl;
                     }
                     edgefile << " if 3 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
                 }
+                //something has gone wrong
                 else
                 {
                     edgefile << " if 4 region " << i << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
@@ -2969,12 +2941,10 @@ double regnnfrac (int regNum) {
         int countResult = 0;
         double NNmean1, NNmean2;
         NNmean1 = this->meanNN(regNum);
-        //NNmean1 = 0;
         edgefile << " mean of NN in region " << regNum << "is " << NNmean1 << endl;
         for (auto j = this->regionList[regNum].begin(); j < this->regionList[regNum].end(); j++)  {
             if (*j == -1) continue;
             NNmean2 = this->meanNN(*j); //find the mean of NN in the region
-            //NNmean2 = 0;
             edgefile << " j iteration " << *j << " NNmean2 " << NNmean2 << endl;
             first.resize(0);
             second.resize(0);
@@ -2988,20 +2958,21 @@ double regnnfrac (int regNum) {
             int count2 = 0;
             double correlationValue = -3;
             double ratio;
+            //create two vectors from the opposing edges
             for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
             {
                 first.push_back(this->NN[regNum][*itr]);
                 count1++;
             }
+            first = this->meanzero_vector(first, NNmean1);
             for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++)
             {
                 second.push_back(this->NN[*j][*itr]);
                 count2++;
 			}
-
-
-            //std::reverse(second.begin(),second.end());
-            double firstNorm = 0; double secondNorm = 0;
+            second = this->meanzero_vector(second, NNmean2);
+            //edges on either side are traversed in opposite directions
+            std::reverse(second.begin(),second.end());
             for (unsigned int  i = 0; i < first.size(); i++) {
                 if (isnan(first[i]))
                      edgefile << "Nan at " << i << " in first" << endl;
@@ -3010,6 +2981,7 @@ double regnnfrac (int regNum) {
                 if (isnan(second [i]))
                      edgefile << "Nan at " << i << " in second" << endl;
             }
+            //do this if the vectors are the same size
             if (first.size() == second.size() && second.size()*first.size() != 0)
             {
                 correlationValue = this->correlate_Eqvector(first, second, lZero);
@@ -3019,16 +2991,20 @@ double regnnfrac (int regNum) {
                 corrfile <<  correlationValue << "  " <<  endl;
                 edgefile << " if 1 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
             } //end of code if both edges are equal
+            //do this if the first vector is bigger than the second
             else if (first.size() > second.size() && first.size()*second.size() != 0)
             {
                 dinterp = this->equalize_vector(second,first);
                 correlationValue = this->correlate_Eqvector(dinterp, first, lZero);
                 ratio = 1.0 * second.size() / (1.0 * first.size());
-                result += fabs(correlationValue);
-                countResult++;
-                corrfile <<  correlationValue << "  " <<  endl;
+                if (correlationValue > -2) {
+                    result += fabs(correlationValue);
+                    countResult++;
+                    corrfile <<  correlationValue << "  " <<  endl;
+                }
                 edgefile << " if 2 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
             }
+            //do this if the first vector is smaller than the second
             else if (first.size() < second.size() && first.size()*second.size() != 0)
             {
                 dinterp = this->equalize_vector(first,second);
@@ -3041,6 +3017,7 @@ double regnnfrac (int regNum) {
                 }
                 edgefile << " if 3 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
             }
+            //something has gone wrong!
             else {
                 edgefile  << " if 4 region " << regNum  <<" count1 " << first.size() << " count2 " << second.size() << " j " << *j << " dinterp is zero  "   << endl;
                 //corrfile << " -1.5 " << ratio << endl;
