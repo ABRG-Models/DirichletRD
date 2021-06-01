@@ -31,7 +31,7 @@ class Analysis {
 public:
   struct extremum {
   int radialIndex;
-  double radialValue;
+  FLT radialValue;
   };
   vector<extremum> turnVal; //radial turning points
 
@@ -39,8 +39,8 @@ public:
 
   Analysis () {};
 
-    double maxVal( vector<double> invector) {
-            double result = -1.0e7;
+    FLT maxVal( vector<FLT> invector) {
+            FLT result = -1.0e7;
             for (unsigned int i = 0; i < invector.size(); i++) {
                     if (invector[i] > result)
                             result = invector[i];
@@ -50,8 +50,8 @@ public:
 
 
     // to find the minimum value of a vector
-    double minVal( vector<double> invector) {
-            double result = 1.0e7;
+    FLT minVal( vector<FLT> invector) {
+            FLT result = 1.0e7;
             for (unsigned int i = 0; i < invector.size(); i++) {
                     if (invector[i] < result)
                             result = invector[i];
@@ -61,13 +61,13 @@ public:
 
 
     // transform vector so its mean is zero
-    vector<double> meanzero_vector(vector<double> invector) {
+    vector<FLT> meanzero_vector(vector<FLT> invector) {
         //ofstream meanzero ("meanzero.txt",ios::app);
-        vector <double> result;
+        vector <FLT> result;
         int size = invector.size();
         //meanzero << "size " << size << endl;
-        double sum = 0;
-        double absSum = 0;
+        FLT sum = 0;
+        FLT absSum = 0;
         for (int i=0; i <size; i++) {
             sum += invector[i];
             absSum += fabs(invector[i]);
@@ -84,11 +84,11 @@ public:
     }
 
     // return the mean of a vector
-        double mean_vector(vector<double> invector) {
-        double result;
+        FLT mean_vector(vector<FLT> invector) {
+        FLT result;
         int size = invector.size();
         //meanzero << "size " << size << endl;
-        double sum = 0;
+        FLT sum = 0;
         for (int i=0; i <size; i++) {
             sum += invector[i];
         }
@@ -97,10 +97,10 @@ public:
     }
 
     // return the mean of the absolute values of a  vector
-        double absmean_vector(vector<double> invector) {
+        FLT absmean_vector(vector<FLT> invector) {
         //ofstream meanzero ("meanzero.txt",ios::app);
-          double result = 0;
-	      double sum = 0;
+          FLT result = 0;
+	      FLT sum = 0;
           int size = invector.size();
         //meanzero << "size " << size << endl;
           for (int i=0; i <size; i++) {
@@ -110,8 +110,8 @@ public:
         return result;
     }
     //function to smooth a vector by moving average
-    vector <double> smooth_vector(vector<double> invector, int window) {
-        vector<double> outvector;
+    vector <FLT> smooth_vector(vector<FLT> invector, int window) {
+        vector<FLT> outvector;
         int size = invector.size();
         outvector.resize(size);
         for (int i=1; i<size+1; i++) {
@@ -120,17 +120,17 @@ public:
         return outvector;
     }
 
-	vector <double> normalise (vector <double> invector) {
-	  vector <double> result;
+	vector <FLT> normalise (vector <FLT> invector) {
+	  vector <FLT> result;
 	  unsigned int size = invector.size();
 	  result.resize(size, 0);
-	  double maxV = -1e7;
-	  double minV = 1e7;
+	  FLT maxV = -1e7;
+	  FLT minV = 1e7;
 	  for (unsigned int i=0;i<size;i++) {
 	    if (invector[i] > maxV) {maxV = invector[i];}
 		if (invector[i] < minV) {minV = invector[i];}
 		}
-	  double scaleV = 1./(maxV - minV);
+	  FLT scaleV = 1./(maxV - minV);
 	  for (unsigned int i=0;i<size;i++) {
 	    result[i] = fmin(fmax((invector[i] - minV)*scaleV,0.),1.);
 	  }
@@ -141,16 +141,16 @@ public:
 
 
   //function find_max to find turning points both values and indices.
-    int find_max(vector<double> ray, int window) {
+    int find_max(vector<FLT> ray, int window) {
     int size = ray.size();
     // ofstream dfile ("turn.txt",ios::app);
     //dfile <<"size = " << size <<endl;
-    vector<double> smoothRay;
+    vector<FLT> smoothRay;
     smoothRay = this->smooth_vector(ray, window);
     turnVal.resize(1000);
     //cout <<" "<<iend<<iend<<flush;
-    double old_slope = 0;
-    double new_slope = 0;
+    FLT old_slope = 0;
+    FLT new_slope = 0;
     int count = 0;
     old_slope = smoothRay[1] - smoothRay[0];
     for (int i =2; i<=size+1;i++){
@@ -188,21 +188,21 @@ public:
   }
 
 // find the zeros in a ray angular
-    vector<int> find_zeroIndices(vector<double> ray) {
+    vector<int> find_zeroIndices(vector<FLT> ray) {
     vector<int> result;
     result.resize(0);
     result.resize(0);
     int size = ray.size();
     ofstream zerofile ("zero.txt",ios::app);
     zerofile << "size = " << size << endl;
-    double oldVal = ray[0];
+    FLT oldVal = ray[0];
     zerofile << " first oldVal = " << oldVal << " ray[0] " << ray[0] << endl;
     int count = 0;
     for (int i = 1 ; i<size+1; i++){
       //  if (ray[i%size] != 0.0) {
-           double newVal = ray[i%size];
+           FLT newVal = ray[i%size];
            zerofile << " radius " << i%size << " " << oldVal << " "<< newVal << " ray[i] " << ray[i%size] << endl;
-           double norm = fabs(oldVal*newVal);
+           FLT norm = fabs(oldVal*newVal);
            if (oldVal*newVal/norm < 0.0) {
                  result.push_back(i);
                  count++;
@@ -259,16 +259,16 @@ public:
 
 
     // find the zeros in a ray angular
-    int find_zeroAngle(vector<double> ray, int window) {
+    int find_zeroAngle(vector<FLT> ray, int window) {
     int size = ray.size();
     // ofstream zerofile ("zero.txt",ios::app);
-    vector<double> smoothRay;
+    vector<FLT> smoothRay;
     //smoothRay = this->smooth_vector(ray, window);
     smoothRay = ray;
     //zerofile <<"size = " << size <<endl;
     turnVal.resize(1000);
-    double old_val = 0;
-    double new_val = 0;
+    FLT old_val = 0;
+    FLT new_val = 0;
     int count = 0;
     old_val = smoothRay[0];
     for (int i =1; i<size+1;i++){
@@ -286,17 +286,17 @@ public:
   }
 
       // find the zeros in a radial ray
-    int find_zeroRadius(vector<double> ray, int window) {
+    int find_zeroRadius(vector<FLT> ray, int window) {
     int size = ray.size();
     //ofstream zerofile ("zero.txt",ios::app);
-     vector<double> smoothRay;
+     vector<FLT> smoothRay;
     // smoothRay = this->smooth_vector(ray, window);
      smoothRay = ray;
     //zerofile <<"size = " << size <<endl;
 
     turnVal.resize(1000);
-    double old_val = 0;
-    double new_val = 0;
+    FLT old_val = 0;
+    FLT new_val = 0;
     int count = 0;
     old_val = smoothRay[0];
     for (int i =1; i<size;i++){
@@ -316,10 +316,10 @@ public:
 
 
   //function bessel_ray for computing bessel functions along a ray
-  // takes a vector of doubles representing the radius
+  // takes a vector of FLTs representing the radius
   // returns the Bessel function values
-  // vector<double> bessel_ray (int v, vector<double> ray) {
-  //   vector <double> result(n,0.);
+  // vector<FLT> bessel_ray (int v, vector<FLT> ray) {
+  //   vector <FLT> result(n,0.);
   //   result = boost::cyl_bessel_j(v, ray);
   //   return result;
   // }
