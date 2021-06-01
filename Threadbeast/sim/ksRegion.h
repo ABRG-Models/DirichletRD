@@ -12,6 +12,7 @@
  * array from running over the regions with ksSolver.h
  *
  */
+/*
 #include <morph/tools.h>
 #include <morph/HexGrid.h>
 #include <morph/ReadCurves.h>
@@ -32,23 +33,16 @@
 #include <bits/stdc++.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "hexGeometry.h"
+*/
+#include "ksSolver.h"
 // #include <boost/math/special_functions/bessel.hpp>
 #define PI 3.1415926535897932
 //#define NUMPOINTS 5 //just the A-E rows.
-#define NUMPOINTS 50 //just the A-E rows.
 
-using std::vector;
-using std::array;
-using std::string;
-using std::stringstream;
-using std::cerr;
-using std::endl;
-using std::runtime_error;
 using morph::HexGrid;
 using morph::HdfData;
 using morph::ReadCurves;
-using morph::Tools;
+//using morph::Tools;
 using morph::BezCurve;
 using morph::BezCurvePath;
 using morph::BezCoord;
@@ -86,7 +80,9 @@ public:
     const int base = 1000; //for hashing of (i,j) pairs for each edge
     const double tan30 = 0.5773502692;
     double hexArea;
+    int NUMPOINTS;
     double dTess;
+    bool Lrows;
     /*
      * list of containers at public scope
      */
@@ -98,6 +94,8 @@ public:
     vector<vector<int>> regionList; //for each region, regions that are its neighbours
     vector<vector<int>> regionVertex; //for each region, vertices that bound it sorted by angle
     vector<vector<int>> sortedBoundary; // for each reagion indices of boundary or cutter hexes sorted by angle
+    vector<vector<double>> sortedBoundaryPhi; // for each region phi values hexes sorted by angle
+    vector<vector<double>> sortedBoundaryNN; // for each region NN values sorted by angle
     vector<int> edgeIndex; // vector of the keys for the integers representing the edge pairs
     vector<list<morph::Hex>> regionBound; //for each region list of hexes on the boundary
     std::vector<std::vector<std::list<morph::Hex>::iterator>> regionpHexList; //vector of vectors of pHexes (iterators)
@@ -110,7 +108,7 @@ public:
     vector<int> Cnbr; //for each hex count of neighbour hexes
     vector<vector<double>> NN, CC; //hold the field values for each hex
     vector<pair <double, double>> centres; //seed points for regions
-    pair <double, double> centroids[NUMPOINTS]; // centroids for regions
+    vector<std::pair <double, double>> centroids; // centroids for regions
     vector<std::pair<double,double>> diff; //difference between seed point and CoG of region
     morph::HexGrid* Hgrid; //original hexGrid
     vector<morph::BezCurvePath<float>> curvedBoundary; //vector of boundaries for creating morphed regions
@@ -123,23 +121,19 @@ public:
     /*
      * Constructor for use with triangular tessellations
      */
-    Tessellation (int scale, double xspan, std::string basepath, morph::BezCurvePath<float>& outer, std::vector<std::vector<hexGeometry::point>>& vtxs) {
+    Tessellation (int scale, double xspan, std::string basepath, morph::BezCurvePath<float>& outer,  std::vector<vector<hexGeometry::point>> vtxs, std::vector<std::pair<double, double>> centres, int numpoints, bool Lrows) {
+        this->vCoords = vtxs;
+        this->NUMPOINTS = numpoints;
+        cout<< "vtxs size " << vtxs.size() << " vCoords size " << vCoords.size() << endl;
+        for (int j=0; j<NUMPOINTS;j++){
+            cout << "vtxs region " << j << " vtxs[j] size " << vtxs[j].size() << " vCoords[j] size " << this->vCoords[j].size()  << endl;
+        }
         this->vCoords = vtxs;
         this->outerBound = outer;
-        this->centres.resize(0);
-        vector<vector<hexGeometry::point>>::iterator itr;
-        cout<< "before fill centres size of vtxs " << vtxs.size() << endl;
-        for (itr = vtxs.begin(); itr != vtxs.end(); itr++) {
-            cout << " at head of vtxs loop " << endl;
-            cout << "size of vtxs first vector " << (*itr).size() << endl;
-            cout << (*itr)[0].first << " , " << (*itr)[1].first << " , " << (*itr)[2].first << endl;
-            double px = ((*itr)[0].first + (*itr)[1].first + (*itr)[2].first) / 3.0;
-            double py = ((*itr)[0].second + (*itr)[1].second + (*itr)[2].second) / 3.0;
-            cout << "before centres.push_back()" << endl;
-            this->centres.push_back(std::make_pair(px, py));
-            //this->vCoords.push_back(*itr);
-        }
-        cout << "after fill centres " << endl;
+        this->centres = centres;
+        this->centroids = centres;
+        this->NUMPOINTS = numpoints;
+        this->Lrows = Lrows;
         this->scale = scale;
         this->logpath = basepath;
         this->xspan = xspan;
@@ -177,25 +171,24 @@ public:
         sortedBoundary.resize(NUMPOINTS);//hexes on region boundary sorted by angle
         NN.resize(NUMPOINTS);
         CC.resize(NUMPOINTS);
-        cout << "after alloc NN and CC" <<endl;
-       // fill the centroids
-       for (int i=0; i<NUMPOINTS; i++) {
-            this->centroids[i] = this->centres[i];
-       }
+        cout << "after alloc NN and CC size of centroids "  << endl;
    } // end of the triangular mesh constructor
-
     /*
      * Constructor to create Voroni tessellation
      */
-
-    Tessellation (int scale, double xspan, string basepath) {
+/*
+    Tessellation (int scale, double xspan, string basepath, morph::BezCurvePath<float> outerBound, vector<pair<double,double>> centres, int numpoints, bool Lrows) {
         this->scale = scale;
         this->logpath = basepath;
         this->xspan = xspan;
+        this->centres = centres;
+        this->centroids = centres;
+        this->NUMPOINTS = numpoints;
+        this->Lrows = Lrows;
+        this->outerBound = outerBound;
         double s = pow(2.0, scale-1);
         this->ds = 1.0/s;
         hGeo = new hexGeometry();
-
         ofstream afile (this->logpath + "/debug.out" );
         ofstream jfile (this->logpath + "/correlateVector.out");
         ifstream bfile(this->logpath + "/centres.inp");
@@ -208,12 +201,7 @@ public:
         afile << "after creating HexGrid with " << this->n << " hexes " << endl;
         double maxX = Hgrid->getXmax(0.0);
         afile << " the maximum value of x is is " << maxX << endl;
-        // now read in the boundary either as a header or as a morph  d
-        //   #include "bez5side.h"
-        // morph::ReadCurves r("./rat.svg");
-        // Hgrid->setBoundary (r.getCorticalPath(),true);
-        // this was the original call, I am trying out setBoundaryRegion for debugging
-        Hgrid->setEllipticalBoundary (1.0, 1.0);
+        Hgrid->setBoundary (this->outerBound);
         cout << "after setting boundary on  H " << Hgrid->num() << endl;
         n = Hgrid->num();
         cout << "after  boundary set HexGrid has " <<  n << " hexes" << endl;
@@ -224,8 +212,6 @@ public:
             Hgrid->d_y[h.vi] = temp;
         }
         // now set the centres either read in or randomly generated
-        /*    #include "centres.h"
-              */
         for (unsigned int i=0; i<NUMPOINTS; i++) {
             cout  << " centre " << i << " ( " << centres[i].first << " , " << centres[i].second << " )" << endl;
         }
@@ -252,12 +238,6 @@ public:
         cout << "before neighbour array" << endl;
       // check the order numbering in hexen
         int hexCount = 0;
-        /*
-        for (auto h : Hgrid->hexen) {
-            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
-            hexCount++;
-        }
-        */
    // making a neighbour array for convenience
         for (int idx = 0; idx < n; idx++) {
             int max = -30;
@@ -300,13 +280,6 @@ public:
                 regionDist[h.vi].push_back(temp);
             }
         }
-       /*!
-        *to produce a list of the sorted distances of each hex from the seed points
-        *Also produce a vector containing their indices in sorted order
-        *Note the process of sorting the indexes in distance order is completely independent
-        *from the production of Sorted list but we assume that the similar sorting used for
-        *each means that they are compatible.
-        */
         for (int i=0; i < this->n; i++) {
             vector <double> tempvector1;
             tempvector1 = regionDist[i];
@@ -317,10 +290,8 @@ public:
         }
         cout << "after region[i] allocated " <<endl;
 
-        /*!
          * Write out the list of hexes that are equidistant from
          * two different nearest seed point.
-         */
         for (int i=0; i < this->n; i++){
             if (sortedDist[i][0] == sortedDist[i][1]){
                 cout << " hex number  "<< this->region[i][0]<<" is equidistant from hex number " << this->region[i][1];
@@ -329,11 +300,6 @@ public:
         }
         cout << "before hex list loop" << endl;
 
-        /*!
-         *Determine the outside hexes and set their neighbours to be the central hex
-         *if there is no neighbour this is for the boundary conditions of the solvers
-         *
-         */
         for (auto &h : this->Hgrid->hexen){
             this->Cnbr.at(h.vi) = 6;
             if (!HAS_NE(h.vi)) {
@@ -391,9 +357,6 @@ public:
                 this->hexRegionList[h.vi].push_back(region[N[h.vi][5]][0]); //nbr region
             }
 
-            /*!
-             * processing of internal boundaries
-             */
             int centralRegion = this->region[h.vi][0];
             int oldRegion = centralRegion;
             int newRegion = 0;
@@ -418,9 +381,6 @@ public:
         } //end of logic determining hex types
         cout << " end of loop over all hexes to determine their hexType" << endl;
 
-           /*!
-            * fills the region with appropriate hex indices
-            */
        this->regionHex.resize(NUMPOINTS);
        for (int j=0;j<NUMPOINTS;j++){
            for (auto h : this->Hgrid->hexen) {
@@ -443,28 +403,16 @@ public:
        for (int i=0; i<NUMPOINTS; i++) {
            this->centroids[i] = this->baryCentre(i);
        }
-       /*
-        * set the polar coordinates by region
-        * these are linked to the hex indices from the
-        * whole original hexGrid before the ksSolver is
-        * used
-        */
-       for (int j=0;j<NUMPOINTS;j++){
-           diff[j] = this->set_polars(j);
            cout << "diff seed-centre" << diff[j].first << " " << diff[j].second<<endl;
        }
    } // end of regionVoronoi
 
-    /*
-     * sets regionList for the triangular tessellations
-     */
-
-    void setregionList(vector<vector<int>> neighbourRegions) {
+*/
+    void setRegionList(vector<vector<int>> neighbourRegions) {
         this->regionList = neighbourRegions;
     }
 
-
-    /*!
+     /*
      * Euclidean distance between two points
      */
     double getdist(std::pair<double, double> a, std::pair<double, double>  b) {
@@ -533,6 +481,7 @@ public:
         }
     }
 
+
     /*!
      * set the radialSegments for all regions
      */
@@ -543,15 +492,15 @@ public:
             this->radialAngles[j].clear();
             a.first = this->centroids[j].first;
             a.second = this->centroids[j].second;
-            unsigned int size = this->vCoords[j].size();
+            cout << "after settting a" << endl;
+            unsigned int size;
+            size = this->vCoords[j].size();
+            cout << "Lrows " << this->Lrows << " size " << size << endl;
             for (unsigned int i=0; i<size; i++) {
 
                 hexGeometry::lineSegment temp;
-                //b.first = this->Hgrid->d_x[regionVertex[j][i]];
-                //b.second = this->Hgrid->d_y[regionVertex[j][i]];
                 b = this->vCoords[j][i];
                 temp = hGeo->createLineSegment(a,b);
-                //this->vCoords[j].push_back(b);
                 cout << "just before set radialSegments " << j << endl;
                 radialSegments[j].push_back(temp);
                 cout << "just after  set radialSegments " << j << endl;
@@ -577,7 +526,6 @@ public:
         zfile.close();
 
     }//end of method setRadialSegments
-
 
     /*!
      * swap the radialSegments for all regions
@@ -829,13 +777,14 @@ double renewRegPerimeter (int regNum) {
 
     // transform vector by subtracting centval
     vector<double> meanzero_vector(vector<double> invector, double centval) {
-        //ofstream meanzero ("meanzero.txt",ios::app);
+        ofstream meanzero ("meanzero.txt",ios::app);
         vector <double> result;
         int size = invector.size();
+        meanzero << " size of invector " << size << " central val " << centval << endl;
         //subtract centval from the vector
         for (int i=0; i < size; i++) {
             result.push_back(invector[i] - centval);
-            //meanzero << " i " << result[i] << endl;
+            meanzero << " i " << result[i] << endl;
         }
         return result;
     }
@@ -1328,7 +1277,7 @@ double renewRegPerimeter (int regNum) {
                 }
                 if (first.size() == second.size() && first.size()*second.size() != 0)
                 {
-                    correlationValue = this->correlate_Eqvector(first, second, false);
+                    correlationValue = this->correlate_Eqvector(first, second, true);
                     ratio = 1.0;
                     result += fabs(correlationValue);
                     if (countResult%printInt == 0) {
@@ -1346,7 +1295,7 @@ double renewRegPerimeter (int regNum) {
                 else if (first.size() > second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(second,first);
-                    correlationValue = this->correlate_Eqvector(first, dinterp, false);
+                    correlationValue = this->correlate_Eqvector(first, dinterp, true);
                     ratio = 1.0 * second.size() / (1.0 * first.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
@@ -1364,7 +1313,7 @@ double renewRegPerimeter (int regNum) {
                 else if (first.size() < second.size() && first.size()*second.size() != 0)
                 {
                     dinterp = this->equalize_vector(first,second);
-                    correlationValue = this->correlate_Eqvector(dinterp, second, false);
+                    correlationValue = this->correlate_Eqvector(dinterp, second, true);
                     ratio = 1.0 * first.size() / (1.0 * second.size());
                     if (correlationValue > -2) {
                         result += fabs(correlationValue);
@@ -1521,7 +1470,7 @@ double renewRegPerimeter (int regNum) {
         edgefile.close();
         return result;
     } //end of function adjacent_cosines
-
+;
     // method to compare random pairs of edges
     void random_correlate(const int max_comp, const int morphNum) {
         ofstream jfile;
@@ -1599,6 +1548,164 @@ double renewRegPerimeter (int regNum) {
         } // end of while loop
     }
 
+    // method to compare random pairs of edges
+    void random_correlate(const int max_comp, const int morphNum, bool lzero) {
+        ofstream jfile;
+        ofstream kfile;
+        int max_rand = edgeIndex.size();
+        string str = to_string(morphNum);
+        jfile.open(this->logpath + "/random_correlate" + str + ".txt",ios::app);
+        kfile.open(this->logpath + "/random_correlate" + str + ".data",ios::app);
+        vector<double> dinterp, first, second;
+        double corr;
+        jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
+        /*
+         * extract the region and neighbour region of the edge
+         */
+        int count = 0;
+        while (count <max_comp) {
+           int r1 = rand() % max_rand;
+           int r2 = rand() % max_rand;
+           int rr1 = this->edgeIndex[r1]; //edgeIndex is a vector of the integer keys of edges
+           int rr2 = this->edgeIndex[r2];
+           jfile << " r1 " << r1  << " r2 " << r2 << " rr1 " << rr1 << " rr2 " << rr2 << endl;
+           int s3 = 0;
+           first.resize(0);
+           second.resize(0);
+           int s1 = edges[rr1].size(); //edge value is integer array of the hex identifiers of the edge
+           int s2 = edges[rr2].size();
+           int reg1 = rr1 / 1000;
+           int reg2 = rr2 / 1000;
+           int out1 = rr1 % 1000;
+           int out2 = rr2 % 1000;
+           jfile << "In random_correlate region 1 " << reg1 << " rr1 " << rr1 << " region 2 " << reg2 << " rr2 " << rr2 << endl;
+           //check if edges are from the same region or from regions that are adjacent
+           if ((reg1 == reg2) || (reg1 == out2) || (reg2 == out1)) {
+              jfile << "in random_correlate neighbour detected reg 1 " << reg1 << " reg 2  " << reg2 << endl;
+              continue;
+           }
+           if ((s1 != 0) && (s2 != 0)) //neither edge is empty
+           {
+               jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
+               for (auto itr = this->edges[rr1].begin(); itr != this->edges[rr1].end();itr++) {
+                   first.push_back(this->NN[reg1][*itr]);
+               }
+               for (auto itr = this->edges[rr2].begin(); itr != this->edges[rr2].end();itr++) {
+                   second.push_back(this->NN[reg2][*itr]);
+               }
+
+               if (s1 < s2) {
+                   dinterp = equalize_vector(first , second);
+                   s3 = dinterp.size();
+                   corr = correlate_Eqvector(dinterp, second, lzero);
+                   if (corr == -2) {
+                       continue;
+                   }
+               }
+               else if (s1 > s2) {
+                   dinterp = equalize_vector(second, first);
+                   s3 = dinterp.size();
+                   corr = correlate_Eqvector(dinterp, first, lzero);
+                   if (corr == -2) {
+                       continue;
+                   }
+               }
+               else {
+                   corr = correlate_Eqvector(first, second, lzero);
+                   s3 = 0;
+               }
+               jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl << endl;
+               kfile << corr << endl;
+           } // end of if test for empty edge
+        count++;
+        } // end of while loop
+    }
+
+
+    // method to compare random pairs of edges for Special functions
+    void Srandom_correlate(const int max_comp, const int morphNum,  bool lzero) {
+        ofstream jfile;
+        ofstream kfile;
+        int max_rand = edgeIndex.size();
+        string str = to_string(morphNum);
+        jfile.open(this->logpath + "/random_correlate" + str + ".txt",ios::app);
+        kfile.open(this->logpath + "/random_correlate" + str + ".data",ios::app);
+        vector<double> dinterp, first, second;
+        double corr;
+        jfile << " max_rand " << max_rand << " max_comp " << max_comp << endl;
+        /*
+         * extract the region and neighbour region of the edge
+         */
+        int count = 0;
+        while (count <max_comp) {
+           int r1 = rand() % max_rand;
+           int r2 = rand() % max_rand;
+           int rr1 = this->edgeIndex[r1]; //edgeIndex is a vector of the integer keys of edges
+           int rr2 = this->edgeIndex[r2];
+           jfile << " r1 " << r1  << " r2 " << r2 << " rr1 " << rr1 << " rr2 " << rr2 << endl;
+           int s3 = 0;
+           first.resize(0);
+           second.resize(0);
+           int s1 = edges[rr1].size(); //edge value is integer array of the hex identifiers of the edge
+           int s2 = edges[rr2].size();
+           int reg1 = rr1 / 1000;
+           int reg2 = rr2 / 1000;
+           int out1 = rr1 % 1000;
+           int out2 = rr2 % 1000;
+           jfile << "In random_correlate region 1 " << reg1 << " rr1 " << rr1 << " region 2 " << reg2 << " rr2 " << rr2 << endl;
+           //check if edges are from the same region or from regions that are adjacent
+           if ((reg1 == reg2) || (reg1 == out2) || (reg2 == out1)) {
+              jfile << "in random_correlate neighbour detected reg 1 " << reg1 << " reg 2  " << reg2 << endl;
+              continue;
+           }
+           //need the mean to normalise the boundary vectors
+           //double NNmean1 = this->meanNN(reg1);
+           double NNmean1=0;
+           cout << "after meanNN call" << endl;
+           //double NNmean2 = this->meanNN(reg2);
+           double NNmean2=0;
+           int edge1Size =edges[rr1].size();
+           int edge2Size =edges[rr2].size();
+           if ((s1 != 0) && (s2 != 0)) //neither edge is empty
+           {
+               jfile  << "rr1 " << rr1 << " s1 " << s1 << " rr2 " << rr2 <<  " s2 " << s2 << endl;
+               for (int i=0; i<edge1Size; i++) {
+                   first.push_back(this->NN[reg1][i]);
+               }
+
+
+         //          first = this->meanzero_vector(first, NNmean1);
+               for (int i=0; i<edge2Size; i++) {
+                   second.push_back(this->NN[reg2][i]);
+               }
+         //          second = this->meanzero_vector(second,NNmean2);
+               if (s1 < s2) {
+                   dinterp = equalize_vector(first , second);
+                   s3 = dinterp.size();
+                   corr = correlate_Eqvector(dinterp, second, lzero);
+                   if (corr == -2) {
+                       continue;
+                   }
+               }
+               else if (s1 > s2) {
+                   dinterp = equalize_vector(second, first);
+                   s3 = dinterp.size();
+                   corr = correlate_Eqvector(dinterp, first, lzero);
+                   if (corr == -2) {
+                       continue;
+                   }
+               }
+               else {
+                   corr = correlate_Eqvector(first, second, true);
+                   s3 = 0;
+               }
+               jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl << endl;
+               kfile << corr << endl;
+           } // end of if test for empty edge
+        count++;
+        } // end of while loop
+    }
+
 
     // method to compare random pairs of edges
     void random_cosines(const int max_comp, const int morphNum) {
@@ -1654,7 +1761,7 @@ double renewRegPerimeter (int regNum) {
                if (s1 < s2) {
                    dinterp = equalize_vector(first , second);
                    s3 = dinterp.size();
-                   corr = correlate_Eqvector(dinterp, second);
+                   corr = correlate_Eqvector(dinterp, second, true);
                    if (corr <= -2) {
                        continue;
                    }
@@ -1662,13 +1769,13 @@ double renewRegPerimeter (int regNum) {
                else if (s1 > s2) {
                    dinterp = equalize_vector(second, first);
                    s3 = dinterp.size();
-                   corr = correlate_Eqvector(dinterp, first);
+                   corr = correlate_Eqvector(dinterp, first, true);
                    if (corr <= -2) {
                        continue;
                    }
                }
                else {
-                   corr = correlate_Eqvector(first, second);
+                   corr = correlate_Eqvector(first, second,true);
                    s3 = first.size() - second.size();
                }
                jfile <<  " r1 " << r1 << " rr1 " << rr1 <<" s1 " << s1 << " r2 " << r2 << " rr2 " << rr2 << " s2 " << s2 << " s3 " << s3 << " correlate " << corr << endl;
@@ -1680,7 +1787,7 @@ double renewRegPerimeter (int regNum) {
     }
 
     //function to return the correlation of two vectors
-    double correlate_Eqvector(vector<double> vector1, vector<double> vector2, bool lzero=true) {
+    double correlate_Eqvector(vector<double> vector1, vector<double> vector2, bool lzero) {
         ofstream jfile;
         jfile.open("correlateEqvector.out",ios::app);
         double result;
@@ -1751,12 +1858,9 @@ double renewRegPerimeter (int regNum) {
             start = i*sStep;
             finish = (i+1)*sStep + delta;
             while ((marker  < lSize) && (marker*lStep < finish)) { //walk along the long
-               // if (j*lStep >= start) {
-                    //value = svector[i]*(j*lStep - start) + svector[i+1]*((j+1)*(finish - j*lStep));
-                    value = (svector[i]*(marker*lStep - start) + svector[i+1]*(finish - marker*lStep))/sStep;
+                    value = (svector[i+1]*(marker*lStep - start) + svector[i]*(finish - marker*lStep))/sStep;
                     result.push_back(value);
                     marker++;
-                //}
             }
         }
         if (marker != lSize){
@@ -1866,16 +1970,23 @@ double renewRegPerimeter (int regNum) {
     vector<hexGeometry::lineSegment> polygonSides (int regNum, bool first) {
         vector<hexGeometry::lineSegment> segments;
         vector<hexGeometry::point> vtxCoords;
-        int size = this->regionVertex[regNum].size();
-        if (first) {
-            vtxCoords = this->vCoords[regNum];
-        }
-        else {
-            vtxCoords = this->mCoords[regNum];
+        vtxCoords.resize(0);
+        segments.resize(0);
+        //int size = this->regionVertex[regNum].size();
+        int size = this->vCoords[regNum].size();
+        cout << "in polygon sides size " << size << endl;
+        for (int i=0; i<size; i++) {
+            if (first) {
+                cout  << "vCoords " << vCoords[regNum][i].first << " , " << vCoords[regNum][i].second << endl;
+                vtxCoords.push_back(this->vCoords[regNum][i]);
+            }
+            else {
+                vtxCoords.push_back(this->mCoords[regNum][i]);
+            }
         }
 
         //iterate over polygon vertices
-        cout << " vtxCoords region " << regNum << " vtxCoords size " << vtxCoords.size() << " mCoords size " << this->mCoords[regNum].size() << " vCoords size " << this->vCoords[regNum].size() << endl;
+        cout << " vtxCoords region " << regNum << " vtxCoords size " << vtxCoords.size() <<  " vCoords size " << this->vCoords[regNum].size() << endl;
           // code for all iterations to round corners
           //now create the line segments that make the sides
         for (int i = 0; i < size;i++) {
@@ -2265,30 +2376,47 @@ double renewRegPerimeter (int regNum) {
   }
 
 
-  //method to renew a region after rounding
+  //method to renew a region after rounding including filling NN values
     double renewRegion(int regNum, list<morph::Hex> hexen, vector<double> vectorNN)
     {
         double result = 0;
-        cout << "jut in renewRegion regionHex size " << regionHex.size() << endl;
-        //this->regionHex[regNum].resize(0);
+        double count = 0.0;
+        cout << "jut in renewRegion regionHex size " << regionHex[regNum].size() << endl;
+        this->regionHex[regNum].clear();
 
         cout << "jut in renewRegion " << endl;
         this->NN[regNum].clear();
         cout << "jut in renewRegion " << endl;
         for (auto& h : hexen) {
             this->regionHex[regNum].push_back(h);
-            cout << "just after regionHex pushBack" << endl;
+            cout << "just after regionHex pushBack NN value " << vectorNN[h.vi] << endl;
             this->NN[regNum].push_back(vectorNN[h.vi]);
+            count = count + 1.0;
         }
         cout << "just after looping over region hexGrid" << endl;
         for (unsigned int i=0; i<vectorNN.size(); i++) {
             result += fabs(this->NN[regNum][i]);
         }
         cout << "regionHex" << regNum << " size " << this->regionHex[regNum].size() << endl;
-        return result;
+        return result / count;
     }
 
-/*
+  //method to renew a region after rounding
+    int renewRegion(int regNum, list<morph::Hex> hexen)
+    {
+        int count = 0;
+        int result = 0;
+        cout << "jut in renewRegion regionHex size " << regionHex[regNum].size() << endl;
+        this->regionHex[regNum].clear();
+
+        for (auto& h : hexen) {
+            this->regionHex[regNum].push_back(h);
+            count = count + 1.0;
+        }
+        cout << "regionHex" << regNum << " size " << this->regionHex[regNum].size() << endl;
+        return count;
+    }
+
     double populateRegionNN(vector<double> vectorNN, int regNum) {
         double result = 0;
         int count = 0;
@@ -2301,25 +2429,55 @@ double renewRegPerimeter (int regNum) {
         cout << " in populateRegionNN count " << count << " norm " <<  result;
         return result;
     }
-*/
+
+    /*
+     * takes the boundary of a region and sorts it by angle
+     * produces sorted vectors for
+     * 1. hex indices of the hexes of the sorted boundary
+     * 2. NN values of the hexes in angular order around the boundary
+     * 3. The phi value for each hex in sorted order
+     * all vectors have the same length and the index of the vector refers to
+     * the same hex in all three arrays. It differs from the sorting in
+     * renewDissect because the bounary is not dissected
+     */
+    void sortRegionBoundary(int regNum) {
+        vector<int> regionBoundary;
+        vector<int> irB;
+        vector<double> rB;
+        regionBoundary.resize(0);
+        rB.resize(0);
+        irB.resize(0);
+        int bsize = regionBound[regNum].size();
+        this->sortedBoundary[regNum].clear();
+        for (auto& h : this->regionBound[regNum]) {
+            double angle = h.phi;
+            rB.push_back(angle);
+            regionBoundary.push_back(h.vi);
+        }
+        irB = sort_indexes(rB); //indices after sort on theta
+        for (int i=0; i< bsize; i++) {
+            this->sortedBoundary[regNum].push_back(regionBoundary[irB[i]]);
+            this->sortedBoundaryPhi[regNum].push_back(rB[irB[i]]);
+            this->sortedBoundaryNN[regNum].push_back(NN[regNum][regionBoundary[irB[i]]]);
+        }
+    }
 
 
   //method to renew polars and boundary
-  void renewBoundary(int regNum, list<morph::Hex> hexen)
-  {
-    //pair<double,double> diff;
-    this->regionBound[regNum].clear();
-    for (auto &h : hexen)
+    void renewBoundary(int regNum, list<morph::Hex> hexen)
     {
-      if (h.boundaryHex())
-      {
-        this->regionBound[regNum].push_back(h);
-        cout << "in renewBoundary " << regNum << "  h.phi " << h.phi << endl;
-      }
+        this->regionBound[regNum].clear();
+        for (auto &h : hexen)
+        {
+            if (h.boundaryHex())
+            {
+                this->regionBound[regNum].push_back(h);
+                cout << "in renewBoundary " << regNum << "  h.phi " << h.phi << endl;
+            }
+        }
+        cout << " region " << regNum << " bound size " <<regionBound[regNum].size() << endl;
+        return;
     }
-    cout << " region " << regNum << " bound size " <<regionBound[regNum].size() << endl;
-    return;
-  }
 
     void renewCentroids(int regNum) {
     // fill the centroids
@@ -2349,7 +2507,8 @@ double renewRegPerimeter (int regNum) {
         vector<int> irB; //holds the indicies of rB in angular order
         int bsize = this->regionBound[regNum].size();
         int vsize = this->vCoords[regNum].size();
-        hhfile << "region " << regNum << " size " << bsize << " vertex size " << vsize << endl;
+        //int vsize = 3;
+        hhfile << "region " << regNum << " size " << bsize << " radial Angles size " << radialAngles[regNum].size() << endl;
         this->sortedBoundary[regNum].clear();
         vector<double> vertexAngle;
         // clear edges
@@ -2362,6 +2521,7 @@ double renewRegPerimeter (int regNum) {
         }
         irB = sort_indexes(rB); //indices after sort on theta
         hhfile << " renewDissect " << " irB size " << irB.size()  << " rB size " << rB.size() << " bsize " << bsize << endl;
+        hhfile << " radialAngles region " << regNum << " radialAngles[regNum] size " << radialAngles[regNum].size()  << endl;
         for (int i=0; i< bsize; i++) {
             this->sortedBoundary[regNum].push_back(regionBoundary[irB[i]]);
         }
@@ -2370,6 +2530,8 @@ double renewRegPerimeter (int regNum) {
         for (int i=0;i<vsize;i++){
             vertexAngle.push_back(this->radialAngles[regNum][i]);
         }
+        //sort the vertexAngles in ascending order
+        std::stable_sort(vertexAngle.begin(),vertexAngle.end());
         for (int i=0;i<vsize;i++){
             hhfile << "Vertex angle " << i << " = " << vertexAngle[i] << " ";
         }
@@ -2404,11 +2566,11 @@ double renewRegPerimeter (int regNum) {
         hhfile << " just before  vsize end loop angle " << vertexAngle[0] + 2*PI << endl;
         while ((rB[irB[idissect%bsize]] < vertexAngle[0] + 2*PI) && (idissect< bsize+offset-1))
         {
-            hhfile << " filling end edge loop 2 " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << regionBoundary[irB[idissect%bsize]] <<  endl;
+            hhfile << " filling end edge loop Omega " << idissect << " angle " << rB[irB[idissect%bsize]] << " hex " << regionBoundary[irB[idissect%bsize]] <<  endl;
             ihE[vsize-1].push_back(regionBoundary[irB[idissect%bsize]]);
             idissect++;
         }
-
+        hhfile << "after filling edges for region  " << regNum << endl;
         for (int iregion = 0; iregion<vsize; iregion++)
         {
             int edgeOuter = this->regionList[regNum][iregion];
@@ -2418,7 +2580,7 @@ double renewRegPerimeter (int regNum) {
                 std::pair<int,int> keypair(regNum,edgeOuter);
                 int keyint = this->pair2int(keypair,this->base);
                 std::pair <int, vector<int>> p1(keyint,ihE[iregion]);
-                hhfile << "region " << regNum << " outer " << iregion << " ihE " << endl;
+                hhfile << "region " << regNum << " outer " << edgeOuter << " ihE " << endl;
                 printIntVect(dissectFile, ihE[iregion]);
                 if (this->edges.insert(p1).second) {
                     this->edgeIndex.push_back(keyint);
@@ -2447,8 +2609,10 @@ double renewRegPerimeter (int regNum) {
             }
         }*/
         hhfile << "Printing out edges " << endl;
+        int xcount=0;
         for (auto itr = edges.begin(); itr != edges.end(); itr++) {
-            hhfile << " key " << itr->first << " list " << endl;
+            xcount++;
+            hhfile << "edge " << xcount << " key " << itr->first << " list " << endl;
             printIntVect(dissectFile, itr->second);
         }
         hhfile << " renewDissect size of edges " << this->edges.size() << " size of edgeIndex " << this->edgeIndex.size() << endl;
@@ -2521,7 +2685,7 @@ double renewRegPerimeter (int regNum) {
             }
             if (first.size() == second.size() && second.size()*first.size() != 0)
             {
-                correlationValue = this->correlate_Eqvector(first, second, false);
+                correlationValue = this->correlate_Eqvector(first, second, true);
                 ratio = 1.0;
                 result += fabs(correlationValue);
                 countResult++;
@@ -2531,7 +2695,7 @@ double renewRegPerimeter (int regNum) {
             else if (first.size() > second.size() && first.size()*second.size() != 0)
             {
                 dinterp = this->equalize_vector(second,first);
-                correlationValue = this->correlate_Eqvector(dinterp, first, false);
+                correlationValue = this->correlate_Eqvector(dinterp, first, true);
                 ratio = 1.0 * second.size() / (1.0 * first.size());
                 result += fabs(correlationValue);
                 countResult++;
@@ -2541,7 +2705,7 @@ double renewRegPerimeter (int regNum) {
             else if (first.size() < second.size() && first.size()*second.size() != 0)
             {
                 dinterp = this->equalize_vector(first,second);
-                correlationValue = this->correlate_Eqvector(dinterp, second, false);
+                correlationValue = this->correlate_Eqvector(dinterp, second, true);
                 ratio = 1.0 * first.size() / (1.0 * second.size());
                 if (correlationValue > -2) {
                     result += fabs(correlationValue);
@@ -2562,6 +2726,228 @@ double renewRegPerimeter (int regNum) {
         corrfile.close();
         return result;
     } //end of function renewcorrelate_edges
+    // function to renew correlate matching edges
+    double renewcorrelate_edges(int regNum,  const int morphNum, bool lZero)
+    {
+        double result = 0;
+        string str = to_string(morphNum);
+        ofstream corrfile(this->logpath + "/correlate" + str + ".data",ios::app);
+        ofstream edgefile(this->logpath + "/edgeCorrelations" + str + ".txt",ios::app);
+        edgefile << " in morphed edge correlation routine "<<endl;
+        vector<double> first;
+        vector<double> second;
+        vector<double> dinterp;
+        // iterate over regions
+        //for each region iterate over region edges
+        // for each edge pair (i,j), (j,i) call correlate_vectors
+        // write the i,j and correlation to a file
+        // what happens if there are multiple entries in regionList at the start and the end?
+        // there are some regions that have this
+        int countResult = 0;
+        double NNmean1, NNmean2;
+        NNmean1 = this->meanNN(regNum);
+        edgefile << " mean of NN in region " << regNum << "is " << NNmean1 << endl;
+        for (auto j = this->regionList[regNum].begin(); j < this->regionList[regNum].end(); j++)  {
+            if (*j == -1) continue;
+            NNmean2 = this->meanNN(*j); //find the mean of NN in the region
+            edgefile << " j iteration " << *j << " NNmean2 " << NNmean2 << endl;
+            first.resize(0);
+            second.resize(0);
+            dinterp.resize(0);
+            std::pair<int,int> edgePair1(regNum,*j);
+            int edgeIndex1 = this->pair2int(edgePair1,this->base);
+            std::pair<int,int>  edgePair2(*j,regNum);
+            int edgeIndex2 = this->pair2int(edgePair2,this->base);
+            edgefile << "region " << regNum << " outer " << *j << " index1 " << edgeIndex1 << " index2 " << edgeIndex2 << endl;
+            int count1 = 0;
+            int count2 = 0;
+            double correlationValue = -3;
+            double ratio;
+            //create two vectors from the opposing edges
+            for (auto itr = this->edges[edgeIndex1].begin(); itr != this->edges[edgeIndex1].end();itr++)
+            {
+                first.push_back(this->NN[regNum][*itr]);
+                count1++;
+            }
+            first = this->meanzero_vector(first, NNmean1);
+            for (auto itr = this->edges[edgeIndex2].begin(); itr != this->edges[edgeIndex2].end();itr++)
+            {
+                second.push_back(this->NN[*j][*itr]);
+                count2++;
+			}
+            second = this->meanzero_vector(second, NNmean2);
+            //edges on either side are traversed in opposite directions
+            std::reverse(second.begin(),second.end());
+            for (unsigned int  i = 0; i < first.size(); i++) {
+                if (isnan(first[i]))
+                     edgefile << "Nan at " << i << " in first" << endl;
+            }
+            for (unsigned int  i = 0; i < second.size(); i++) {
+                if (isnan(second [i]))
+                     edgefile << "Nan at " << i << " in second" << endl;
+            }
+            //do this if the vectors are the same size
+            if (first.size() == second.size() && second.size()*first.size() != 0)
+            {
+                correlationValue = this->correlate_Eqvector(first, second, lZero);
+                ratio = 1.0;
+                result += fabs(correlationValue);
+                countResult++;
+                corrfile <<  correlationValue << "  " <<  endl;
+                edgefile << " if 1 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
+            } //end of code if both edges are equal
+            //do this if the first vector is bigger than the second
+            else if (first.size() > second.size() && first.size()*second.size() != 0)
+            {
+                dinterp = this->equalize_vector(second,first);
+                correlationValue = this->correlate_Eqvector(dinterp, first, lZero);
+                ratio = 1.0 * second.size() / (1.0 * first.size());
+                if (correlationValue > -2) {
+                    result += fabs(correlationValue);
+                    countResult++;
+                    corrfile <<  correlationValue << "  " <<  endl;
+                }
+                edgefile << " if 2 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
+            }
+            //do this if the first vector is smaller than the second
+            else if (first.size() < second.size() && first.size()*second.size() != 0)
+            {
+                dinterp = this->equalize_vector(first,second);
+                correlationValue = this->correlate_Eqvector(dinterp, second, lZero);
+                ratio = 1.0 * first.size() / (1.0 * second.size());
+                if (correlationValue > -2) {
+                    result += fabs(correlationValue);
+                    countResult++;
+                    corrfile <<  correlationValue << "  " <<  endl;
+                }
+                edgefile << " if 3 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
+            }
+            //something has gone wrong!
+            else {
+                edgefile  << " if 4 region " << regNum  <<" count1 " << first.size() << " count2 " << second.size() << " j " << *j << " dinterp is zero  "   << endl;
+                //corrfile << " -1.5 " << ratio << endl;
+            }
+        } //end of loop over the edges in the region
+        edgefile << " countResult "<<countResult<< " entries in edgeIndex " << this->edgeIndex.size() << " entries in edges " << this->edges.size() << endl;
+        edgefile << endl;
+        result = result / (countResult * 1.0);
+        edgefile.close();
+        corrfile.close();
+        return result;
+    } //end of function renewcorrelate_edges
+
+    // function to renew correlate matching edges for special functions
+    double Srenewcorrelate_edges(int regNum,  const int morphNum, bool lZero)
+    {
+        double result = 0;
+        string str = to_string(morphNum);
+        ofstream corrfile(this->logpath + "/correlate" + str + ".data",ios::app);
+        ofstream edgefile(this->logpath + "/edgeCorrelations" + str + ".txt",ios::app);
+        edgefile << " in morphed edge correlation routine "<<endl;
+        vector<double> first;
+        vector<double> second;
+        vector<double> dinterp;
+        // iterate over regions
+        //for each region iterate over region edges
+        // for each edge pair (i,j), (j,i) call correlate_vectors
+        // write the i,j and correlation to a file
+        // what happens if there are multiple entries in regionList at the start and the end?
+        // there are some regions that have this
+        int countResult = 0;
+        double NNmean1, NNmean2;
+        NNmean1 = this->meanNN(regNum);
+        //NNmean1 = 0;
+        edgefile << " mean of NN in region " << regNum << "is " << NNmean1 << endl;
+        for (auto j = this->regionList[regNum].begin(); j < this->regionList[regNum].end(); j++)  {
+            if (*j == -1) continue;
+            NNmean2 = this->meanNN(*j); //find the mean of NN in the region
+            //NNmean2 = 0;
+            edgefile << " j iteration " << *j << " NNmean2 " << NNmean2 << endl;
+            first.resize(0);
+            second.resize(0);
+            dinterp.resize(0);
+            std::pair<int,int> edgePair1(regNum,*j);
+            int edgeIndex1 = this->pair2int(edgePair1,this->base);
+            std::pair<int,int>  edgePair2(*j,regNum);
+            int edgeIndex2 = this->pair2int(edgePair2,this->base);
+            edgefile << "region " << regNum << " outer " << *j << " index1 " << edgeIndex1 << " index2 " << edgeIndex2 << endl;
+            int count1 = 0;
+            int count2 = 0;
+            double correlationValue = -3;
+            double ratio;
+            int edge1Size = edges[edgeIndex1].size();
+            for (int i=0; i<edge1Size; i++)
+            {
+                if (isnan(this->NN[regNum][i]))
+                     edgefile << "Nan  edge hex 1 " << i <<  endl;
+                first.push_back(this->NN[regNum][i]);
+                count1++;
+            }
+            first = this->meanzero_vector(first, NNmean1);
+            int edge2Size = edges[edgeIndex2].size();
+            for (int i=0; i<edge2Size; i++)
+            {
+                if (isnan(this->NN[*j][i]))
+                     edgefile << "Nan edge 2 edge hex " << i << endl;
+                second.push_back(this->NN[*j][i]);
+                count2++;
+            }
+            second = this->meanzero_vector(second, NNmean2);
+
+
+            std::reverse(second.begin(),second.end());
+            double firstNorm = 0; double secondNorm = 0;
+            for (unsigned int  i = 0; i < first.size(); i++) {
+                if (isnan(first[i]))
+                     edgefile << "Nan at " << i << " in first" << endl;
+            }
+            for (unsigned int  i = 0; i < second.size(); i++) {
+                if (isnan(second [i]))
+                     edgefile << "Nan at " << i << " in second" << endl;
+            }
+            if (first.size() == second.size() && second.size()*first.size() != 0)
+            {
+                correlationValue = this->correlate_Eqvector(first, second, lZero);
+                ratio = 1.0;
+                result += fabs(correlationValue);
+                countResult++;
+                corrfile <<  correlationValue << "  " <<  endl;
+                edgefile << " if 1 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
+            } //end of code if both edges are equal
+            else if (first.size() > second.size() && first.size()*second.size() != 0)
+            {
+                dinterp = this->equalize_vector(second,first);
+                correlationValue = this->correlate_Eqvector(dinterp, first, lZero);
+                ratio = 1.0 * second.size() / (1.0 * first.size());
+                result += fabs(correlationValue);
+                countResult++;
+                corrfile <<  correlationValue << "  " <<  endl;
+                edgefile << " if 2 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
+            }
+            else if (first.size() < second.size() && first.size()*second.size() != 0)
+            {
+                dinterp = this->equalize_vector(first,second);
+                correlationValue = this->correlate_Eqvector(dinterp, second, lZero);
+                ratio = 1.0 * first.size() / (1.0 * second.size());
+                if (correlationValue > -2) {
+                    result += fabs(correlationValue);
+                    countResult++;
+                    corrfile <<  correlationValue << "  " <<  endl;
+                }
+                edgefile << " if 3 region " << regNum << " c1 " << count1 << " j " << *j << " c2  " <<  count2 << " cV " << correlationValue << " ratio " << ratio << endl;
+            }
+            else {
+                edgefile  << " if 4 region " << regNum  <<" count1 " << first.size() << " count2 " << second.size() << " j " << *j << " dinterp is zero  "   << endl;
+                //corrfile << " -1.5 " << ratio << endl;
+            }
+        } //end of loop over the edges in the region
+        edgefile << " countResult "<<countResult<< " entries in edgeIndex " << this->edgeIndex.size() << " entries in edges " << this->edges.size() << endl;
+        edgefile << endl;
+        result = result / (countResult * 1.0);
+        edgefile.close();
+        corrfile.close();
+        return result;
+    } //end of function renewcorrelate_edg
 
 }; // Tessellation
 
