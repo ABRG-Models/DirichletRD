@@ -25,12 +25,19 @@ using namespace std;
 
 int main (int argc, char **argv)
 {
-    if (argc < 2) {
+    if (argc < 5) {
       std::cout << "not enough arguments" << argc << endl;
       return -1;
     }
     string jsonfile = argv[1];
     string iter = argv[2];
+    bool Lcontinue = stoi(argv[3]);
+    int numsteps = stoi(argv[4]);
+    int numprint = stoi(argv[5]);
+    string logpath = argv[6];
+    // adjust the number of steps according to the Dn number
+    numsteps = numsteps * ceil(Dn/36.0);
+    numprint  = numprint * ceil(Dn/36.0);
     //  open the confgig file and read in the parameters
     morph::Config conf(jsonfile);
     if (!conf.ready) {
@@ -58,11 +65,7 @@ int main (int argc, char **argv)
         double ccInitialOffset = conf.getDouble("ccInitialOffset",2.5);
 #endif
     int numSectors = conf.getInt("numsectors",12);
-    int numsteps = conf.getInt("numsteps",100);
-    int numprint = conf.getInt("numprint",95);
-    string logpath = conf.getString("logpath","../logs");
     int scale = conf.getInt("scale",8);
-    bool Lcontinue = conf.getBool("Lcontinue",false);
     bool Lgraphics = conf.getBool("Lgraphics",false);
     bool LfixedSeed = conf.getBool("LfixedSeed",0);
     bool LDn = conf.getBool("LDn",0);
