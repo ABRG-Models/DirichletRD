@@ -9,7 +9,6 @@
  *
  */
 #include <morph/tools.h>
-#include <morph/HexGrid.h>
 #include <morph/ReadCurves.h>
 #include <morph/HdfData.h>
 #include <morph/BezCurve.h>
@@ -29,16 +28,6 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
-//#include "hexGeometry.h"
-// #include <boost/math/special_functions/bessel.hpp>
-#define PI 3.1415926535897932
-using std::vector;
-using std::array;
-using std::string;
-using std::stringstream;
-using std::cerr;
-using std::endl;
-using std::runtime_error;
 using morph::HexGrid;
 using morph::HdfData;
 using morph::ReadCurves;
@@ -48,22 +37,40 @@ using morph::BezCurvePath;
 using morph::BezCoord;
 using namespace std;
 
+#define NE(hi) (this->Hgrid->d_ne[hi])
+#define HAS_NE(hi) (this->Hgrid->d_ne[hi] == -1 ? false : true)
+
+#define NW(hi) (this->Hgrid->d_nw[hi])
+#define HAS_NW(hi) (this->Hgrid->d_nw[hi] == -1 ? false : true)
+
+#define NNE(hi) (this->Hgrid->d_nne[hi])
+#define HAS_NNE(hi) (this->Hgrid->d_nne[hi] == -1 ? false : true)
+
+#define NNW(hi) (this->Hgrid->d_nnw[hi])
+#define HAS_NNW(hi) (this->Hgrid->d_nnw[hi] == -1 ? false : true)
+
+#define NSE(hi) (this->Hgrid->d_nse[hi])
+#define HAS_NSE(hi) (this->Hgrid->d_nse[hi] == -1 ? false : true)
+
+#define NSW(hi) (this->Hgrid->d_nsw[hi])
+#define HAS_NSW(hi) (this->Hgrid->d_nsw[hi] == -1 ? false : true)
+
 class ksSolver
 {
 public:
 // list of objects visible to member functions
     int scale;
-	double xspan;
+	FLT xspan;
     int n;
-    double ds;
-	double nnInitialOffset = 1.0;
-	double ccInitialOffset = 2.5;
-	double boundaryFalloffDist = 0.024;
-    pair<double,double> seedPoint;
+    FLT ds;
+	FLT nnInitialOffset = 1.0;
+	FLT ccInitialOffset = 2.5;
+	FLT boundaryFalloffDist = 0.024;
+    pair<FLT,FLT> seedPoint;
 	BezCurvePath<float> bound;
 	string logpath;
     vector<vector<int> > N; // hex neighbourhood
-    vector<double> NN, CC; //hold the field values for each he
+    vector<FLT> NN, CC; //hold the field values for each he
     morph::HexGrid* Hgrid;
 // empty constructor
     ksSolver(){};
@@ -100,20 +107,20 @@ public:
         this->NN.resize(n);
         CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
-        pair<double, double> centroid = set_kS_polars(this->seedPoint);
+        pair<FLT, FLT> centroid = set_kS_polars(this->seedPoint);
         cout << " end of ksSolver from file " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
         cout << " end of ksSolver from file " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
     }; // end of ksSolver constructor
 
 // constructor with radius passed in for solving on radial boundaries
-    ksSolver (int scale, double xspan, string logpath, float radius, pair<float, float> seedPoint) {
+    ksSolver (int scale, FLT xspan, string logpath, float radius, pair<float, float> seedPoint) {
         this->scale = scale;
         this->xspan = xspan;
         this->logpath = logpath;
         this->bound = bound;
         this->seedPoint = seedPoint;
         ofstream afile (this->logpath + "/ksdebug.out",ios::app );
-        double s = pow(2.0, this->scale-1);
+        FLT s = pow(2.0, this->scale-1);
         this->ds = 1.0/s;
         n = 0;
         Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
@@ -131,7 +138,7 @@ public:
       // check the order numbering in hexen
         int hexCount = 0;
         for (auto h : Hgrid->hexen) {
-            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
+            //afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
             hexCount++;
         }
         N.resize(n);
@@ -194,20 +201,20 @@ public:
         this->NN.resize(n);
         CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
-        pair<double, double> centroid = set_kS_polars(this->seedPoint);
+        pair<FLT, FLT> centroid = set_kS_polars(this->seedPoint);
         cout << " end of ksSolver circle radius " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
         cout << " end of ksSolver circle radius " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
     }; // end of ksSolver constructor
 
 // Constructor with boundary passed in
-    ksSolver (int scale, double xspan, string logpath, BezCurvePath<float> bound, pair<double,double> seedPoint) {
+    ksSolver (int scale, FLT xspan, string logpath, BezCurvePath<float> bound, pair<FLT,FLT> seedPoint) {
         this->scale = scale;
         this->xspan = xspan;
         this->logpath = logpath;
         this->bound = bound;
         this->seedPoint = seedPoint;
         ofstream afile (this->logpath + "/ksdebug.out",ios::app );
-        double s = pow(2.0, this->scale-1);
+        FLT s = pow(2.0, this->scale-1);
         this->ds = 1.0/s;
         n = 0;
         Hgrid = new HexGrid(this->ds, this->xspan, 0.0, morph::HexDomainShape::Boundary);
@@ -225,7 +232,7 @@ public:
       // check the order numbering in hexen
         int hexCount = 0;
         for (auto h : Hgrid->hexen) {
-            afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
+            //afile << "loop interation " << hexCount << " h.vi " << h.vi << endl;
             hexCount++;
         }
         N.resize(n);
@@ -237,7 +244,7 @@ public:
         this->NN.resize(n);
         this->CC.resize(n);
         afile << "after alloc NN and CC" <<endl;
-        pair<double, double> centroid = set_kS_polars(this->seedPoint);
+        pair<FLT, FLT> centroid = set_kS_polars(this->seedPoint);
         cout << " end of ksSolver bezCurvePath " << " x seedPoint " << seedPoint.first << " y seedPoint " << seedPoint.second << endl;
         cout << " end of ksSolver bezCurvePath " << " centroid x " << centroid.first << " centroid y " << centroid.second << endl;
     }; // end of ksSolver constructor
@@ -305,9 +312,9 @@ public:
 // Constructor with boundary passed in
 
 // method to calculate the Laplacian
-    vector<double> getLaplacian(vector<double> Q, double dx) {
-        double overds = 1./(1.5*29.0*29.0*dx*dx);
-        vector<double> L(n,0.);
+    vector<FLT> getLaplacian(vector<FLT> Q, FLT dx) {
+        FLT overds = 1./(1.5*29.0*29.0*dx*dx);
+        vector<FLT> L(n,0.);
         for(auto &h : this->Hgrid->hexen){
          int i = int(h.vi);
             L[i]=(Q[N[i][0]]+Q[N[i][1]]+Q[N[i][2]]+Q[N[i][3]]+Q[N[i][4]]+Q[N[i][5]]-6.*Q[i])*overds;
@@ -315,27 +322,27 @@ public:
         return L;
     }
 
-		vector<double> chemoTaxis(vector<double> Q, vector<double> P, double dx) {
-		vector<double> cT(n,0.);
-          double overds = 1./(1.5*29.0*29.0*dx*dx);
+		vector<FLT> chemoTaxis(vector<FLT> Q, vector<FLT> P, FLT dx) {
+		vector<FLT> cT(n,0.);
+          FLT overds = 1./(1.5*29.0*29.0*dx*dx);
 
         for (auto &h : Hgrid->hexen) {
 		  unsigned int i = h.vi;
         // finite volume method Lee et al. https://doi.org/10.1080/00207160.2013.864392
-	      double dr0Q = (Q[N[i][0]]+Q[i])/2.;
-	      double dg0Q = (Q[N[i][1]]+Q[i])/2.;
-	      double db0Q = (Q[N[i][2]]+Q[i])/2.;
-	      double dr1Q = (Q[N[i][3]]+Q[i])/2.;
-	      double dg1Q = (Q[N[i][4]]+Q[i])/2.;
-	      double db1Q = (Q[N[i][5]]+Q[i])/2.;
-	  //double ncentre = Q[i];
+	      FLT dr0Q = (Q[N[i][0]]+Q[i])/2.;
+	      FLT dg0Q = (Q[N[i][1]]+Q[i])/2.;
+	      FLT db0Q = (Q[N[i][2]]+Q[i])/2.;
+	      FLT dr1Q = (Q[N[i][3]]+Q[i])/2.;
+	      FLT dg1Q = (Q[N[i][4]]+Q[i])/2.;
+	      FLT db1Q = (Q[N[i][5]]+Q[i])/2.;
+	  //FLT ncentre = Q[i];
 
-          double dr0P = P[N[i][0]]-P[i];
-          double dg0P = P[N[i][1]]-P[i];
-          double db0P = P[N[i][2]]-P[i];
-	      double dr1P = P[N[i][3]]-P[i];
-          double dg1P = P[N[i][4]]-P[i];
-          double db1P = P[N[i][5]]-P[i];
+          FLT dr0P = P[N[i][0]]-P[i];
+          FLT dg0P = P[N[i][1]]-P[i];
+          FLT db0P = P[N[i][2]]-P[i];
+	      FLT dr1P = P[N[i][3]]-P[i];
+          FLT dg1P = P[N[i][4]]-P[i];
+          FLT db1P = P[N[i][5]]-P[i];
 
 
 	  //finite volume for NdelC, h = s/2
@@ -348,26 +355,26 @@ public:
 	} //end of function chemoTaxis
 
   // function to compute the derivative
-     void compute_dNNdt(vector<double>& inN, vector<double>& dNdt, double Dn, double Dchi) {
-        vector<double> lapN(this->n,0);
-		vector<double> cTaxis(this->n,0);
+     void compute_dNNdt(vector<FLT>& inN, vector<FLT>& dNdt, FLT Dn, FLT Dchi) {
+        vector<FLT> lapN(this->n,0);
+		vector<FLT> cTaxis(this->n,0);
 		//cout << "in compute_dNN just before laplacian" << endl;
 		lapN = getLaplacian(inN,this->ds);
         cTaxis = chemoTaxis(inN,this->CC,this->ds);
-        double a = 1., b = 1.;
+        FLT a = 1., b = 1.;
 		//cout << "in compute_dNN just before the loop" << endl;
         for (int h=0; h < this->n; h++) {
           dNdt[h] = a-b*inN[h] + Dn*lapN[h] - Dchi*cTaxis[h];
         }
 	}
 
-	void compute_dCCdt(vector<double>& inC, vector<double>&  dCdt, double Dc) {
-        double beta = 5.;
-        double mu = 1;
+	void compute_dCCdt(vector<FLT>& inC, vector<FLT>&  dCdt, FLT Dc) {
+        FLT beta = 5.;
+        FLT mu = 1;
 		//cout << " before calls to Laplacian " << endl;
-        vector<double> lapC(this->n,0);
+        vector<FLT> lapC(this->n,0);
 		lapC = getLaplacian(inC,this->ds);
-        double N2;
+        FLT N2;
         for(int h=0; h < this->n;h++){
             N2 = this->NN[h]*this->NN[h];
             dCdt[h] =  beta*N2/(1.+N2) - mu*inC[h] + Dc*lapC[h];
@@ -375,7 +382,7 @@ public:
     }
 
   //function to timestep coupled equations solely b.c. on the flux
-    void step(double dt, double Dn, double Dchi, double Dc)
+    void step(FLT dt, FLT Dn, FLT Dchi, FLT Dc)
 	{
         dt = dt * 2.5 / Dn;
 
@@ -408,12 +415,12 @@ public:
             // ownership of this code and properly understanding it.
 
             // Ntst: "A at a test point". Ntst is a temporary estimate for A.
-            vector<double> Ntst(this->n, 0.0);
-            vector<double> dNdt(this->n, 0.0);
-            vector<double> K1(this->n, 0.0);
-            vector<double> K2(this->n, 0.0);
-            vector<double> K3(this->n, 0.0);
-            vector<double> K4(this->n, 0.0);
+            vector<FLT> Ntst(this->n, 0.0);
+            vector<FLT> dNdt(this->n, 0.0);
+            vector<FLT> K1(this->n, 0.0);
+            vector<FLT> K2(this->n, 0.0);
+            vector<FLT> K3(this->n, 0.0);
+            vector<FLT> K4(this->n, 0.0);
 
             /*
              * Stage 1
@@ -458,7 +465,7 @@ public:
              * pedagogy.
              */
             for (int h=0;h<this->n;h++) {
-                this->NN[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
+                this->NN[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(FLT)6.0);
 				//this->NN[i] = i * 1.0;
             }
         }
@@ -466,12 +473,12 @@ public:
         // 3. Do integration of B
         {
             // Ctst: "B at a test point". Ctst is a temporary estimate for B.
-            vector<double> Ctst(this->n, 0.0);
-            vector<double> dCdt(this->n, 0.0);
-            vector<double> K1(this->n, 0.0);
-            vector<double> K2(this->n, 0.0);
-            vector<double> K3(this->n, 0.0);
-            vector<double> K4(this->n, 0.0);
+            vector<FLT> Ctst(this->n, 0.0);
+            vector<FLT> dCdt(this->n, 0.0);
+            vector<FLT> K1(this->n, 0.0);
+            vector<FLT> K2(this->n, 0.0);
+            vector<FLT> K3(this->n, 0.0);
+            vector<FLT> K4(this->n, 0.0);
 
             /*
              * Stage 1
@@ -514,14 +521,14 @@ public:
              * pedagogy.
              */
             for (int h=0; h < this->n; ++h) {
-                this->CC[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(double)6.0);
+                this->CC[h] += ((K1[h] + 2.0 * (K2[h] + K3[h]) + K4[h])/(FLT)6.0);
             }
         }
         //cout  << "value of NN[5] end Runge " << this->NN[5] <<  " number of hexes " << this->n << endl;
     }//end step
 
   //function to timestep coupled equations option to set boundary to constant value
-    void step(double dt, double Dn, double Dchi, double Dc, int steps, int numAdjust)
+    void step(FLT dt, FLT Dn, FLT Dchi, FLT Dc, int steps, int numAdjust)
 	{
         dt = dt * 2.5 / Dn;
 
@@ -534,7 +541,7 @@ public:
 		     //cout << "dist to bdry" << h.distToBoundary << endl;
 	         if (h.distToBoundary > -0.5)
 		     { // It's possible that distToBoundary is set to -1.0
-                double bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- this->boundaryFalloffDist)) );
+                FLT bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- this->boundaryFalloffDist)) );
 				//cout << "bSig " << bSig << " for hex " << h.vi << endl;
                 this->NN[h.vi] = (this->NN[h.vi] - this->nnInitialOffset) * bSig + this->nnInitialOffset;
                 this->CC[h.vi] = (this->CC[h.vi] - this->ccInitialOffset) * bSig + this->ccInitialOffset;
@@ -562,7 +569,7 @@ public:
 	            }
 	         }
           }
-          void step(double dt, double Dn, double Dchi, double Dc);
+          void step(FLT dt, FLT Dn, FLT Dchi, FLT Dc);
     }//end step
 
     void reverse_y ()
@@ -584,15 +591,15 @@ public:
 	}
 
 // function to give r and theta relative to region centre
-    pair <double,double> set_kS_polars(pair<double,double> centre){
-        pair <double, double> result;
+    pair <FLT,FLT> set_kS_polars(pair<FLT,FLT> centre){
+        pair <FLT, FLT> result;
 		result.first = 0.0;
 		result.second = 0.0;
-        double xav=0;
-        double yav = 0;
+        FLT xav=0;
+        FLT yav = 0;
         int hexcount = 0;
-        double maxPhi = -10.0;
-        double minPhi = 10.0;
+        FLT maxPhi = -10.0;
+        FLT minPhi = 10.0;
 	    cout <<"in set polars ksSolver xcentre" << centre.first << " y_centre  " << centre.second <<endl;
         for (auto &h : this->Hgrid->hexen) {
             hexcount++;
@@ -610,9 +617,9 @@ public:
 //go over the region and put the hexes into bins then average
         for (auto&  h : this->Hgrid->hexen) {
             int index = h.vi;
-			double angle = 0;
-            double dx = h.x;
-            double dy = h.y;
+			FLT angle = 0;
+            FLT dx = h.x;
+            FLT dy = h.y;
 			//cout <<"in set polars ksSolver index " << index << " i " << h.vi <<endl;
             h.r = sqrt((dx - centre.first)*(dx - centre.first)
 			+ (dy - yav)*(dy - yav));

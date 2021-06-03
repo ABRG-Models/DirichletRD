@@ -9,37 +9,42 @@
  * (maybe change to HexGrid later)
  */
 #include<chrono>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <iomanip>
-#include <math.h>
-#include <random>
-#include <algorithm>
-#include <hdf5.h>
-#include <unistd.h>
-#include <bits/stdc++.h>
-#include <iostream>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <morph/HexGrid.h>
+using morph::HexGrid;
 using namespace std;
+using namespace morph;
 using namespace std::chrono;
 #define PI 3.1415926535897932
+
+#define NE(hi) (this->Hgrid->d_ne[hi])
+#define HAS_NE(hi) (this->Hgrid->d_ne[hi] == -1 ? false : true)
+
+#define NW(hi) (this->Hgrid->d_nw[hi])
+#define HAS_NW(hi) (this->Hgrid->d_nw[hi] == -1 ? false : true)
+
+#define NNE(hi) (this->Hgrid->d_nne[hi])
+#define HAS_NNE(hi) (this->Hgrid->d_nne[hi] == -1 ? false : true)
+
+#define NNW(hi) (this->Hgrid->d_nnw[hi])
+#define HAS_NNW(hi) (this->Hgrid->d_nnw[hi] == -1 ? false : true)
+
+#define NSE(hi) (this->Hgrid->d_nse[hi])
+#define HAS_NSE(hi) (this->Hgrid->d_nse[hi] == -1 ? false : true)
+
+#define NSW(hi) (this->Hgrid->d_nsw[hi])
+#define HAS_NSW(hi) (this->Hgrid->d_nsw[hi] == -1 ? false : true)
 
 class hexGeometry
 {
 public:
-    double tol = 0.0001;
+    FLT tol = 0.0001;
 
     enum lineType  {VERTICAL, HORIZONTAL, SLANTED};
 
-    const double INFINITE = 9999999.9999999;
+    const FLT INFINITE = 9999999.9999999;
 
     struct point {
-        double first;
-        double second;
+        FLT first;
+        FLT second;
     };
 
 
@@ -49,8 +54,8 @@ public:
     };
 
     struct line {
-        double slope;
-        double intercept;
+        FLT slope;
+        FLT intercept;
     };
 
     /*
@@ -59,19 +64,19 @@ public:
      * intercept is cut on x axis if angle = +- pi/2
      */
     struct dLine {
-        double angle;
-        double intercept;
+        FLT angle;
+        FLT intercept;
     };
 
 
     struct horzLine {
-        double slope = 0;
-        double intercept;
+        FLT slope = 0;
+        FLT intercept;
 	};
 
     struct vertLine {
-        double slope = 999.999;
-        double xintercept;
+        FLT slope = 999.999;
+        FLT xintercept;
     };
 
     struct cIntersect {
@@ -81,7 +86,7 @@ public:
 
     struct segDist {
         bool inside = false;
-        double dist = 999.999;
+        FLT dist = 999.999;
 	};
 
     int value;
@@ -92,21 +97,21 @@ public:
     }
 
 
-    point pair2point(std::pair<double,double> inpair) {
+    point pair2point(std::pair<FLT,FLT> inpair) {
         point result;
         result.first = inpair.first;
         result.second = inpair.second;
         return result;
     }
 
-    std::pair<double, double> point2pair(point inPoint) {
-        std::pair<double, double> result;
+    std::pair<FLT, FLT> point2pair(point inPoint) {
+        std::pair<FLT, FLT> result;
         result.first = inPoint.first;
         result.second = inPoint.second;
         return result;
     }
 
-    point makePoint(double x, double y) {
+    point makePoint(FLT x, FLT y) {
         point result;
         result.first = x;
         result.second = y;
@@ -117,8 +122,8 @@ public:
     /*!
      * Euclidean distance between two points
      */
-    double distance(point a, point b) {
-        double result;
+    FLT distance(point a, point b) {
+        FLT result;
         result = sqrt((a.first-b.first)*(a.first-b.first) + (a.second-b.second)*(a.second-b.second));
         return result;
     }
@@ -126,8 +131,8 @@ public:
   //returns linetype from lineSegment
     lineType segmentLineType(lineSegment s) {
         lineType  result;
-        double denominator = s.end.first - s.start.first;
-        double numerator = s.end.first - s.start.first;
+        FLT denominator = s.end.first - s.start.first;
+        FLT numerator = s.end.first - s.start.first;
         if (denominator == 0)
         {
             return result = VERTICAL;
@@ -161,8 +166,8 @@ public:
     line segment2line(lineSegment s)
 	{
         line result;
-        double denominator = s.end.first - s.start.first;
-        double numerator = s.end.second - s.start.second;
+        FLT denominator = s.end.first - s.start.first;
+        FLT numerator = s.end.second - s.start.second;
         if (fabs(denominator) <= this->tol) {
            result.slope = INFINITE;
            result.intercept = s.end.first;
@@ -182,9 +187,9 @@ public:
 
     dLine segment2dLine (lineSegment s) {
         dLine result;
-        double angle, intercept;
-        double denominator = s.end.first - s.start.first;
-        double numerator = s.end.second - s.start.second;
+        FLT angle, intercept;
+        FLT denominator = s.end.first - s.start.first;
+        FLT numerator = s.end.second - s.start.second;
         if (numerator >= 0) {
             angle = atan2(numerator, denominator);
         }
@@ -241,12 +246,12 @@ public:
     }
 
     //returns a signed angle between 2 lines
-    double subtendLines( dLine start , dLine end) {
+    FLT subtendLines( dLine start , dLine end) {
         return start.angle - end.angle;
     }
 
     //returns signed angle between two segments
-    double subtendSegments(lineSegment s1, lineSegment s2) {
+    FLT subtendSegments(lineSegment s1, lineSegment s2) {
         dLine dL1 = segment2dLine(s1);
         dLine dL2 = segment2dLine(s2);
         return subtendLines(dL1,dL2);
@@ -254,7 +259,7 @@ public:
 
     //true if point is left of a lineSegment
     bool pointLeftSegment(point p, lineSegment s) {
-        double phi, psi;
+        FLT phi, psi;
         lineSegment sp = createLineSegment(startSegment(s), p);
         psi = segment2dLine(s).angle;
         phi = segment2dLine(sp).angle;
@@ -280,7 +285,7 @@ public:
 //returns a bool if point is on line or not
     bool pointOnLine(point p, line l) {
         bool result = false;
-        double residual = p.second - p.first * l.slope - l.intercept;
+        FLT residual = p.second - p.first * l.slope - l.intercept;
         if (lineLineType(l) == VERTICAL && (fabs(p.first - l.intercept) < this->tol)) {
                 result = true;
                 return result;
@@ -398,8 +403,8 @@ public:
      */
     bool pointInLineSegmentBox(point p, lineSegment s) {
         bool result = false;
-        double xsign = (p.first - s.start.first) * (p.first - s.end.first);
-        double ysign = (p.second - s.start.second) * (p.second - s.end.second);
+        FLT xsign = (p.first - s.start.first) * (p.first - s.end.first);
+        FLT ysign = (p.second - s.start.second) * (p.second - s.end.second);
         if (s.start.first > s.end.first - this->tol && s.start.first < s.end.first + this->tol) {
             xsign = 0.0;
             ysign = (p.second - s.start.second) * (p.second - s.end.second);
@@ -458,8 +463,8 @@ public:
   }
 
 //gives the distance of a point from a line.
-	 double pointLineDist (point p1, line l1) {
-	   double result;
+	 FLT pointLineDist (point p1, line l1) {
+	   FLT result;
 	   line l2 = perpPoint2Line(p1,l1);
 	   cIntersect cI = lineIntersect(l1, l2);
 	   point p2 = cI.p;
@@ -468,15 +473,15 @@ public:
 	   }
 
 //gives the distance of a point from a vertLine
-  double pointVertDist(point p1, vertLine h1) {
-    double result;
+  FLT pointVertDist(point p1, vertLine h1) {
+    FLT result;
 	result = fabs(p1.first - h1.xintercept);
 	return result;
   }
 
  //gives the distance of a point from a horizontal line
-   double pointHorzDist(point p1, horzLine h1) {
-     double result;
+   FLT pointHorzDist(point p1, horzLine h1) {
+     FLT result;
 	 result = fabs(p1.second - h1.intercept);
 	 return result;
    }
@@ -484,8 +489,8 @@ public:
      std::vector<lineSegment> hexSides(morph::Hex h) {
         vector<lineSegment> result;
         result.resize(6);
-        double lr = static_cast<double> (h.getLR());
-        double sr = static_cast<double> (h.getSR());
+        FLT lr = static_cast<FLT> (h.getLR());
+        FLT sr = static_cast<FLT> (h.getSR());
         point point1, point2;
         point1.first = h.x + sr; point1.second = h.y + lr/2.0;
         point2.first = h.x; point2.second = h.y + lr;
@@ -510,11 +515,11 @@ public:
     }
 
 
-     std::vector<lineSegment> hexSides(point p, double d) {
+     std::vector<lineSegment> hexSides(point p, FLT d) {
         vector<lineSegment> result;
         result.resize(6);
-        double lr = 2.0 * d / sqrt(3.0);
-        double sr = d;
+        FLT lr = 2.0 * d / sqrt(3.0);
+        FLT sr = d;
         point point1, point2;
         point1.first = p.first + sr; point1.second = p.second + lr/2.0;
         point2.first = p.first; point2.second = p.second + lr;
@@ -540,17 +545,17 @@ public:
 
     bool pointInHexBox (point p, morph::Hex h) {
         bool result;
-        double upperx = h.x + h.getSR() + this->tol;
-        double lowerx = h.x - h.getSR() - this->tol;
-        double uppery = h.y + h.getLR() + this->tol;
-        double lowery = h.y - h.getLR() - this->tol;
+        FLT upperx = h.x + h.getSR() + this->tol;
+        FLT lowerx = h.x - h.getSR() - this->tol;
+        FLT uppery = h.y + h.getLR() + this->tol;
+        FLT lowery = h.y - h.getLR() - this->tol;
         result = (p.first >= lowerx && p.first <= upperx && p.second >= lowery && p.second <= uppery);
         return result;
     }
 
 
 
-    bool hexIntersectLineSegment(lineSegment s, point p, double d) {
+    bool hexIntersectLineSegment(lineSegment s, point p, FLT d) {
         bool result = false;
         vector<lineSegment> hexSides = this->hexSides(p, d);
         for (int i=0; i<6; i++) {
@@ -586,217 +591,86 @@ public:
         }
         return result;
     }
-    vector <morph::BezCurvePath<float>> eqTriangleMesh(float d, vector<pair<double, double>>&  baryPoints, vector<morph::BezCurve<float>>& outer, vector<point>& vertexPoints,  pair<float, float> centroid ) {
+    vector <morph::BezCurvePath<FLT>> eqTriangleMesh(FLT d, vector<pair<FLT,FLT>>&  baryPoints, vector<morph::BezCurve<FLT>>& outer, pair<FLT, FLT> centroid = std::make_pair(0.0,0.0)) {
         cout << "just entering eqTriangleMesh" << endl;
-        vector <morph::BezCurvePath<float>> result;
+        vector <morph::BezCurvePath<FLT>> result;
         result.resize(6);
-        vector<pair<float,float>> p;
-        pair<float, float> p0 = centroid;
-        p.resize(6, std::make_pair(0.0,0.0));
-        float pi6 = PI/6.0;
+        vector<pair<FLT,FLT>> p;
+        pair<FLT,FLT> p0 = centroid;
+        p.resize(6, std::make_pair(0.0f,0.0f));
+        FLT pi6 = PI/6.0;
         for (int i=0; i<6; i++) {
            p[i] = std::make_pair(d * cos(pi6 + i * PI / 3.0), d * sin(pi6 + i * PI / 3.0));
            p[i].first = p[i].first + centroid.first;
            p[i].second =  p[i].second + centroid.second;
-           vertexPoints.push_back(pair2point(p[i]));
         }
         for (int i=0; i<6; i++) {
-            morph::BezCurve<float> c0(p0, p[i]);
-            morph::BezCurve<float> c1(p[i], p[(i+1)%6]);
-            morph::BezCurve<float> c2(p[(i+1)%6], p0);
+            morph::BezCurve<FLT> c0(p0, p[i]);
+            morph::BezCurve<FLT> c1(p[i], p[(i+1)%6]);
+            morph::BezCurve<FLT> c2(p[(i+1)%6], p0);
             result[i].addCurve(c0);
             result[i].addCurve(c1);
             result[i].addCurve(c2);
-            float bp1 = (p0.first + p[i].first + p[(i+1)%6].first)/3.0;
-            float bp2 = (p0.second + p[i].second + p[(i+1)%6].second)/3.0;
+            FLT bp1 = (p0.first + p[i].first + p[(i+1)%6].first)/3.0;
+            FLT bp2 = (p0.second + p[i].second + p[(i+1)%6].second)/3.0;
             baryPoints.push_back(std::make_pair(bp1,bp2));
             outer.push_back(c1);
         }
         return result;
     }
 
-    vector<morph::BezCurvePath<float>> eqTriangleTess(float ds, vector<pair<double,double>>& centres, morph::BezCurvePath<float>& outerBound, vector<vector<point>>& vertices, vector<vector<int>>& neighbourRegions) {
-        neighbourRegions.resize(42);
-        vector<morph::BezCurvePath<float>> result;
-        vector<pair<double, double>> baryPoints;
-        vector<morph::BezCurve<float>> outer;
-        vector<point> vertexPoints;
-        point centre;
-        vertexPoints.resize(0);
-        cout << "Just entering equTriangleTess vertices size " << vertices.size() <<endl;
-        float pi3 = PI/3.0;
-        float d = ds / sqrt(3.0);
+    vector<morph::BezCurvePath<FLT>> eqTriangleTess(FLT ds, vector<pair<FLT,FLT>>& centres, morph::BezCurvePath<FLT>& outerBound) {
+        vector<morph::BezCurvePath<FLT>> result;
+        vector<pair<FLT,FLT>> baryPoints;
+        vector<morph::BezCurve<FLT>> outer;
+        cout << "Just entering equTriangleTess" << endl;
+        FLT pi3 = PI/3.0;
+        FLT d = ds / sqrt(3.0);
         baryPoints.resize(0);
-        result = eqTriangleMesh(d,baryPoints,outer,vertexPoints, std::make_pair(0.0f, 0.0f));
+        result = eqTriangleMesh(d,baryPoints,outer);
         cout << "after eqTriangleMesh call 0 " << "baryPoints size " << baryPoints.size() << endl;
-        centre =  makePoint(0.0, 0.0);
         for (int k=0; k<6; k++) {
             centres.push_back(baryPoints[k]);
-            vertices[k].push_back(centre);
-            vertices[k].push_back(vertexPoints[k]);
-            vertices[k].push_back(vertexPoints[(k+1)%6]);
-            neighbourRegions[k].push_back((k+5)%6);
-            neighbourRegions[k].push_back((k+1)*6 + (k+3)%6);
-            neighbourRegions[k].push_back((k+1)%6);
         }
-        for (int i=1; i<7; i++) {
-            int idx = i*6;
-            vertexPoints.clear();
+        for (int i=0; i<6; i++) {
             baryPoints.resize(0);
             outer.resize(0);
-            pair<float,float> offset = std::make_pair(ds*cos(i*pi3), ds*sin(i*pi3));
-            vector<morph::BezCurvePath<float>> basic = eqTriangleMesh(d, baryPoints, outer, vertexPoints, offset);
+            pair<FLT,FLT> offset = std::make_pair(ds*cos(i*pi3), ds*sin(i*pi3));
+            vector<morph::BezCurvePath<FLT>> basic = eqTriangleMesh(d, baryPoints, outer, offset);
             for (auto bp : basic) {
                 result.push_back(bp);
             }
             for (int j=i; j<i+3; j++) {
                 outerBound.addCurve(outer[(j+4)%6]);
             }
-            centre = pair2point(offset);
             for (int k=0; k<6; k++) {
                 centres.push_back(baryPoints[k]);
-                vertices[idx + k].push_back(centre);
-                vertices[idx + k].push_back(vertexPoints[k]);
-                vertices[idx + k].push_back(vertexPoints[(k+1)%6]);
             }
         }
-        neighbourRegions[6].push_back(-1);
-        neighbourRegions[6].push_back(7);
-        neighbourRegions[6].push_back(11);
-        neighbourRegions[7].push_back(-1);
-        neighbourRegions[7].push_back(8);
-        neighbourRegions[7].push_back(6);
-        neighbourRegions[8].push_back(7);
-        neighbourRegions[8].push_back(17);
-        neighbourRegions[8].push_back(9);
-        neighbourRegions[9].push_back(8);
-        neighbourRegions[9].push_back(0);
-        neighbourRegions[9].push_back(10);
-        neighbourRegions[10].push_back(11);
-        neighbourRegions[10].push_back(9);
-        neighbourRegions[10].push_back(37);
-        neighbourRegions[11].push_back(6);
-        neighbourRegions[11].push_back(10);
-        neighbourRegions[11].push_back(-1);
-
-        neighbourRegions[12].push_back(-1);
-        neighbourRegions[12].push_back(13);
-        neighbourRegions[12].push_back(17);
-        neighbourRegions[13].push_back(-1);
-        neighbourRegions[13].push_back(14);
-        neighbourRegions[13].push_back(12);
-        neighbourRegions[14].push_back(13);
-        neighbourRegions[14].push_back(-1);
-        neighbourRegions[14].push_back(15);
-        neighbourRegions[15].push_back(14);
-        neighbourRegions[15].push_back(18);
-        neighbourRegions[15].push_back(16);
-        neighbourRegions[16].push_back(17);
-        neighbourRegions[16].push_back(15);
-        neighbourRegions[16].push_back(1);
-        neighbourRegions[17].push_back(12);
-        neighbourRegions[17].push_back(16);
-        neighbourRegions[17].push_back(8);
-
-        neighbourRegions[18].push_back(15);
-        neighbourRegions[18].push_back(19);
-        neighbourRegions[18].push_back(23);
-        neighbourRegions[19].push_back(-1);
-        neighbourRegions[19].push_back(20);
-        neighbourRegions[19].push_back(18);
-        neighbourRegions[20].push_back(19);
-        neighbourRegions[20].push_back(-1);
-        neighbourRegions[20].push_back(21);
-        neighbourRegions[21].push_back(20);
-        neighbourRegions[21].push_back(-1);
-        neighbourRegions[21].push_back(22);
-        neighbourRegions[22].push_back(23);
-        neighbourRegions[22].push_back(21);
-        neighbourRegions[22].push_back(25);
-        neighbourRegions[23].push_back(18);
-        neighbourRegions[23].push_back(22);
-        neighbourRegions[23].push_back(2);
-
-        neighbourRegions[24].push_back(3);
-        neighbourRegions[24].push_back(25);
-        neighbourRegions[24].push_back(29);
-        neighbourRegions[25].push_back(22);
-        neighbourRegions[25].push_back(26);
-        neighbourRegions[25].push_back(24);
-        neighbourRegions[26].push_back(25);
-        neighbourRegions[26].push_back(-1);
-        neighbourRegions[26].push_back(27);
-        neighbourRegions[27].push_back(26);
-        neighbourRegions[27].push_back(-1);
-        neighbourRegions[27].push_back(28);
-        neighbourRegions[28].push_back(29);
-        neighbourRegions[28].push_back(27);
-        neighbourRegions[28].push_back(-1);
-        neighbourRegions[29].push_back(24);
-        neighbourRegions[29].push_back(28);
-        neighbourRegions[29].push_back(32);
-
-        neighbourRegions[30].push_back(39);
-        neighbourRegions[30].push_back(31);
-        neighbourRegions[30].push_back(35);
-        neighbourRegions[31].push_back(4);
-        neighbourRegions[31].push_back(32);
-        neighbourRegions[31].push_back(30);
-        neighbourRegions[32].push_back(31);
-        neighbourRegions[32].push_back(29);
-        neighbourRegions[32].push_back(33);
-        neighbourRegions[33].push_back(32);
-        neighbourRegions[33].push_back(-1);
-        neighbourRegions[33].push_back(34);
-        neighbourRegions[34].push_back(35);
-        neighbourRegions[34].push_back(33);
-        neighbourRegions[34].push_back(-1);
-        neighbourRegions[35].push_back(30);
-        neighbourRegions[35].push_back(34);
-        neighbourRegions[35].push_back(-1);
-
-        neighbourRegions[36].push_back(-1);
-        neighbourRegions[36].push_back(37);
-        neighbourRegions[36].push_back(41);
-        neighbourRegions[37].push_back(10);
-        neighbourRegions[37].push_back(38);
-        neighbourRegions[37].push_back(36);
-        neighbourRegions[38].push_back(37);
-        neighbourRegions[38].push_back(5);
-        neighbourRegions[38].push_back(39);
-        neighbourRegions[39].push_back(38);
-        neighbourRegions[39].push_back(30);
-        neighbourRegions[39].push_back(40);
-        neighbourRegions[40].push_back(41);
-        neighbourRegions[40].push_back(39);
-        neighbourRegions[40].push_back(-1);
-        neighbourRegions[41].push_back(36);
-        neighbourRegions[41].push_back(40);
-        neighbourRegions[41].push_back(-1);
         return result;
     }
 
-    vector <morph::BezCurvePath<float>> isosTriangleMesh(double longSide, double shortSide, vector<vector<point>>&  vertices, point basePoint) {
+    vector <morph::BezCurvePath<FLT>> isosTriangleMesh(FLT longSide, FLT shortSide, vector<vector<point>>&  vertices, point basePoint) {
         cout << "just entering isoTriangleMesh" << endl;
-        vector <morph::BezCurvePath<float>> result;
+        vector <morph::BezCurvePath<FLT>> result;
         result.resize(2);
         vertices.resize(2);
-        vector<pair<float,float>> p;
+        vector<pair<FLT,FLT>> p;
         p.resize(4, std::make_pair(0.0f,0.0f));
-        float vertical = sqrt(longSide*longSide - shortSide*shortSide/4.0);
+        FLT vertical = sqrt(longSide*longSide - shortSide*shortSide/4.0);
         p[0] = std::make_pair(-shortSide/2.0 + basePoint.first, basePoint.second);
         p[1] = std::make_pair(shortSide/2.0 + basePoint.first, basePoint.second);
         p[2] = std::make_pair(basePoint.first, vertical + basePoint.second);
         p[3] = std::make_pair(basePoint.first + shortSide, vertical + basePoint.second);
-        morph::BezCurve<float> c0(p[0], p[1]);
-        morph::BezCurve<float> c1(p[1], p[2]);
-        morph::BezCurve<float> c2(p[2], p[0]);
+        morph::BezCurve<FLT> c0(p[0], p[1]);
+        morph::BezCurve<FLT> c1(p[1], p[2]);
+        morph::BezCurve<FLT> c2(p[2], p[0]);
         result[0].addCurve(c0);
         result[0].addCurve(c1);
         result[0].addCurve(c2);
-        morph::BezCurve<float> c3(p[1], p[3]);
-        morph::BezCurve<float> c4(p[3], p[2]);
-        morph::BezCurve<float> c5(p[2], p[1]);
+        morph::BezCurve<FLT> c3(p[1], p[3]);
+        morph::BezCurve<FLT> c4(p[3], p[2]);
+        morph::BezCurve<FLT> c5(p[2], p[1]);
         result[1].addCurve(c3);
         result[1].addCurve(c4);
         result[1].addCurve(c5);
@@ -815,24 +689,24 @@ public:
         //vertices[1][2] = pair2point(p[1]);
     }
 
-    vector<morph::BezCurvePath<float>> isosTriangleTess(double ratio, const int rowX, const int rowY, vector<vector<point>>& vertices, morph::BezCurvePath<float>& outer) {
-        vector<morph::BezCurvePath<float>> result;
+    vector<morph::BezCurvePath<FLT>> isosTriangleTess(FLT ratio, const int rowX, const int rowY, vector<vector<point>>& vertices, morph::BezCurvePath<FLT>& outer) {
+        vector<morph::BezCurvePath<FLT>> result;
         vector<vector<point>> baseVertices;
         vertices.resize(0);
-        double spaceX = 0.16;
-        double longSide = spaceX * ratio;
-        double spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
+        FLT spaceX = 0.16;
+        FLT longSide = spaceX * ratio;
+        FLT spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
         unsigned int seed;
-        vector<pair<float,float>> p;
+        vector<pair<FLT,FLT>> p;
         p.resize(4);
         cout << "in isosTriangleTess rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << endl;
-        double offset = 0;
+        FLT offset = 0;
         for (int j = -rowY; j < rowY + 1; j++) {
             offset = (1 - j) * (spaceX/2.0);
             for (int i = -rowX; i < rowX + 1; i++) {
                  baseVertices.resize(0);
                  point basePoint = this->makePoint(i*spaceX - offset, j*spaceY);
-                 vector<morph::BezCurvePath<float>> basic = isosTriangleMesh(longSide, spaceX, baseVertices, basePoint);
+                 vector<morph::BezCurvePath<FLT>> basic = isosTriangleMesh(longSide, spaceX, baseVertices, basePoint);
                  cout <<  " in rowX rowY loop i " << i << " j " << j << " x " << i*spaceX << " j " << j*spaceY <<endl;
                  for (auto bp : basic) {
                      result.push_back(bp);
@@ -855,10 +729,10 @@ public:
             p[3] = std::make_pair((rowY/2 - rowX -1)*spaceX, rowY*spaceY);
 
         cout << "p3.x " << p[3].first << " p3.y " << p[3].second << endl;
-        morph::BezCurve<float> c0(p[0], p[1]);
-        morph::BezCurve<float> c1(p[1], p[2]);
-        morph::BezCurve<float> c2(p[2], p[3]);
-        morph::BezCurve<float> c3(p[3], p[0]);
+        morph::BezCurve<FLT> c0(p[0], p[1]);
+        morph::BezCurve<FLT> c1(p[1], p[2]);
+        morph::BezCurve<FLT> c2(p[2], p[3]);
+        morph::BezCurve<FLT> c3(p[3], p[0]);
         outer.addCurve(c0);
         outer.addCurve(c1);
         outer.addCurve(c2);
@@ -874,25 +748,25 @@ public:
  * tessellation of equal triangles but on an isosceles mesh. If we set pRatio non zero and lPerturb true then
  * we get scalene triangles meshed together
  */
-    vector<point> isosVertices( double ratio, const int rowX, const int rowY, double pRatio, bool lPerturb = false) {
+    vector<point> isosVertices( FLT ratio, const int rowX, const int rowY, FLT pRatio, bool lPerturb = false) {
         vector<point> result;
         result.resize(0);
-        double spaceX = 1.0 / (1.0 * (2 * rowX + 1));
-        double longSide = spaceX * ratio;
-        double spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
+        FLT spaceX = 1.0 / (1.0 * (2 * rowX + 1));
+        FLT longSide = spaceX * ratio;
+        FLT spaceY = sqrt(longSide*longSide - spaceX*spaceX/4.0);
         unsigned int seed;
         chrono::milliseconds ms1 = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch());
         seed = static_cast<unsigned int> (ms1.count());
-        morph::RandUniform<double> ruf(seed);
+        morph::RandUniform<FLT> ruf(seed);
         cout << "in isosPerturbTess rowX " << rowX << " rowY " << rowY << " spaceX " << spaceX << " spaceY " << spaceY << " pRatio " << pRatio << endl;
         int count=0;
         for (int j = -rowY; j < rowY + 2; j++) {
-            double offset = j * (spaceX/2.0);
+            FLT offset = j * (spaceX/2.0);
             for (int i = -rowX; i < rowX + 2; i++) {
-                double radius = pRatio * spaceX * ruf.get() / 4.0;
-                double angle = 2.0 * PI * ruf.get();
-                double x = i*spaceX + offset;
-                double y = j*spaceY;
+                FLT radius = pRatio * spaceX * ruf.get() / 4.0;
+                FLT angle = 2.0 * PI * ruf.get();
+                FLT x = i*spaceX + offset;
+                FLT y = j*spaceY;
                 if (lPerturb) {
                     x = x + radius * cos(angle);
                     y = y + radius * sin(angle);
@@ -911,14 +785,14 @@ public:
      * and a BezCurvePath that gives the outer boundary which is a chain of line segments
      */
 
-    vector<morph::BezCurvePath<float>> genTriangleTess(const int rowX, const int rowY, vector<point> vertices, vector<vector<int>> vIndices, morph::BezCurvePath<float>& outer) {
-        vector<morph::BezCurvePath<float>> result;
+    vector<morph::BezCurvePath<FLT>> genTriangleTess(const int rowX, const int rowY, vector<point> vertices, vector<vector<int>> vIndices, morph::BezCurvePath<FLT>& outer) {
+        vector<morph::BezCurvePath<FLT>> result;
         int numTriangles = (2*rowX+1) * (2*rowY+1) * 2;
         int stride = (2*rowX+1)*2;
         result.resize(numTriangles);
         vector<vector<int>> tessVertices;
-        vector<morph::BezCurve<float>> edges;
-        vector<std::pair<double,double>> triPoints;
+        vector<morph::BezCurve<FLT>> edges;
+        vector<std::pair<FLT,FLT>> triPoints;
         triPoints.resize(3);
         edges.resize(0);
         for (int j = -rowY; j < rowY + 1; j++) {
@@ -932,9 +806,9 @@ public:
          cout<<" region " << index << " v1 " << vIndices[index][0] << " v2 " << vIndices[index][1] << " v3 " << vIndices[index][2] << endl;
         cout << triPoints[0].first << " , " << triPoints[0].second << " | " << triPoints[1].first << " , " << triPoints[1].second << " | " << triPoints[2].first << " , " << triPoints[2].second << endl;
 
-                morph::BezCurve<float> c0(triPoints[0],triPoints[1]);
-                morph::BezCurve<float> c1(triPoints[1],triPoints[2]);
-                morph::BezCurve<float> c2(triPoints[2],triPoints[0]);
+                morph::BezCurve<FLT> c0(triPoints[0],triPoints[1]);
+                morph::BezCurve<FLT> c1(triPoints[1],triPoints[2]);
+                morph::BezCurve<FLT> c2(triPoints[2],triPoints[0]);
                 edges.push_back(c0);
                 edges.push_back(c1);
                 edges.push_back(c2);
@@ -949,9 +823,9 @@ public:
                 triPoints[2] = point2pair(vertices[vIndices[index][2]]);
          cout<<" region " << index << " v1 " << vIndices[index][0] << " v2 " << vIndices[index][1] << " v3 " << vIndices[index][2] << endl;
          cout << triPoints[0].first << " , " << triPoints[0].second << " | " << triPoints[1].first << " , " << triPoints[1].second << " | "<< triPoints[2].first << " , " << triPoints[2].second << endl;
-                morph::BezCurve<float> c3(triPoints[0],triPoints[1]);
-                morph::BezCurve<float> c4(triPoints[1],triPoints[2]);
-                morph::BezCurve<float> c5(triPoints[2],triPoints[0]);
+                morph::BezCurve<FLT> c3(triPoints[0],triPoints[1]);
+                morph::BezCurve<FLT> c4(triPoints[1],triPoints[2]);
+                morph::BezCurve<FLT> c5(triPoints[2],triPoints[0]);
                 edges.push_back(c3);
                 edges.push_back(c4);
                 edges.push_back(c5);
@@ -1050,8 +924,8 @@ public:
 //private:
 
 //distance between two points
-double  getdist(point p1, point p2) {
-   double result;
+FLT  getdist(point p1, point p2) {
+   FLT result;
    result = sqrt((p1.first - p2.first)*(p1.first - p2.first) + (p1.second-p2.second)*(p1.second-p2.second));
    return result;
    }

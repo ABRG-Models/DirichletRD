@@ -173,7 +173,7 @@ public:
         centroids.resize(NUMPOINTS);
         for (unsigned int i=0; i<NUMPOINTS; i++) {
             bfile >> centres[i].first >> centres[i].second;
-           cout << "centres.first" << centres[i].first << "centres.second" <<  centres[i].second << endl;
+           cout << "centres.first " << centres[i].first << " centres.second " <<  centres[i].second << endl;
         }
         cout << "after setting centres " << endl;
    //these are the vectors of vectors for the regions
@@ -2265,7 +2265,7 @@ FLT regnnfrac (int regNum) {
                 return result;
             }
             else {
-                qfile << " r size " << rSize << " vSize " << vSize << " result size " << result.size() << endl;
+                qfile << " r size " << rSize << " sSize " << vSize << " result size " << result.size() << endl;
                 return result;
             }
         }
@@ -2860,16 +2860,6 @@ FLT regnnfrac (int regNum) {
     }
   }
 
-
-  //method to rotate the phi values by a fixed amount
-  void rotateRegion(int regNum, double phaseShift)
-  {
-    for (auto& h : regionHex[regNum]) //repopulate regionHex
-    {
-        h.phi = h.phi + phaseShift;
-    }
-  }
-
   //method to renew polars and boundary
     void renewBoundary(int regNum, list<morph::Hex> hexList, bool lNoKS=false) {
         this->regionBound[regNum].clear();
@@ -2889,10 +2879,6 @@ FLT regnnfrac (int regNum) {
         }
         cout << " region " << regNum << " bound size " <<regionBound[regNum].size() << endl;
         return;
-    }
-
-    void clearRegionBound(int regNum) {
-        this->regionBound[regNum].clear();
     }
 
     int regionBessel(int regNum, int radialOrder, int angularOrder, FLT phase, FLT Dn=1.0) {
@@ -2969,7 +2955,7 @@ FLT regnnfrac (int regNum) {
         //write the indices in phi order
        for (int i = 0; i < bsize; i++)
        {
-           hhfile << " boundHex " << i << " hex " << regionBoundary[irB[i]] << " angle " << rB[irB[i]] << endl;
+           //hhfile << " boundHex " << i << " hex " << regionBoundary[irB[i]] << " angle " << rB[irB[i]] << endl;
        }
         int offset = 0;
         int idissect = 0;

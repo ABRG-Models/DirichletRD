@@ -35,9 +35,6 @@ int main (int argc, char **argv)
     int numsteps = stoi(argv[4]);
     int numprint = stoi(argv[5]);
     string logpath = argv[6];
-    // adjust the number of steps according to the Dn number
-    numsteps = numsteps * ceil(Dn/36.0);
-    numprint  = numprint * ceil(Dn/36.0);
     //  open the confgig file and read in the parameters
     morph::Config conf(jsonfile);
     if (!conf.ready) {
@@ -74,6 +71,11 @@ int main (int argc, char **argv)
     unsigned int NUMPOINTS = conf.getInt("NUMPOINTS",41);
     cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
     ofstream afile (logpath + "/centroids.out",ios::app);
+    // adjust the number of steps according to the Dn number
+    numsteps = numsteps * floor(sqrt(36.0/Dn));
+    numprint  = numprint * floor(sqrt(36.0/Dn));
+    // adjust the time step for the Dn values
+    dt = dt * sqrt(Dn/36.0);
 
     unsigned int seed;
     if (LfixedSeed) {
@@ -592,9 +594,9 @@ int main (int argc, char **argv)
     //    }
         FLT area = M.hexArea*M.regArea(j);
         if (LDn) {
-            DchiVal[j] = Dchi * morph0Area[j] / area;
-            DnVal[j] = Dn *  morph0Area[j] / area;
-            DcVal[j] = Dc * morph0Area[j] / area;
+            DchiVal[j] = Dchi * sqrt(morph0Area[j] / area);
+            DnVal[j] = Dn *  sqrt(morph0Area[j] / area);
+            DcVal[j] = Dc * sqrt(morph0Area[j] / area);
         }
         else {
             DchiVal[j] = Dchi;
@@ -959,9 +961,9 @@ int main (int argc, char **argv)
     for (unsigned int j = 0;j<NUMPOINTS;j++) {
         FLT area = M.hexArea*M.regArea(j);
         if (LDn) {
-            DchiVal[j] =  Dchi * morph0Area[j] /  area;
-            DnVal[j] = Dn * morph0Area[j] / area;
-            DcVal[j] = Dc * morph0Area[j] / area;
+            DchiVal[j] =  Dchi * sqrt(morph0Area[j] /  area);
+            DnVal[j] = Dn * sqrt(morph0Area[j] / area);
+            DcVal[j] = Dc * sqrt(morph0Area[j] / area);
         }
         else {
             DchiVal[j] =  Dchi;
