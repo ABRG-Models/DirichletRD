@@ -313,6 +313,38 @@ public:
     return count;
   }
 
+    //find the Euclidean norm of a vector
+    FLT vectNorm(std::vector<FLT> invector)
+    {
+        FLT result = 0;
+        for (unsigned int i=0; i< invector.size(); i++) {
+            result += invector[i]*invector[i];
+        }
+        return sqrt(result);
+    }
+
+
+    //find the normed difference between two vectors
+    //TOFIX this assumes that the vectors are the same size, need error handling
+    FLT  normedDiff(vector<FLT> preField, vector<FLT> currField)
+    {
+        FLT result;
+        FLT diffField = 0;
+        unsigned int fieldSize = preField.size();
+        for (unsigned int i=0; i<fieldSize; i++) {
+            diffField += ((currField[i] - preField[i]) * (currField[i] - preField[i]));
+        }
+        FLT preNorm = this->vectNorm(preField);
+        FLT currNorm = this->vectNorm(currField);
+        if (preNorm * currNorm > 0.0) {
+            result = diffField / (currNorm * currNorm);
+            return result;
+        }
+        else {
+            result = 0;
+            return result;
+        }
+    }//end of method normedDiff
 
 
   //function bessel_ray for computing bessel functions along a ray

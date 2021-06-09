@@ -63,12 +63,12 @@ int main (int argc, char **argv)
 #endif
     int numSectors = conf.getInt("numsectors",12);
     int scale = conf.getInt("scale",8);
-    bool Lgraphics = conf.getBool("Lgraphics",false);
     bool LfixedSeed = conf.getBool("LfixedSeed",0);
     bool LDn = conf.getBool("LDn",0);
     bool overwrite_logs = conf.getBool("overwrite_logs",true);
     bool skipMorph  = conf.getBool("skipMorph",false);
-    unsigned int NUMPOINTS = conf.getInt("NUMPOINTS",41);
+    unsigned int numpoints = conf.getInt("numpoints",41);
+    FLT diffTol = 0.000001f;
     cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
     ofstream afile (logpath + "/centroids.out",ios::app);
     // adjust the number of steps according to the Dn number
@@ -121,7 +121,7 @@ int main (int argc, char **argv)
 
 
 // initialise DRegion class setting scale
-    DRegion M(scale,xspan,logpath,NUMPOINTS); //create tessellation
+    DRegion M(scale,xspan,logpath,numpoints); //create tessellation
     M.setCreg(); //set counts to identify inner boundaries
     M.setInternalBoundary(); //set internal boundaries
     cout << "before dissect_boundary " << endl;
@@ -136,7 +136,7 @@ int main (int argc, char **argv)
     inReg = M.setInnerRegion(); //set mask array for inner regions
     int rC = 0;
     //check for correct number of inner regions
-    for (unsigned int j=0; j<NUMPOINTS;j++) {
+    for (unsigned int j=0; j<numpoints;j++) {
         if (!M.innerRegion[j]) rC++;
     }
     if (inReg != rC) {
@@ -161,24 +161,24 @@ int main (int argc, char **argv)
      */
     M.populateBoundPolygon(1);
     cout << "just after setting polygonal boundaries " << M.curvedBoundary.size()<<endl;
-    for (unsigned int j = 0;j<NUMPOINTS;j++) {
+    for (unsigned int j = 0;j<numpoints;j++) {
         S.push_back(ksSolver(scale, xspan, logpath, M.curvedBoundary[j], M.centroids[j]));
         cout << "in the loop populating the ksVector morph0 "<< j <<endl;
     }
     cout << "first setting of centroids" << endl;
-    for (unsigned int j=0; j<NUMPOINTS;j++){
+    for (unsigned int j=0; j<numpoints;j++){
         afile << "centroid region " << j << " is ( " << M.centroids[j].first << " , " << M.centroids[j].second << " )" << endl;
     }
     // repopulate the regions
     cout << "just before populating the inner regions Morph 0" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewRegion(j,S[j].Hgrid->hexen);
         }
     }
     cout << "just before populating the inner boundary Morph 0" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewBoundary(j,S[j].Hgrid->hexen);
@@ -186,7 +186,7 @@ int main (int argc, char **argv)
         //M.renewCentroids(j);
     }
     cout << "just before calculating regionSize " << endl;
-    for (unsigned int j=0; j<NUMPOINTS;j++){
+    for (unsigned int j=0; j<numpoints;j++){
         afile << " Region size " << M.regionHex[j].size() << endl;
     }
 	cout << "just after populating the regions from the ksSolver vector"<<endl;
@@ -196,7 +196,7 @@ int main (int argc, char **argv)
    // M.swapRadialSegments(false);
     // redissect the boundaries
     cout << "just before renewDissect first time" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewDissect(j,0);
@@ -218,10 +218,9 @@ int main (int argc, char **argv)
     array<float,3> cl_b = morph::Gdisplay::getJetColorF (0.58); //yellow
     array<float,3> cl_d = morph::Gdisplay::getJetColorF (0.00); //black
     array<float,3> offset = {{0, 0, 0}};
-    if (Lgraphics) {
         morph::Gdisplay idisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         idisp.resetDisplay (fix, eye, rot);
-        for (unsigned int j=0;j<NUMPOINTS;j++) {
+        for (unsigned int j=0;j<numpoints;j++) {
         // plot stuff here.
             cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
             for (auto h : S[j].Hgrid->hexen) {
@@ -268,7 +267,6 @@ int main (int argc, char **argv)
         usleep (100000); // one hundred seconds
         idisp.saveImage(logpath + "/Tesselation1" + iter + ".png");
         idisp.closeDisplay();
-    } //end of graphics section
 #endif
 // initialise the fields
     string fname = logpath + "/first.h5";
@@ -278,7 +276,7 @@ int main (int argc, char **argv)
 	{
         morph::HdfData ginput(fname,1);
         cout << "just after trying to open ../logs/first.h5" << endl;
-        for (unsigned int j=0;j<NUMPOINTS;j++)
+        for (unsigned int j=0;j<numpoints;j++)
         {
 		    std::string ccstr = "c" + to_string(j);
 		    cout << " j string " << to_string(j) << " length" << ccstr.length()<< endl;
@@ -294,7 +292,7 @@ int main (int argc, char **argv)
 	  }
       else
 	  {
-        for (unsigned int j=0;j<NUMPOINTS;j++)
+        for (unsigned int j=0;j<numpoints;j++)
 		{
 	        for (auto h : S[j].Hgrid->hexen) {
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
@@ -321,33 +319,55 @@ int main (int argc, char **argv)
       } //end of else on Lcontinue
      cout <<  "just after field creation first morph" << endl;
 
-    // begin second time stepping loop unmorphed grid solved via ksSolver
+    // begin time stepping loop unmorphed grid solved via ksSolver
+    // set up vectors for determining convergence
+    std::vector<FLT> NNdiff;
+    std::vector<std::vector<FLT>> NNpre;
+    std::vector<std::vector<FLT>> NNcurr;
+    NNdiff.resize(numpoints);
+    NNpre.resize(numpoints);
+    NNcurr.resize(numpoints);
+
+    //initilise all NNpre vectors to zero
+    for (unsigned int j=0; j<numpoints;j++) {
+        NNpre[j].resize(S[j].NN.size(),1000.0);
+    }
     for (int i=0;i<numsteps;i++)
     {
-	    int countHex = 0;
-   	    for (unsigned int j = 0;j<NUMPOINTS;j++) { //loop over all regions, only step internal ones
-            if (M.innerRegion[j]) {
-                S[j].step(dt, Dn, Dchi, Dc);
-            }
+        //loop over all regions, step all
+   	    for (unsigned int j = 0;j<numpoints;j++) {
+            S[j].step(dt, Dn, Dchi, Dc);
         }
-   #ifdef COMPILE_PLOTTING
-	    if (i%numprint == 0 && Lgraphics) //only display internal regions
-	    {
-          //set up display
-            morph::Gdisplay iidisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
-            iidisp.resetDisplay (fix, eye, rot);
-   	        for (unsigned int j = 0;j<NUMPOINTS;j++) //loop over regions
-	        {
-                if (M.innerRegion[j]) {
-	 	        cout << "in print routine"<<endl;
+        //now determine the difference in field values for each region
+	    if (i%numprint == numprint-1) {
+            for (unsigned int j = 0;j<numpoints;j++) { //loop over all regions, only step internal ones
+                NNcurr[j] = S[j].NN;
+                NNdiff[j] = L.normedDiff(NNpre[j], NNcurr[j]);
+                cout << "nomm NNpre " << L.vectNorm(NNpre[j]) << " normCurr " << L.vectNorm(NNcurr[j]) << " diff " << NNdiff[j] << endl;
+                NNpre[j] = NNcurr[j];
+            }
+        // break if below tolerance
+            if (L.maxVal(NNdiff) < diffTol) {
+                cout << "unmorphed converged at step " << i << " field diff " << L.maxVal(NNdiff) << endl;
+                break;
+            }
+        } //end of loop on checking convergence
+    } //end of loop on numsteps
+#ifdef COMPILE_PLOTTING
+	    int countHex = 0;
+    //set up display
+        morph::Gdisplay iidisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        iidisp.resetDisplay (fix, eye, rot);
+   	    for (unsigned int j = 0;j<numpoints;j++) {
+            if (M.innerRegion[j]) {
+                cout << "in print routine"<<endl;
                 unsigned int regsize = S[j].Hgrid->num();
-		        cout << "in loop over regions " << " size is " << regsize << endl;
-			    countHex += regsize;
-		        vector<FLT> regionNN;
-			    vector<FLT> tempNN;
-		      //for (auto h : S[j].Hgrid->hexen)
-			    for (unsigned int k=0;k<regsize;k++)
-			    {
+                cout << "in loop over regions " << " size is " << regsize << endl;
+                countHex += regsize;
+                vector<FLT> regionNN;
+                vector<FLT> tempNN;
+                //for (auto h : S[j].Hgrid->hexen)
+                for (unsigned int k=0;k<regsize;k++) {
                     tempNN.push_back(S[j].NN[k]);
                     cout << "tempNN " << S[j].NN[k] << " k " << k  << endl;
                 }
@@ -355,12 +375,10 @@ int main (int argc, char **argv)
                 regionNN = L.normalise(tempNN);
                 cout << "total number of hexes counted " << countHex << endl;
                 int idx = 0;
-                for (auto &h : S[j].Hgrid->hexen)
-                {
+                for (auto &h : S[j].Hgrid->hexen) {
                     array<FLT,3> colour = morph::Gdisplay::getJetColorF(regionNN[idx]);
                     if (!h.boundaryHex()) {
                         iidisp.drawHex(h.position(),(h.d/2.0f),colour);
-                    //    cout << "just after drawHex 2 colour "<< " value " << regionNN[idx] << endl;
                     }
                     idx++;
                 }
@@ -368,36 +386,32 @@ int main (int argc, char **argv)
                     std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                     iidisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
                 }
-                }//end of loop on inner regions
-            }//end of loop over regions
-    for (auto h : M.Hgrid->hexen) {
-         if (M.Creg[h.vi] ==  1 ) {
-             iidisp.drawHex (h.position(), (h.d/2.0f), cl_d);
-             boundaryCount++;
-         }
-         else if (M.Creg[h.vi] > 1) {
-              iidisp.drawHex (h.position(), (h.d/2.0f), cl_d);
-         }
-    }
-            cout << "just before redraw display 1" << endl;
-            iidisp.redrawDisplay();
-		    cout << "just after redraw display 1" << endl;
-		    cout << "just after to_string"<<endl;
-		    iidisp.saveImage(logpath + "/nnField1" + iter + ".png");
-            usleep (1000000); // one hundred seconds
-		    cout << "just after saveImage 1" << endl;
-		    iidisp.closeDisplay();
-		    cout << "just after close display 1 i " << i << endl;
-        }//end of loop on numprint drawing fields
-   #endif
-		 //cout << "iteration " << i << " of morph 1 time step" << endl;
-    } // end of second time stepping
-
+            }//end of loop on inner regions
+        }//end of loop over regions
+        for (auto h : M.Hgrid->hexen) {
+            if (M.Creg[h.vi] ==  1 ) {
+                 iidisp.drawHex (h.position(), (h.d/2.0f), cl_d);
+                 boundaryCount++;
+            }
+            else if (M.Creg[h.vi] > 1) {
+                iidisp.drawHex (h.position(), (h.d/2.0f), cl_d);
+            }
+        }
+        cout << "just before redraw display 1" << endl;
+        iidisp.redrawDisplay();
+		cout << "just after redraw display 1" << endl;
+		cout << "just after to_string"<<endl;
+		iidisp.saveImage(logpath + "/nnField1" + iter + ".png");
+        usleep (1000000); // one hundred seconds
+		cout << "just after saveImage 1" << endl;
+		iidisp.closeDisplay();
+		cout << "just after close display 1" << endl;
+#endif
     //code run at end of timestepping
     //first save the  ofstream outFile;
     cout << "just before first data write morph 0" << endl;
     morph::HdfData fdata(fname);
-	for (unsigned int j=0;j<NUMPOINTS;j++)
+	for (unsigned int j=0;j<numpoints;j++)
 	{
 		std::string nstr = "n" + to_string(j);
 	    char * nst = new char[nstr.length()+1];
@@ -435,8 +449,8 @@ int main (int argc, char **argv)
 	FLT occupancy = 0.0;
     int countRegions = 0;
     FLT avAbsCorrelation = 0.0;
-    const int max_comp = NUMPOINTS*3;
-    for (unsigned int j=0;j<NUMPOINTS;j++) {
+    const int max_comp = numpoints*3;
+    for (unsigned int j=0;j<numpoints;j++) {
         M.NN[j] = S[j].NN; //write the NN fields to the DRegion array
         if (M.innerRegion[j]){
 			int regionCount = 0;
@@ -492,7 +506,7 @@ int main (int argc, char **argv)
           //avAbsCorrelation = M.correlate_edges(0);
 		  M.random_correlate(max_comp, 1);
 		  cout << "just after randomcorrelate_edges morph1 " << endl;
-          for (unsigned int j=0;j<NUMPOINTS;j++) {
+          for (unsigned int j=0;j<numpoints;j++) {
 	        if (M.innerRegion[j]) {
 	          countRegions++;
 		      occupancy += M.regNNfrac(j);
@@ -547,48 +561,48 @@ int main (int argc, char **argv)
     S.resize(0);
     //set radius for creating circular regions also calculate the adjusted Dn values
     vector<FLT> DnVal;
-    DnVal.resize(NUMPOINTS,0.0);
+    DnVal.resize(numpoints,0.0);
     vector<FLT> DchiVal;
-    DchiVal.resize(NUMPOINTS,0.0);
+    DchiVal.resize(numpoints,0.0);
     vector<FLT> DcVal;
-    DcVal.resize(NUMPOINTS,0.0);
+    DcVal.resize(numpoints,0.0);
     vector<FLT> morph0Area;
-    morph0Area.resize(NUMPOINTS,0.0);
-	for (unsigned int j = 0;j<NUMPOINTS;j++) {
+    morph0Area.resize(numpoints,0.0);
+	for (unsigned int j = 0;j<numpoints;j++) {
         morph0Area[j] = M.hexArea*M.regArea(j);
     }
 // now set the boundaries for the regions, stored in curvedBoundary
     M.populateBoundCurve(1);
     cout << "just after setting curved boundaries morph 1 " << M.curvedBoundary.size()<<endl;
-    for (unsigned int j = 0;j<NUMPOINTS;j++) {
+    for (unsigned int j = 0;j<numpoints;j++) {
         S.push_back(ksSolver(scale, xspan, logpath, M.curvedBoundary[j], M.centroids[j]));
         cout << "in the loop populating the ksVector morph1   "<< j <<endl;
     }
     cout << "first morph  setting of centroids" << endl;
-    for (unsigned int j=0; j<NUMPOINTS;j++){
+    for (unsigned int j=0; j<numpoints;j++){
         afile << "centroid region " << j << " is ( " << M.centroids[j].first << " , " << M.centroids[j].second << " )" << endl;
     }
     // repopulate the regions
     cout << "just before populating the inner regions morph 1" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewRegion(j,S[j].Hgrid->hexen);
         }
     }
     cout << "just before populating the inner boundary morph 1" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewBoundary(j,S[j].Hgrid->hexen);
         }
     }
     cout << "second setting of centroids" << endl;
-    for (unsigned int j=0; j<NUMPOINTS;j++){
+    for (unsigned int j=0; j<numpoints;j++){
         afile << "centroid region " << j << " is ( " << M.centroids[j].first << " , " << M.centroids[j].second << " )" << endl;
     }
 	cout << "just after populating the ksVector"<<endl;
-    for (unsigned int j = 0;j<NUMPOINTS;j++) {
+    for (unsigned int j = 0;j<numpoints;j++) {
 	//	for (auto h : S[j].Hgrid->hexen) {
 	//	    cout << "hexNumber in region " << j <<  " h.vi " << h.vi << endl;
     //    }
@@ -610,10 +624,9 @@ int main (int argc, char **argv)
     internalCount = 0;
     boundaryCount = 0;
 #ifdef COMPILE_PLOTTING
-    if (Lgraphics) {
         morph::Gdisplay mdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         mdisp.resetDisplay (fix, eye, rot);
-        for (unsigned int j=0;j<NUMPOINTS;j++) {
+        for (unsigned int j=0;j<numpoints;j++) {
         // plot stuff here.
             cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
             for (auto h : S[j].Hgrid->hexen) {
@@ -660,7 +673,6 @@ int main (int argc, char **argv)
         usleep (100000); // one hundred seconds
         mdisp.saveImage(logpath + "/Tesselation2" + iter + ".png");
         mdisp.closeDisplay();
-    } //end of graphics section
 #endif
 // initialise the fields
     string gname = logpath + "/second.h5";
@@ -670,7 +682,7 @@ int main (int argc, char **argv)
 	{
         morph::HdfData ginput(gname,1);
         cout << "just after trying to open ../logs/second.h5" << endl;
-        for (unsigned int j=0;j<NUMPOINTS;j++)
+        for (unsigned int j=0;j<numpoints;j++)
         {
 		    std::string ccstr = "c" + to_string(j);
 		    cout << " j string " << to_string(j) << " length" << ccstr.length()<< endl;
@@ -686,7 +698,7 @@ int main (int argc, char **argv)
 	  }
       else
 	  {
-        for (unsigned int j=0;j<NUMPOINTS;j++)
+        for (unsigned int j=0;j<numpoints;j++)
 		{
 	        for (auto h : S[j].Hgrid->hexen) {
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
@@ -713,21 +725,38 @@ int main (int argc, char **argv)
       } //end of else on Lcontinue
      cout <<  "just after field creation first morph" << endl;
 
-    // begin third time stepping loop after first morph
+    //initilise all NNpre vectors to zero
+    for (unsigned int j=0; j<numpoints;j++) {
+        NNpre[j].resize(S[j].NN.size(),1000.0);
+    }
     for (int i=0;i<numsteps;i++)
     {
-	    int countHex = 0;
-   	    for (unsigned int j = 0;j<NUMPOINTS;j++){ //loop over regions, only set internal ones
-            if (M.innerRegion[j]) {
-                S[j].step(dt, DnVal[j], DchiVal[j], DcVal[j]);
-            }
+        //loop over all regions, step all
+   	    for (unsigned int j = 0;j<numpoints;j++) {
+            S[j].step(dt, Dn, Dchi, Dc);
         }
+        //now determine the difference in field values for each region
+	    if (i%numprint == numprint-1) {
+            for (unsigned int j = 0;j<numpoints;j++) { //loop over all regions, only step internal ones
+                NNcurr[j] = S[j].NN;
+                NNdiff[j] = L.normedDiff(NNpre[j], NNcurr[j]);
+                cout << "nomm NNpre " << L.vectNorm(NNpre[j]) << " normCurr " << L.vectNorm(NNcurr[j]) << " diff " << NNdiff[j] << endl;
+                NNpre[j] = NNcurr[j];
+            }
+        // break if below tolerance
+            if (L.maxVal(NNdiff) < diffTol) {
+                cout << "morphed 1 converged at step " << i << " field diff " << L.maxVal(NNdiff) << endl;
+                break;
+            }
+        } //end of loop on checking convergence
+    } //end of loop on numstep
+    // begin time stepping loop after first morph
  #ifdef COMPILE_PLOTTING
-	    if (i%numprint == 0 && Lgraphics) { //only display internal regions
+           countHex = 0;
           //set up display
             morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
             mmdisp.resetDisplay (fix, eye, rot);
-   	        for (unsigned int j = 0;j<NUMPOINTS;j++) //loop over regions
+   	        for (unsigned int j = 0;j<numpoints;j++) //loop over regions
 	        {
                 if (M.innerRegion[j]) {
 	 	        cout << "in print routine"<<endl;
@@ -778,17 +807,14 @@ int main (int argc, char **argv)
             usleep (1000000); // one hundred seconds
 		    cout << "just after saveImage 1" << endl;
 		    mmdisp.closeDisplay();
-		    cout << "just after close display 1 i " << i << endl;
-        }//end of loop on numprint drawing fields
     #endif
-		 //cout << "iteration " << i << " of morph 1 time step" << endl;
-    } // end of third time stepping
+    //end of graphics for first morph
 
     //code run at end of timestepping
     //first save the  ofstream outFile;
     cout << "just before second data read " << endl;
     morph::HdfData gdata(gname);
-	for (unsigned int j=0;j<NUMPOINTS;j++)
+	for (unsigned int j=0;j<numpoints;j++)
 	{
 		std::string nstr = "n" + to_string(j);
 	    char * nst = new char[nstr.length()+1];
@@ -814,7 +840,7 @@ int main (int argc, char **argv)
     angleDVector.resize(0);
     angleVector.resize(0);
     radiusVector.resize(0);
-      for (unsigned int j=0;j<NUMPOINTS;j++) {
+      for (unsigned int j=0;j<numpoints;j++) {
           M.NN[j] = S[j].NN; // first fill the DRegion NN values
               if (M.innerRegion[j]){
 			      int regionCount = 0;
@@ -868,7 +894,7 @@ int main (int argc, char **argv)
     // M.swapRadialSegments(false);
     // redissect the boundaries
     cout << "just before renewDissect second time" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewDissect(j,1);
@@ -886,7 +912,7 @@ int main (int argc, char **argv)
 		  avAbsCorrelation = 0;
 		  M.random_correlate(max_comp,2);
 		  cout << "just after randomcorrelate_edges morph1 " << endl;
-          for (unsigned int j=0;j<NUMPOINTS;j++) {
+          for (unsigned int j=0;j<numpoints;j++) {
 	        if (M.innerRegion[j])
 			{
 	          countRegions++;
@@ -924,7 +950,7 @@ int main (int argc, char **argv)
     M.populateBoundCurve(0);
     S.resize(0);
     cout << "just after setting curved boundaries morph 2 " << M.curvedBoundary.size()<<endl;
-    for (int j = 0;j<NUMPOINTS;j++)
+    for (int j = 0;j<numpoints;j++)
     {
         std::pair<FLT, FLT> centroid =  M.baryCentre(j);
         S.push_back(ksSolver(scale, xspan, logpath, M.curvedBoundary[j], M.centroids[j]));
@@ -932,14 +958,14 @@ int main (int argc, char **argv)
     }
     cout << "just after populating the ksVector"<<endl;
 	// repopulate the regions
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewRegion(j,S[j].Hgrid->hexen);
         }
     }
     cout << "after repopulate regions morph2" << endl;
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewBoundary(j,S[j].Hgrid->hexen);
@@ -951,14 +977,14 @@ int main (int argc, char **argv)
     M.edges_clear();
     M.swapRadialSegments(false);
     // redissect the boundaries
-    for (unsigned int j=0;j<NUMPOINTS;j++)
+    for (unsigned int j=0;j<numpoints;j++)
     {
         if (M.innerRegion[j]) {
             M.renewDissect(j,2);
         }
     }
     cout << "Edges size " << M.edges.size() << endl;
-    for (unsigned int j = 0;j<NUMPOINTS;j++) {
+    for (unsigned int j = 0;j<numpoints;j++) {
         FLT area = M.hexArea*M.regArea(j);
         if (LDn) {
             DchiVal[j] =  Dchi * sqrt(morph0Area[j] /  area);
@@ -976,10 +1002,9 @@ int main (int argc, char **argv)
     internalCount = 0;
 // now draw the intial tesselation
 #ifdef COMPILE_PLOTTING
-    if (Lgraphics) {
         morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         ndisp.resetDisplay (fix, eye, rot);
-		for (unsigned int j=0;j<NUMPOINTS;j++)
+		for (unsigned int j=0;j<numpoints;j++)
 		{
           // plot stuff here.
             cout << "size of Hexgrid j "<< j << " is " << S[j].Hgrid->num() << endl;
@@ -1016,7 +1041,7 @@ int main (int argc, char **argv)
         //ndisp.drawHex (c, offset, (S[j].Hgrid->hexen.begin()->d/2.0f), cl_a);
         cout << "boundaryCentroid x,y: " << c[0] << "," << c[1] << endl;
 
-        }//end of loop on NUMPOINTS to plot boundaries
+        }//end of loop on numpoints to plot boundaries
         for (auto h : M.Hgrid->hexen) {
             if (M.Creg[h.vi] ==  1 ) {
                 ndisp.drawHex (h.position(), (h.d/2.0f), cl_d);
@@ -1036,7 +1061,6 @@ int main (int argc, char **argv)
         usleep (100000); // one hundred seconds
         ndisp.saveImage(logpath + "/Tesselation3" + iter + ".png");
         ndisp.closeDisplay();
-    }
 #endif
 // initialise the fields
         cout<< "just before third data read"<< " lcontinue " << Lcontinue <<endl;
@@ -1044,7 +1068,7 @@ int main (int argc, char **argv)
         string hname = logpath + "/third.h5";
         if (Lcontinue) {
              morph::HdfData hinput (hname,1);
-             for (unsigned int j=0;j<NUMPOINTS;j++){
+             for (unsigned int j=0;j<numpoints;j++){
                 std::string nstr = "n" + to_string(j);
                 char * nst = new char[nstr.length()+1];
                 std::strcpy(nst,nstr.c_str());
@@ -1059,7 +1083,7 @@ int main (int argc, char **argv)
             }
 	 }
      else {
-        for (unsigned int j=0;j<NUMPOINTS;j++) {
+        for (unsigned int j=0;j<numpoints;j++) {
             for (auto h : S[j].Hgrid->hexen) {
             // boundarySigmoid. Jumps sharply (100, larger is sharper) over length
             // scale 0.05 to 1. So if distance from boundary > 0.05, noise has
@@ -1086,24 +1110,39 @@ int main (int argc, char **argv)
      cout <<  "just after field creation" << endl;
 
 
-     //begin fourth time stepping loop after second morph
-    int loopsteps = 0;
+     //begin time stepping loop after second morph
+    //initilise all NNpre vectors
+    for (unsigned int j=0; j<numpoints;j++) {
+        NNpre[j].resize(S[j].NN.size(),1000.0);
+    }
     for (int i=0;i<numsteps;i++)
-	{
-	  //head of fourth time stepping loop only step on internal regions
-        for (int j = 0;j<NUMPOINTS;j++) {
-            if (M.innerRegion[j]) {
-                S[j].step(dt, DnVal[j], DchiVal[j], DcVal[j]);
-            }
+    {
+        //loop over all regions, step all
+   	    for (unsigned int j = 0;j<numpoints;j++) {
+            S[j].step(dt, Dn, Dchi, Dc);
         }
+        //now determine the difference in field values for each region
+	    if (i%numprint == numprint-1) {
+            for (unsigned int j = 0;j<numpoints;j++) { //loop over all regions, only step internal ones
+                NNcurr[j] = S[j].NN;
+                NNdiff[j] = L.normedDiff(NNpre[j], NNcurr[j]);
+                cout << "nomm NNpre " << L.vectNorm(NNpre[j]) << " normCurr " << L.vectNorm(NNcurr[j]) << " diff " << NNdiff[j] << endl;
+                NNpre[j] = NNcurr[j];
+            }
+        // break if below tolerance
+            if (L.maxVal(NNdiff) < diffTol) {
+                cout << "morphed 2 converged at step " << i << " field diff " << L.maxVal(NNdiff) << endl;
+                break;
+            }
+        } //end of loop on checking convergence
+    } //end of loop on numstep
 
     #ifdef COMPILE_PLOTTING
-	    if ((i%numprint == 0) && Lgraphics) { //only display internal regions
-            int countHex = 0;
+            countHex = 0;
           //set up display
             morph::Gdisplay nndisp(900, 900, 0, 0, "morph 2 u run", rhoInit, 0.0, 0.0);
             nndisp.resetDisplay (fix, eye, rot);
-            for (int j = 0;j<NUMPOINTS;j++) {
+            for (int j = 0;j<numpoints;j++) {
                 if (M.innerRegion[j]) {
                 cout << "in print routine"<<endl;
                 unsigned int regsize = S[j].Hgrid->num();
@@ -1143,28 +1182,18 @@ int main (int argc, char **argv)
                     nndisp.drawHex (h.position(), (h.d/2.0f), cl_d);
                 }
             }
-            cout << "just berore redraw display 2 i " << i << endl;
             nndisp.redrawDisplay();
-		    cout << "just after redraw display 2 i " <<  i << endl;
             usleep (1000000); // one hundred seconds
 		    nndisp.saveImage(logpath + "/nnField3" + iter + ".png");
-		    cout << "just after saveImage i " << i  << endl;
             nndisp.closeDisplay();
-		    cout << "just after closeDisplay i " << i  << endl;
-        }//end of loop on numprint drawing fields
-#endif
-		cout << "after numprint loop " << i << endl;
-        loopsteps = i;
-    } // end of fourth time stepping loop
-	cout << "after third time stepping loop " << loopsteps << endl;
-       //nndisp.closeDisplay();
+    #endif
 
     //code run at end of timestepping
-    cout << "just before the fourth data write" << endl;
+    cout << "just before the third data write" << endl;
     //first save the  ofstream outFile;
     morph::HdfData hdata(hname);
 	cout <<"after creating hdata "<< hname << endl;
-	for (unsigned int j=0;j<NUMPOINTS;j++) {
+	for (unsigned int j=0;j<numpoints;j++) {
 		std::string nstr = "n" + to_string(j);
 	   	char * nst = new char[nstr.length()+1];
 		std::strcpy(nst,nstr.c_str());
@@ -1187,7 +1216,7 @@ int main (int argc, char **argv)
     angleDVector.resize(0);
     angleVector.resize(0);
     radiusVector.resize(0);
-    for (unsigned int j=0;j<NUMPOINTS;j++) {
+    for (unsigned int j=0;j<numpoints;j++) {
         M.NN[j] = S[j].NN;
 	    if (M.innerRegion[j]) {
 	        int regionCount = 0;
@@ -1241,7 +1270,7 @@ int main (int argc, char **argv)
     angleDVector.resize(0);
     angleVector.resize(0);
     radiusVector.resize(0);
-    for (unsigned int j=0;j<NUMPOINTS;j++) {
+    for (unsigned int j=0;j<numpoints;j++) {
 	    if (M.innerRegion[j]){
             countRegions++;
             avAbsCorrelation += M.renewcorrelate_edges(j,3);
