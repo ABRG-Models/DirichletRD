@@ -33,6 +33,24 @@ using morph::HdfData;
 using morph::Tools;
 using namespace std;
 
+/*!
+ * For mixing up bits of three args; used to generate a good random
+ * seed using time() getpid() and clock().
+ */
+unsigned int
+mix (unsigned int a, unsigned int b, unsigned int c)
+{
+    a=a-b;  a=a-c;  a=a^(c >> 13);
+    b=b-c;  b=b-a;  b=b^(a << 8);
+    c=c-a;  c=c-b;  c=c^(b >> 13);
+    a=a-b;  a=a-c;  a=a^(c >> 12);
+    b=b-c;  b=b-a;  b=b^(a << 16);
+    c=c-a;  c=c-b;  c=c^(b >> 5);
+    a=a-b;  a=a-c;  a=a^(c >> 3);
+    b=b-c;  b=b-a;  b=b^(a << 10);
+    c=c-a;  c=c-b;  c=c^(b >> 15);
+    return c;
+}
 
 
 
@@ -58,9 +76,10 @@ int main (int argc, char **argv)
     ofstream afile ( "./centres.h");
     ofstream bfile ( "./centres.inp");
 
-   // unsigned int seed = time(NULL);
-      unsigned int seed = off;
-      cout << "seed " << seed << endl;
+
+   //   unsigned int seed = off;
+   unsigned int seed = mix(clock(), time(NULL), getpid());
+   cout << "seed " << seed << endl;
 
     cout << "numpoints " << NUMPOINTS << " maxX " << maxX << " minX " << minX << " maxY " << maxY << " minY " << minY << endl;
     // A rando2yym uniform generator returning real/floating point types

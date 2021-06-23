@@ -124,8 +124,8 @@ public:
     vector<vector<hexGeometry::point>> mCoords; //for each region coordinates of the midpoints
     vector<int> Creg; //for each hex count of different regions it touches
     vector<int> Cnbr; //for each hex count of neighbour hexes
-    vector<vector<FLT>> NN, CC; //hold the field values for each hex
-    vector<FLT> nn, cc; //hold the field values for each hex
+    vector<vector<FLT>> NN, CC; //hold the field values for each hex in a region
+    vector<FLT> nn, cc; //hold the field values for each hex in the whole hexGrid
     vector <pair <FLT, FLT>> centres; //seed points for regions
     vector<pair <FLT, FLT>> centroids; // centroids for regions
     vector<std::pair<FLT,FLT>> diff; //difference between seed point and CoG of region
@@ -1534,7 +1534,8 @@ FLT regnnfrac (int regNum) {
                 for (unsigned int ivtx=0; ivtx < regionVertex[iregion].size(); ivtx++) {
                     cout << " in vtx loop " << ivtx << " idx " << idx << " vertex " << regionVertex[iregion][ivtx] << " irB " << irB[idx] << endl;
                     if (regionBoundary[irB[idx]] == regionVertex[iregion][ivtx]) {
-                        lfile << " region " << ivtx << " vertex " << regionVertex[iregion][ivtx] << " x " << Hgrid->d_x[regionVertex[iregion][ivtx]] << " y " << Hgrid->d_y[regionVertex[iregion][ivtx]] << " theta " << rB[irB[idx]] << endl;
+                        lfile << " vertex " << regionVertex[iregion][ivtx] << " x " << Hgrid->d_x[regionVertex[iregion][ivtx]] << " y " << Hgrid->d_y[regionVertex[iregion][ivtx]] << " theta " << rB[irB[idx]];
+                        lfile << " vertex regions " << region[regionVertex[iregion][ivtx]][0] << " , " <<  region[regionVertex[iregion][ivtx]][1] <<  " , " << region[regionVertex[iregion][ivtx]][2] <<endl;
                     }
                 }
             }
@@ -1575,6 +1576,19 @@ FLT regnnfrac (int regNum) {
         }
         return result;
     }//end of function dissectBoundary
+
+//method to identify vertices of the Voronoi tessellation
+    void voronoiVertices(int region)
+    {
+        ofstream vtxFile(this->logpath + "/voronoiVertices.out",ios::app);
+        vtxFile << "number of vertices for region " << region << " is " << this->regionVertex[region].size() << endl;
+        for (unsigned int ivtx=0; ivtx < this->regionVertex[region].size(); ivtx++) {
+            vtxFile << " vertex " << this->regionVertex[region][ivtx] << " x " << this->Hgrid->d_x[this->regionVertex[region][ivtx]] << " y " << this->Hgrid->d_y[this->regionVertex[region][ivtx]];
+            vtxFile << " vertex regions " << this->region[this->regionVertex[region][ivtx]][0] << " , " <<  this->region[this->regionVertex[region][ivtx]][1] <<  " , " << this->region[this->regionVertex[region][ivtx]][2] <<endl;
+        }
+        vtxFile << endl;
+    } // end of method voronoiVertices
+
 
 
 
@@ -3056,7 +3070,7 @@ FLT regnnfrac (int regNum) {
         for (auto j = this->regionList[regNum].begin(); j < this->regionList[regNum].end(); j++)  {
             if (*j == -1) continue;
             NNmean2 = this->meanNN(*j); //find the mean of NN in the region
-            edgefile << " j iteration " << *j << " NNmean2 " << NNmean2 << endl;
+            edgefile << " j iteration " << *j << " region " << regNum <<" NNmean2 " << NNmean2 << endl;
             first.resize(0);
             second.resize(0);
             dinterp.resize(0);

@@ -22,6 +22,30 @@ using std::runtime_error;
 using morph::Gdisplay;
 using namespace morph;
 using namespace std;
+/*!
+ * For mixing up bits of three args; used to generate a good random
+ * seed using time() getpid() and clock().
+ */
+unsigned int
+mix (unsigned int a, unsigned int b, unsigned int c)
+{
+    a=a-b;  a=a-c;  a=a^(c >> 13);
+    b=b-c;  b=b-a;  b=b^(a << 8);
+    c=c-a;  c=c-b;  c=c^(b >> 13);
+    a=a-b;  a=a-c;  a=a^(c >> 12);
+    b=b-c;  b=b-a;  b=b^(a << 16);
+    c=c-a;  c=c-b;  c=c^(b >> 5);
+    a=a-b;  a=a-c;  a=a^(c >> 3);
+    b=b-c;  b=b-a;  b=b^(a << 10);
+    c=c-a;  c=c-b;  c=c^(b >> 15);
+    return c;
+}
+
+#include <time.h> // for clock() and time
+
+#include <sys/types.h> //
+#include <unistd.h>    // For getpid()
+
 
 int main (int argc, char **argv)
 {
@@ -82,7 +106,8 @@ int main (int argc, char **argv)
         seed = 1;
     }
     else {
-        seed = time(NULL);
+        // Seed the system RNG
+        unsigned int seed = mix(clock(), time(NULL), getpid());
     }
 
     // A ra2yyndo2yym uniform generator returning real/FLTing point types
@@ -173,16 +198,12 @@ int main (int argc, char **argv)
     cout << "just before populating the inner regions Morph 0" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewRegion(j,S[j].Hgrid->hexen);
-        }
+        M.renewRegion(j,S[j].Hgrid->hexen);
     }
     cout << "just before populating the inner boundary Morph 0" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewBoundary(j,S[j].Hgrid->hexen);
-        }
+        M.renewBoundary(j,S[j].Hgrid->hexen);
         //M.renewCentroids(j);
     }
     cout << "just before calculating regionSize " << endl;
@@ -198,9 +219,7 @@ int main (int argc, char **argv)
     cout << "just before renewDissect first time" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewDissect(j,0);
-        }
+        M.renewDissect(j,0);
     }
     cout << "Edges size " << M.edges.size() << endl;
 // now draw the intial tesselation
@@ -218,7 +237,8 @@ int main (int argc, char **argv)
     array<float,3> cl_b = morph::Gdisplay::getJetColorF (0.58); //yellow
     array<float,3> cl_d = morph::Gdisplay::getJetColorF (0.00); //black
     array<float,3> offset = {{0, 0, 0}};
-        morph::Gdisplay idisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+    unsigned int window = 2160;
+        morph::Gdisplay idisp(window, window, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         idisp.resetDisplay (fix, eye, rot);
         for (unsigned int j=0;j<numpoints;j++) {
         // plot stuff here.
@@ -233,18 +253,17 @@ int main (int argc, char **argv)
                 else
                 {
                     cout << "h.internal hex in region " << j <<  " h.vi " << h.vi << endl;
-//cout << "region " << j <<  " x " << S[j].Hgrid->d_x[h.vi] << " y " << S[j].Hgrid->d_y[h.vi] << endl;
-                //idisp.drawHex (h.position(), offset, (h.d/2.0f), cl_b);
                     internalCount++;
                 }
             }
+            /*
             for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                 std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                 idisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
                 pos = {M.mCoords[j][i].first, M.mCoords[j][i].second, 0};
                 idisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
             }
-
+        */
         } // end of loop over regions
         for (auto h : M.Hgrid->hexen) {
             if (M.Creg[h.vi] ==  1 ) {
@@ -309,11 +328,13 @@ int main (int argc, char **argv)
                     S[j].NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
                     S[j].CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
 				}
+                /*
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 FLT bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
                 S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
                 S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
 		 } //end of if on boundary distance
+             */
 	    }//end of loop over region
 	   }//end of loop over all regions
       } //end of else on Lcontinue
@@ -347,8 +368,8 @@ int main (int argc, char **argv)
                 NNpre[j] = NNcurr[j];
             }
         // break if below tolerance
-            if (L.maxVal(NNdiff) < diffTol) {
-                cout << "unmorphed converged at step " << i << " field diff " << L.maxVal(NNdiff) << endl;
+            if (L.maxVal(NNdiff)/(numpoints*1.0) < diffTol) {
+                cout << "unmorphed converged at step " << i << " field diff " << L.maxVal(NNdiff)/(1.0*numpoints) << endl;
                 break;
             }
         } //end of loop on checking convergence
@@ -356,7 +377,7 @@ int main (int argc, char **argv)
 #ifdef COMPILE_PLOTTING
 	    int countHex = 0;
     //set up display
-        morph::Gdisplay iidisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        morph::Gdisplay iidisp(window, window, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         iidisp.resetDisplay (fix, eye, rot);
    	    for (unsigned int j = 0;j<numpoints;j++) {
             if (M.innerRegion[j]) {
@@ -377,17 +398,20 @@ int main (int argc, char **argv)
                 int idx = 0;
                 for (auto &h : S[j].Hgrid->hexen) {
                     array<FLT,3> colour = morph::Gdisplay::getJetColorF(regionNN[idx]);
-                    if (!h.boundaryHex()) {
+                    //if (!h.boundaryHex()) {
                         iidisp.drawHex(h.position(),(h.d/2.0f),colour);
-                    }
+                    //}
                     idx++;
                 }
+                /*
                 for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                     std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                     iidisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
                 }
+                */
             }//end of loop on inner regions
         }//end of loop over regions
+        /*
         for (auto h : M.Hgrid->hexen) {
             if (M.Creg[h.vi] ==  1 ) {
                  iidisp.drawHex (h.position(), (h.d/2.0f), cl_d);
@@ -397,6 +421,7 @@ int main (int argc, char **argv)
                 iidisp.drawHex (h.position(), (h.d/2.0f), cl_d);
             }
         }
+        */
         cout << "just before redraw display 1" << endl;
         iidisp.redrawDisplay();
 		cout << "just after redraw display 1" << endl;
@@ -586,16 +611,12 @@ int main (int argc, char **argv)
     cout << "just before populating the inner regions morph 1" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewRegion(j,S[j].Hgrid->hexen);
-        }
+        M.renewRegion(j,S[j].Hgrid->hexen);
     }
     cout << "just before populating the inner boundary morph 1" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewBoundary(j,S[j].Hgrid->hexen);
-        }
+        M.renewBoundary(j,S[j].Hgrid->hexen);
     }
     cout << "second setting of centroids" << endl;
     for (unsigned int j=0; j<numpoints;j++){
@@ -624,7 +645,7 @@ int main (int argc, char **argv)
     internalCount = 0;
     boundaryCount = 0;
 #ifdef COMPILE_PLOTTING
-        morph::Gdisplay mdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        morph::Gdisplay mdisp(window, window, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         mdisp.resetDisplay (fix, eye, rot);
         for (unsigned int j=0;j<numpoints;j++) {
         // plot stuff here.
@@ -644,13 +665,14 @@ int main (int argc, char **argv)
                     internalCount++;
                 }
             }
+            /*
             for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                 std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                 mdisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
                 pos = {M.mCoords[j][i].first, M.mCoords[j][i].second, 0};
                 mdisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
             }
-
+            */
         } // end of loop over regions
         for (auto h : M.Hgrid->hexen) {
             if (M.Creg[h.vi] ==  1 ) {
@@ -715,11 +737,13 @@ int main (int argc, char **argv)
                     S[j].NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
                     S[j].CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
 				}
+                /*
             if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                 FLT bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
                 S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
                 S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
 		 } //end of if on boundary distance
+         */
 	    }//end of loop over region
 	   }//end of loop over all regions
       } //end of else on Lcontinue
@@ -744,8 +768,8 @@ int main (int argc, char **argv)
                 NNpre[j] = NNcurr[j];
             }
         // break if below tolerance
-            if (L.maxVal(NNdiff) < diffTol) {
-                cout << "morphed 1 converged at step " << i << " field diff " << L.maxVal(NNdiff) << endl;
+            if (L.maxVal(NNdiff)/(numpoints*1.0) < diffTol) {
+                cout << "morphed 1 converged at step " << i << " field diff " << L.maxVal(NNdiff)/(numpoints*1.0) << endl;
                 break;
             }
         } //end of loop on checking convergence
@@ -754,7 +778,7 @@ int main (int argc, char **argv)
  #ifdef COMPILE_PLOTTING
            countHex = 0;
           //set up display
-            morph::Gdisplay mmdisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+            morph::Gdisplay mmdisp(window, window, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
             mmdisp.resetDisplay (fix, eye, rot);
    	        for (unsigned int j = 0;j<numpoints;j++) //loop over regions
 	        {
@@ -784,18 +808,22 @@ int main (int argc, char **argv)
                     }
                     idx++;
                 }
+                /*
                 for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                     std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                     mmdisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
                 }
+                */
                 } //end of if on inner regions
             }//end of loop over regions
     for (auto h : M.Hgrid->hexen) {
+        /*
          if (M.Creg[h.vi] ==  1 ) {
              mmdisp.drawHex (h.position(), (h.d/2.0f), cl_d);
              boundaryCount++;
          }
-         else if (M.Creg[h.vi] > 1) {
+         */
+         if (M.Creg[h.vi] > 1) {
               mmdisp.drawHex (h.position(), (h.d/2.0f), cl_d);
          }
     }
@@ -896,9 +924,7 @@ int main (int argc, char **argv)
     cout << "just before renewDissect second time" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewDissect(j,1);
-        }
+        M.renewDissect(j,1);
     }
     cout << "Edges size " << M.edges.size() << endl;
 
@@ -960,16 +986,12 @@ int main (int argc, char **argv)
 	// repopulate the regions
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewRegion(j,S[j].Hgrid->hexen);
-        }
+        M.renewRegion(j,S[j].Hgrid->hexen);
     }
     cout << "after repopulate regions morph2" << endl;
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewBoundary(j,S[j].Hgrid->hexen);
-        }
+        M.renewBoundary(j,S[j].Hgrid->hexen);
         //M.renewCentroids(j);
     }
     cout << "after repopulate boundary morph2" << endl;
@@ -979,9 +1001,7 @@ int main (int argc, char **argv)
     // redissect the boundaries
     for (unsigned int j=0;j<numpoints;j++)
     {
-        if (M.innerRegion[j]) {
-            M.renewDissect(j,2);
-        }
+        M.renewDissect(j,2);
     }
     cout << "Edges size " << M.edges.size() << endl;
     for (unsigned int j = 0;j<numpoints;j++) {
@@ -1002,7 +1022,7 @@ int main (int argc, char **argv)
     internalCount = 0;
 // now draw the intial tesselation
 #ifdef COMPILE_PLOTTING
-        morph::Gdisplay ndisp(900, 900, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
+        morph::Gdisplay ndisp(window, window, 0, 0, "Boundary 2", rhoInit, 0.0, 0.0);
         ndisp.resetDisplay (fix, eye, rot);
 		for (unsigned int j=0;j<numpoints;j++)
 		{
@@ -1023,12 +1043,14 @@ int main (int argc, char **argv)
                     internalCount++;
                 }
             }
+            /*
             for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                 std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
                 ndisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
                 pos = {M.mCoords[j][i].first, M.mCoords[j][i].second, 0};
                 ndisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
             }
+            */
 		//cout << "boundaryCount 2 "<<boundaryCount<< " internalCount 2 "<< internalCount <<endl;
 
 
@@ -1098,12 +1120,13 @@ int main (int argc, char **argv)
                     S[j].NN[h.vi] = ruf.get() * aNoiseGain +nnInitialOffset;
                     S[j].CC[h.vi] = ruf.get() * aNoiseGain + ccInitialOffset;
                 }
-
+               /*
                 if (h.distToBoundary > -0.5) { // It's possible that distToBoundary is set to -1.0
                     FLT bSig = 1.0 / ( 1.0 + exp (-100.0*(h.distToBoundary- boundaryFalloffDist)) );
                     S[j].NN[h.vi] = (S[j].NN[h.vi] - nnInitialOffset) * bSig + nnInitialOffset;
                     S[j].CC[h.vi] = (S[j].CC[h.vi] - ccInitialOffset) * bSig + ccInitialOffset;
                 } //end of if on boundary distance
+                */
             }//end of loop over region
         }//end of loop over all regions
      } //end of else on Lcontinue
@@ -1130,8 +1153,8 @@ int main (int argc, char **argv)
                 NNpre[j] = NNcurr[j];
             }
         // break if below tolerance
-            if (L.maxVal(NNdiff) < diffTol) {
-                cout << "morphed 2 converged at step " << i << " field diff " << L.maxVal(NNdiff) << endl;
+            if (L.maxVal(NNdiff)/(numpoints*1.0) < diffTol) {
+                cout << "morphed 2 converged at step " << i << " field diff " << L.maxVal(NNdiff)/(numpoints*1.0) << endl;
                 break;
             }
         } //end of loop on checking convergence
@@ -1140,7 +1163,7 @@ int main (int argc, char **argv)
     #ifdef COMPILE_PLOTTING
             countHex = 0;
           //set up display
-            morph::Gdisplay nndisp(900, 900, 0, 0, "morph 2 u run", rhoInit, 0.0, 0.0);
+            morph::Gdisplay nndisp(window, window, 0, 0, "morph 2 u run", rhoInit, 0.0, 0.0);
             nndisp.resetDisplay (fix, eye, rot);
             for (int j = 0;j<numpoints;j++) {
                 if (M.innerRegion[j]) {
@@ -1169,16 +1192,18 @@ int main (int argc, char **argv)
 			    }
                 for (unsigned int i=0; i< M.vCoords[j].size();i++) {
                     std::array<FLT,3> pos = {M.vCoords[j][i].first, M.vCoords[j][i].second, 0};
-                    nndisp.drawHex (pos,offset,4.0*hexWidth,cl_d);
+                    nndisp.drawHex (pos,offset,hexWidth/2,cl_d);
                 }
                 }//end of loop on inner regions
             }//end of loop over regions
             for (auto h : M.Hgrid->hexen) {
+                /*
                 if (M.Creg[h.vi] ==  1 ) {
                     nndisp.drawHex (h.position(), (h.d/2.0f), cl_d);
                     boundaryCount++;
                 }
-                else if (M.Creg[h.vi] > 1) {
+                */
+                if (M.Creg[h.vi] > 1) {
                     nndisp.drawHex (h.position(), (h.d/2.0f), cl_d);
                 }
             }
