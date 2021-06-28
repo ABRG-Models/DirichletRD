@@ -9,6 +9,7 @@
  * (maybe change to HexGrid later)
  */
 #include<chrono>
+#include <morph/Vector.h>
 using morph::HexGrid;
 using namespace std;
 using namespace morph;
@@ -115,6 +116,14 @@ public:
         point result;
         result.first = x;
         result.second = y;
+        return result;
+    }
+
+    morph::Vector<FLT,3> point2vect3 (point p) {
+        morph::Vector<FLT,3> result;
+        result[0] = p.first;
+        result[1] = p.second;
+        result[2] = 0.0;
         return result;
     }
 

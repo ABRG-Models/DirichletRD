@@ -324,6 +324,7 @@ public:
     }
 
 
+
     //find the normed difference between two vectors
     //TOFIX this assumes that the vectors are the same size, need error handling
     FLT  normedDiff(vector<FLT> preField, vector<FLT> currField)
