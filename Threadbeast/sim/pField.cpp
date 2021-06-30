@@ -348,11 +348,13 @@ int main (int argc, char **argv)
     NNdiff.resize(numpoints);
     NNpre.resize(numpoints);
     NNcurr.resize(numpoints);
+    FLT NNdiffSum = 0.0;
 
-    //initilise all NNpre vectors to zero
+    //initilise all NNpre vectors to above possible field
     for (unsigned int j=0; j<numpoints;j++) {
         NNpre[j].resize(S[j].NN.size(),1000.0);
     }
+    //start of time-stepping loop
     for (int i=0;i<numsteps;i++)
     {
         //loop over all regions, step all
@@ -360,17 +362,18 @@ int main (int argc, char **argv)
             S[j].step(dt, Dn, Dchi, Dc);
         }
         //now determine the difference in field values for each region
-	    if (i%numprint == numprint-1) {
-            for (unsigned int j = 0;j<numpoints;j++) { //loop over all regions, only step internal ones
+        if (i%numprint == numprint-1) {
+            for (unsigned int j=0;j<numpoints;j++) {
                 NNcurr[j] = S[j].NN;
                 NNdiff[j] = L.normedDiff(NNpre[j], NNcurr[j]);
                 cout << "nomm NNpre " << L.vectNorm(NNpre[j]) << " normCurr " << L.vectNorm(NNcurr[j]) << " diff " << NNdiff[j] << endl;
                 NNpre[j] = NNcurr[j];
-            }
+                NNdiffSum += NNdiff[j];
+            } //end of loop over regions
         // break if below tolerance
-            if (L.maxVal(NNdiff)/(numpoints*1.0) < diffTol) {
+            if (NNdiffSum/(numpoints*1.0) < diffTol) {
                 cout << "unmorphed converged at step " << i << " field diff " << L.maxVal(NNdiff)/(1.0*numpoints) << endl;
-                break;
+                 break;
             }
         } //end of loop on checking convergence
     } //end of loop on numsteps
