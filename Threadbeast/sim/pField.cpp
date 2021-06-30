@@ -355,6 +355,7 @@ int main (int argc, char **argv)
         NNpre[j].resize(S[j].NN.size(),1000.0);
     }
     //start of time-stepping loop
+    int stepCount = 0;
     for (int i=0;i<numsteps;i++)
     {
         //loop over all regions, step all
@@ -376,7 +377,9 @@ int main (int argc, char **argv)
                  break;
             }
         } //end of loop on checking convergence
+        stepCount++;
     } //end of loop on numsteps
+    cout << "end of time stepping loop stepCount " << stepCount << endl;
 #ifdef COMPILE_PLOTTING
 	    int countHex = 0;
     //set up display
