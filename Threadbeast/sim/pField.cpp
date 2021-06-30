@@ -57,7 +57,9 @@ int main (int argc, char **argv)
     string iter = argv[2];
     bool Lcontinue = stoi(argv[3]);
     int numsteps = stoi(argv[4]);
+    cout << "numsteps = " << numsteps << endl;
     int numprint = stoi(argv[5]);
+    cout << "numprint = " << numprint << endl;
     string logpath = argv[6];
     //  open the confgig file and read in the parameters
     morph::Config conf(jsonfile);
@@ -92,12 +94,12 @@ int main (int argc, char **argv)
     bool overwrite_logs = conf.getBool("overwrite_logs",true);
     bool skipMorph  = conf.getBool("skipMorph",false);
     unsigned int numpoints = conf.getInt("numpoints",41);
-    FLT diffTol = 0.000001f;
+    FLT diffTol = 0.0001f;
     cout << " Lcontinue " << Lcontinue << " skipMorph " << skipMorph << endl;
     ofstream afile (logpath + "/centroids.out",ios::app);
     // adjust the number of steps according to the Dn number
-    numsteps = numsteps * floor(sqrt(36.0/Dn));
-    numprint  = numprint * floor(sqrt(36.0/Dn));
+    numsteps = numsteps * ceil(sqrt(36.0/Dn));
+    numprint  = numprint * ceil(sqrt(36.0/Dn));
     // adjust the time step for the Dn values
     dt = dt * sqrt(Dn/36.0);
 
@@ -348,7 +350,6 @@ int main (int argc, char **argv)
     NNdiff.resize(numpoints);
     NNpre.resize(numpoints);
     NNcurr.resize(numpoints);
-    FLT NNdiffSum = 0.0;
 
     //initilise all NNpre vectors to above possible field
     for (unsigned int j=0; j<numpoints;j++) {
@@ -364,16 +365,17 @@ int main (int argc, char **argv)
         }
         //now determine the difference in field values for each region
         if (i%numprint == numprint-1) {
+            FLT NNdiffSum = 0.0;
             for (unsigned int j=0;j<numpoints;j++) {
                 NNcurr[j] = S[j].NN;
                 NNdiff[j] = L.normedDiff(NNpre[j], NNcurr[j]);
-                cout << "nomm NNpre " << L.vectNorm(NNpre[j]) << " normCurr " << L.vectNorm(NNcurr[j]) << " diff " << NNdiff[j] << endl;
                 NNpre[j] = NNcurr[j];
                 NNdiffSum += NNdiff[j];
+                cout << "nomm NNpre " << L.vectNorm(NNpre[j]) << " normCurr " << L.vectNorm(NNcurr[j]) << " diff " << NNdiff[j] << " NNdffSum " << NNdiffSum << " diffTol " << diffTol << endl;
             } //end of loop over regions
         // break if below tolerance
             if (NNdiffSum/(numpoints*1.0) < diffTol) {
-                cout << "unmorphed converged at step " << i << " field diff " << L.maxVal(NNdiff)/(1.0*numpoints) << endl;
+                cout << "unmorphed converged at step " << i << " field diff " << NNdiffSum/(1.0*numpoints) << endl;
                  break;
             }
         } //end of loop on checking convergence
